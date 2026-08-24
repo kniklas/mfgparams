@@ -333,6 +333,10 @@ python scripts/setup_skill_symlinks.py          # create/fix the symlinks
 python scripts/setup_skill_symlinks.py --check  # report status only, exit non-zero if anything's wrong
 ```
 
+CI runs the `--check` form in the `lint` job, so a committed link that
+goes missing, points at the wrong skill, or gets replaced by a hand-copied
+duplicate fails the build rather than drifting unnoticed.
+
 On Windows, running the script above requires either Developer Mode
 (Settings > Update & Security > For developers) or an elevated
 (Administrator) terminal — the script's error message repeats this if it

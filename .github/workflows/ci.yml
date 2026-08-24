@@ -49,6 +49,16 @@ jobs:
       # Constitution Principle IX).
       - run: ruff check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
       - run: black --check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+      # Static analysis of the helper above only proves the *script* is
+      # clean; this runs it against the real checkout so the committed
+      # `.claude/skills/*` symlinks themselves are gated (a deleted,
+      # wrong-target, or replaced-by-a-copy link fails the build). The
+      # script's own unit tests can't cover this: they redirect
+      # SOURCE_DIR/DEST_DIR at a temporary tree. `--check` writes nothing
+      # and exits non-zero on any missing/wrong link; the ubuntu-latest
+      # checkout materializes real symlinks, so the links are genuine here
+      # (Constitution Principle XI v1.9.1).
+      - run: python scripts/setup_skill_symlinks.py --check
 
   complexity:
     name: complexity
