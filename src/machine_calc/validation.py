@@ -19,12 +19,49 @@ from machine_calc.i18n import DEFAULT_LOCALE, translate
 from machine_calc.models import CalculationMode, ErrorInfo
 
 
+def _is_positive_finite_number(value: object) -> bool:
+    """Return ``True`` when ``value`` is a positive, finite, non-bool number.
+
+    Shared guard for every dimensional validator in this module: zero,
+    negative, non-numeric, ``None``, ``bool``, ``NaN`` and ``Infinity`` are
+    all rejected (specs/009-milling-calculations FR-008). It applies the
+    same validation *posture* as :func:`validate_target_rpm`, which
+    performs its own equivalent type/finiteness checks inline rather than
+    calling this helper. Drilling's diameter/depth
+    validators route through it too, so that a ``NaN`` — for which both
+    ``value <= 0`` and ``value > maximum`` are ``False`` — cannot slip past
+    the bound checks and poison the calculation (issue #56), and so that a
+    non-numeric value returns an ``ErrorInfo`` instead of raising
+    ``TypeError`` from the comparison, per the never-raises contract
+    (FR-015).
+    """
+
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    if isinstance(value, int):
+        # Python ints are arbitrary-precision and therefore always finite,
+        # but ``math.isfinite()`` coerces its argument to a C double first,
+        # so it raises ``OverflowError`` for a value such as ``10**1000``
+        # instead of answering the question. Short-circuit on the type so
+        # an enormous int is rejected by the caller's bound check (which
+        # compares exactly, without coercion) rather than raising, per the
+        # never-raises contract (FR-015).
+        return value > 0
+    return math.isfinite(value) and value > 0
+
+
 def validate_diameter_mm(
     diameter_mm: float, config: Configuration, locale: str = DEFAULT_LOCALE
 ) -> ErrorInfo | None:
-    """Validate a drill diameter (in mm) against positivity and bounds."""
+    """Validate a drill diameter (in mm) against positivity and bounds.
 
-    if diameter_mm is None or diameter_mm <= 0:
+    ``NaN``, ``Infinity``, ``None``, ``bool`` and non-numeric values are
+    rejected up front by :func:`_is_positive_finite_number` rather than
+    being compared against the bounds, so they cannot pass validation
+    (issue #56) or raise from the comparison.
+    """
+
+    if not _is_positive_finite_number(diameter_mm):
         return ErrorInfo("INVALID_DIAMETER", translate(locale, "error.invalid_diameter.zero"))
     if diameter_mm > config.max_diameter_mm:
         return ErrorInfo(
@@ -41,9 +78,13 @@ def validate_diameter_mm(
 def validate_depth_mm(
     depth_mm: float, config: Configuration, locale: str = DEFAULT_LOCALE
 ) -> ErrorInfo | None:
-    """Validate a hole depth (in mm) against positivity and bounds."""
+    """Validate a hole depth (in mm) against positivity and bounds.
 
-    if depth_mm is None or depth_mm <= 0:
+    Applies the same non-finite/non-numeric rejection as
+    :func:`validate_diameter_mm` (issue #56).
+    """
+
+    if not _is_positive_finite_number(depth_mm):
         return ErrorInfo("INVALID_DEPTH", translate(locale, "error.invalid_depth.zero"))
     if depth_mm > config.max_depth_mm:
         return ErrorInfo(
@@ -69,20 +110,6 @@ def validate_tool_present(tool: str | None, locale: str = DEFAULT_LOCALE) -> Err
     if not tool:
         return ErrorInfo("MISSING_TOOL", translate(locale, "error.missing_tool"))
     return None
-
-
-def _is_positive_finite_number(value: object) -> bool:
-    """Return ``True`` when ``value`` is a positive, finite, non-bool number.
-
-    Shared guard for the milling validators below, which all apply the same
-    posture already established by :func:`validate_target_rpm`: zero,
-    negative, non-numeric, ``None``, ``bool``, ``NaN`` and ``Infinity`` are
-    all rejected (specs/009-milling-calculations FR-008).
-    """
-
-    if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
-        return False
-    return math.isfinite(value) and value > 0
 
 
 def validate_depth_of_cut_mm(

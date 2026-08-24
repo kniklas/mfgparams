@@ -63,6 +63,15 @@ always reports the same first failure: material and tool presence are
 checked first, then the material and tool are resolved, then the geometry
 (diameter, depth), then — last — the ``mode``/``target_rpm`` combination.
 
+``diameter`` and ``depth`` must each be a positive, finite number within
+the configured bound. ``NaN``, ``+inf``/``-inf`` and non-numeric values
+return ``INVALID_DIAMETER``/``INVALID_DEPTH`` rather than passing
+validation or raising (issue #56), under both unit systems: an imperial
+length is routed through ``units.to_metric_length()``, which leaves a
+non-numeric or ``bool`` value unconverted so the validator can reject it,
+instead of raising ``TypeError`` from the inch-to-mm multiplication. This
+is the same posture the milling validators already applied.
+
 Calculation modes
 -------------------
 

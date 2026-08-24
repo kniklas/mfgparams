@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `validate_diameter_mm()`/`validate_depth_mm()` no longer let a `NaN`
+  drill diameter or hole depth pass validation (issue #56). Both checks
+  (`value <= 0` and `value > maximum`) are `False` for `NaN`, so a `NaN`
+  silently reached the calculation and produced a `NaN`-poisoned
+  `CalculationResult` with `error=None` instead of a structured
+  `INVALID_DIAMETER`/`INVALID_DEPTH` error. In the interactive CLI, the
+  literal `nan` — which `_prompt_number()` parses successfully via
+  `float("nan")` — was accepted at the "Drill diameter"/"Hole depth"
+  prompt rather than being re-prompted.
+- Both validators now route through the module's existing
+  `_is_positive_finite_number()` guard, the same one every milling
+  validator already used — and the same validation posture
+  `validate_target_rpm()` applies via its own equivalent inline
+  type/finiteness checks — so a non-numeric value returns an `ErrorInfo`
+  instead of raising `TypeError` from the bound comparison, per the
+  never-raises contract (FR-015). As a
+  consequence, `+inf`/`-inf` (already rejected before, via two different
+  checks) now report the "must be greater than 0" message rather than
+  "must not exceed <max> mm", matching milling's wording for the same
+  input, and a `bool` is no longer accepted as a 1 mm diameter.
+- `_is_positive_finite_number()` no longer raises `OverflowError` for an
+  enormous `int` such as `10**1000`. `math.isfinite()` coerces its
+  argument to a C double, so it raised instead of answering; `int` is now
+  short-circuited as inherently finite and the value is rejected by the
+  caller's exact bound comparison. `units.to_metric_length()` catches the
+  same overflow from the inch-to-mm multiplication. This also fixes the
+  **bounded** milling validators (`validate_mill_diameter_mm()`,
+  `validate_depth_of_cut_mm()`, `validate_length_of_cut_mm()`), which
+  shared the helper and raised `OverflowError` for such an input before
+  this release. The *unbounded* milling validators
+  (`validate_tooth_count()`, `validate_feed_per_tooth_mm()`) still raise
+  for an enormous `int` — unchanged from previous releases, since they
+  have no maximum to reject it against and the value reaches float
+  arithmetic downstream. Tracked separately in issue #60.
+- Drilling's imperial path no longer raises `TypeError` for a non-numeric
+  `diameter`/`depth`. `calculate(..., unit_system=UnitSystem.IMPERIAL)`
+  converted lengths with a bare `in_to_mm()` *before* validation, so
+  `diameter="abc"` raised from the inch-to-mm multiplication rather than
+  returning `INVALID_DIAMETER`. Both operations now share
+  `units.to_metric_length()`, which passes non-numeric and `bool` values
+  through unconverted so the validators reject them — the guard milling
+  already applied privately as `_to_metric()`.
+
 ## [0.4.0]
 
 ### Added

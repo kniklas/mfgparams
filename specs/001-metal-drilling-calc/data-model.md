@@ -67,8 +67,13 @@ Represents a single calculation request (FR-003).
 | `available_power` | float \| None | Optional (FR-012), same units as `unit_system`'s power unit |
 
 Validation (FR-009, FR-018):
-- `diameter` MUST be > 0 and ≤ configured max diameter (default 100 mm / 4 in).
-- `depth` MUST be > 0 and ≤ configured max depth (default 500 mm / 20 in).
+- `diameter` MUST be a finite number > 0 and ≤ configured max diameter
+  (default 100 mm / 4 in). `NaN`, `Infinity` and non-numeric values are
+  rejected as `INVALID_DIAMETER` before the bound is compared — every
+  comparison against `NaN` is false, so a bound check alone would let it
+  through (issue #56).
+- `depth` MUST be a finite number > 0 and ≤ configured max depth
+  (default 500 mm / 20 in), under the same non-finite/non-numeric rule.
 - `material` and `tool` MUST both be present and MUST resolve to a defined
   registry combination (see MaterialToolCompatibility).
 

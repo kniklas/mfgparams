@@ -78,8 +78,8 @@ CalculationResult(
 
 | Code | Trigger |
 |---|---|
-| `INVALID_DIAMETER` | Diameter is zero, negative, non-numeric, or exceeds the configured maximum |
-| `INVALID_DEPTH` | Depth is zero, negative, non-numeric, or exceeds the configured maximum |
+| `INVALID_DIAMETER` | Diameter is zero, negative, non-numeric, non-finite (`NaN`/`Infinity`), or exceeds the configured maximum |
+| `INVALID_DEPTH` | Depth is zero, negative, non-numeric, non-finite (`NaN`/`Infinity`), or exceeds the configured maximum |
 | `MISSING_MATERIAL` | No material supplied |
 | `MISSING_TOOL` | No drilling tool supplied |
 | `UNSUPPORTED_COMBINATION` | Material/tool pairing has no defined reference parameters |

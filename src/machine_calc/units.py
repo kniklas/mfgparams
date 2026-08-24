@@ -8,6 +8,8 @@ and convert metric results to imperial for display/output when
 
 from __future__ import annotations
 
+from machine_calc.models import UnitSystem
+
 MM_PER_INCH = 25.4
 CM3_PER_IN3 = 16.387064
 NM_PER_IN_LB = 1.0 / 8.850745791327185
@@ -26,6 +28,37 @@ def in_to_mm(value_in: float) -> float:
     """Convert inches to millimeters."""
 
     return value_in * MM_PER_INCH
+
+
+def to_metric_length(value: float, unit_system: UnitSystem) -> float:
+    """Convert a length input to canonical mm when the caller used imperial.
+
+    Non-numeric, ``None``, and ``bool`` values are passed through
+    unconverted rather than fed to :func:`in_to_mm`, which would either
+    raise (``None``/strings) or silently coerce (``True``/``False``).
+    Leaving them unconverted lets the downstream
+    ``_is_positive_finite_number``-based validators in
+    :mod:`machine_calc.validation` reject them with the documented
+    structured error instead of the call raising ``TypeError``, per the
+    never-raises contract (FR-012/FR-015).
+
+    Shared by drilling and milling so both operations' imperial paths
+    behave identically for such inputs (issue #56 review follow-up);
+    milling introduced this guard first, as ``_to_metric()``.
+    """
+
+    if unit_system is not UnitSystem.IMPERIAL:
+        return value
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    try:
+        return in_to_mm(value)
+    except OverflowError:
+        # An int too large to coerce to a C double (e.g. ``10**1000``).
+        # Returned unconverted: it is far beyond every configured maximum
+        # either way, so the validators still reject it with the documented
+        # bound error instead of the conversion raising.
+        return value
 
 
 def cm3_min_to_in3_min(value_cm3_min: float) -> float:
