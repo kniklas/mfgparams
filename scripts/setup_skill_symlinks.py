@@ -28,7 +28,7 @@ import contextlib
 import os
 import re
 import sys
-import uuid
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -93,27 +93,83 @@ def _windows_symlink_hint(error: OSError) -> str:
     return f"    Could not create the symlink ({error}). {static_hint}"
 
 
+def _discard_stash(stash: Path) -> None:
+    """Remove a stash directory created by `_stash_and_symlink()` along with
+    the single entry moved into it (always a symlink or a plain file, never
+    a real directory - `sync_one()` reports those as conflicts and never
+    gets here). Errors are swallowed: failing to tidy up scratch state must
+    not turn an otherwise successful run into a failure, and `unlink()`
+    refusing a real directory leaves the stash in place rather than
+    destroying anything.
+    """
+
+    with contextlib.suppress(OSError):
+        for entry in stash.iterdir():
+            entry.unlink()
+        stash.rmdir()
+
+
+def _stash_and_symlink(dest: Path, target: str) -> OSError | None:
+    """Replace an existing `dest` with a symlink to `target`, moving the old
+    entry into an exclusively-created stash directory first and restoring it
+    if symlink creation fails.
+
+    The old entry is moved *out of the way* and the new symlink is then
+    created at `dest` directly, rather than building the link at a scratch
+    path and swapping it over `dest`. On Windows the swap direction is not
+    available to us: `os.replace()` goes through `MoveFileExW`, which
+    cannot replace an existing entry when either side names a directory -
+    and a symlink created with `target_is_directory=True` *is* a directory
+    entry, while the checkout placeholder it must replace is a regular
+    file. Swapping would therefore fail on exactly the Windows recovery
+    path this script exists for, even when `os.symlink()` itself succeeded.
+
+    `tempfile.mkdtemp()` is what makes the stash safe: it creates the
+    directory exclusively, so - unlike a predictable `<name>.tmp` scratch
+    name - it can never collide with, and never removes, an unrelated
+    contributor file that happens to sit at that path.
+    """
+
+    try:
+        stash = Path(tempfile.mkdtemp(dir=str(dest.parent), prefix=f".{dest.name}.stash-"))
+    except OSError as exc:
+        return exc
+
+    stashed = stash / dest.name
+    try:
+        os.replace(dest, stashed)
+    except OSError as exc:
+        _discard_stash(stash)
+        return exc
+
+    try:
+        os.symlink(target, dest, target_is_directory=True)
+    except OSError as exc:
+        try:
+            os.replace(stashed, dest)
+        except OSError as restore_exc:
+            return OSError(
+                f"{exc}; the original entry could not be put back either and "
+                f"has been left at {stashed} ({restore_exc})"
+            )
+        _discard_stash(stash)
+        return exc
+
+    _discard_stash(stash)
+    return None
+
+
 def _create_symlink_safely(dest: Path, target: str) -> OSError | None:
     """Create a symlink at `dest` pointing to `target` without destroying
     whatever (if anything) is currently at `dest` unless creation actually
-    succeeds: the new symlink is created at a temporary path first, then
-    atomically swapped into place with `os.replace()`, which renames the
-    directory entry itself (not its referent) on both POSIX and Windows.
+    succeeds.
 
-    Returns `None` on success, or the `OSError` on failure - in the
-    failure case `dest` is left exactly as it was before the call (a
-    caller replacing an existing, wrong-target symlink or a Windows
-    placeholder file never ends up with neither the old nor the new one),
-    and the temporary link is cleaned up so a failed run doesn't leave a
-    stray `<name>.tmp-symlink-<suffix>` entry behind.
-
-    The temporary path carries a random suffix and is only ever removed
-    again if *this* call is what created it: a fixed scratch name could
-    collide with an unrelated contributor file (or directory) sitting at
-    that path, and removing it would make a tool documented as
-    non-clobbering destroy exactly the kind of content it promises not to
-    touch. On the (practically impossible) collision, `os.symlink()`
-    raises `FileExistsError` and the call reports failure instead.
+    Returns `None` on success, or the `OSError` on failure - in the failure
+    case `dest` is left as it was before the call (a caller replacing an
+    existing, wrong-target symlink or a Windows placeholder file never ends
+    up with neither the old nor the new one), and no scratch state is left
+    behind. See `_stash_and_symlink()` for how the replacement is sequenced
+    and why.
 
     `target_is_directory=True` is always correct here since every symlink
     this script creates points at a skill *directory*
@@ -123,18 +179,12 @@ def _create_symlink_safely(dest: Path, target: str) -> OSError | None:
     (Explorer, `dir`) don't resolve correctly. Ignored on POSIX.
     """
 
-    tmp_dest = dest.with_name(f"{dest.name}.tmp-symlink-{uuid.uuid4().hex[:8]}")
-    created = False
+    if dest.is_symlink() or dest.exists():
+        return _stash_and_symlink(dest, target)
+
     try:
-        os.symlink(target, tmp_dest, target_is_directory=True)
-        created = True
-        os.replace(tmp_dest, dest)
+        os.symlink(target, dest, target_is_directory=True)
     except OSError as exc:
-        if created:
-            # Cleanup must not mask the failure that actually matters, and
-            # only ever removes the link created just above.
-            with contextlib.suppress(OSError):
-                tmp_dest.unlink()
         return exc
     return None
 
@@ -204,10 +254,9 @@ def _sync_existing_non_symlink(
             "symlink - would replace)"
         )
     # Deliberately not unlinking the placeholder first: _create_symlink_safely()
-    # replaces `dest` atomically via os.replace() only once the new symlink
-    # has actually been created, so if creation fails (the exact Windows
-    # privilege condition this recovery path exists for), the placeholder
-    # file - not nothing - is still there afterward.
+    # moves it aside and puts it back if symlink creation fails (the exact
+    # Windows privilege condition this recovery path exists for), so the
+    # placeholder file - not nothing - is still there afterward.
     error = _create_symlink_safely(dest, expected_target)
     if error is not None:
         return False, f"FAILED  {name}\n{_windows_symlink_hint(error)}"

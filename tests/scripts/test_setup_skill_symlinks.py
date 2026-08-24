@@ -37,9 +37,12 @@ def _make_skill(source: Path, name: str) -> None:
     (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
 
 
-def _scratch_entries(dest: Path) -> list[str]:
-    """Names of leftover scratch entries created by _create_symlink_safely()."""
-    return sorted(p.name for p in dest.iterdir() if ".tmp-symlink" in p.name)
+def _scratch_entries(dest: Path, *expected: str) -> list[str]:
+    """Names in `dest` beyond `expected` - i.e. scratch state (stash
+    directories, temporary links) that _create_symlink_safely() failed to
+    clean up after itself.
+    """
+    return sorted(p.name for p in dest.iterdir() if p.name not in expected)
 
 
 # --- discover_source_skills ---------------------------------------------------
@@ -263,12 +266,16 @@ def test_create_symlink_safely_passes_target_is_directory(dirs, monkeypatch):
 
 
 def test_create_symlink_safely_handles_replace_failure(dirs, monkeypatch):
-    """If os.replace() itself fails (not just os.symlink()), the failure
-    must be caught, the temporary symlink cleaned up, and FAILED returned
-    - not an uncaught exception escaping sync_one()/main().
+    """If os.replace() fails while moving the existing entry aside (not just
+    os.symlink()), the failure must be caught and FAILED returned - not an
+    uncaught exception escaping sync_one()/main() - with the original entry
+    and no scratch state left behind.
     """
     source, dest = dirs
     _make_skill(source, "pr-review-loop")
+    expected_target = sss._relative_target("pr-review-loop")
+    placeholder = dest / "pr-review-loop"
+    placeholder.write_text(expected_target)
 
     monkeypatch.setattr(
         sss.os, "replace", lambda *a, **k: (_ for _ in ()).throw(OSError("simulated replace"))
@@ -278,54 +285,164 @@ def test_create_symlink_safely_handles_replace_failure(dirs, monkeypatch):
 
     assert ok is False
     assert "FAILED" in message
-    assert not (dest / "pr-review-loop").exists()
-    assert _scratch_entries(dest) == []
+    assert placeholder.read_text() == expected_target
+    assert _scratch_entries(dest, "pr-review-loop") == []
 
 
 def test_create_symlink_safely_leaves_no_scratch_entry_on_success(dirs):
-    """The temporary link is swapped into place, never left behind."""
+    """No stash directory or temporary link survives a successful run."""
     source, dest = dirs
     _make_skill(source, "pr-review-loop")
 
     ok, _ = sss.sync_one("pr-review-loop", check_only=False)
 
     assert ok is True
-    assert _scratch_entries(dest) == []
+    assert _scratch_entries(dest, "pr-review-loop") == []
 
 
-def test_create_symlink_safely_never_removes_an_occupying_scratch_path(dirs):
-    """An unrelated contributor file already sitting at a scratch-looking
-    path must survive: this tool is documented as non-clobbering, so it
-    must not delete anything it did not create itself.
+def test_create_symlink_safely_never_removes_an_unrelated_sibling_file(dirs):
+    """An unrelated contributor file sitting next to the destination must
+    survive: this tool is documented as non-clobbering, so it must never
+    delete anything it did not create itself - which is why the stash
+    directory is created exclusively rather than at a predictable name.
     """
     source, dest = dirs
     _make_skill(source, "pr-review-loop")
-    squatter = dest / "pr-review-loop.tmp-symlink"
-    squatter.write_text("someone's unrelated work")
+    bystander = dest / "pr-review-loop.tmp-symlink"
+    bystander.write_text("someone's unrelated work")
 
     ok, _ = sss.sync_one("pr-review-loop", check_only=False)
 
     assert ok is True
     assert (dest / "pr-review-loop").is_symlink()
-    assert squatter.is_file()
-    assert squatter.read_text() == "someone's unrelated work"
+    assert bystander.read_text() == "someone's unrelated work"
 
 
-def test_create_symlink_safely_survives_a_directory_at_the_scratch_path(dirs):
-    """A *directory* at a scratch-looking path must neither be removed nor
+def test_create_symlink_safely_never_removes_an_unrelated_sibling_directory(dirs):
+    """A *directory* next to the destination must neither be removed nor
     raise an uncaught `IsADirectoryError` out of `sync_one()`/`main()`.
     """
     source, dest = dirs
     _make_skill(source, "pr-review-loop")
-    squatter = dest / "pr-review-loop.tmp-symlink"
-    squatter.mkdir()
-    (squatter / "keep.txt").write_text("keep me")
+    bystander = dest / "pr-review-loop.tmp-symlink"
+    bystander.mkdir()
+    (bystander / "keep.txt").write_text("keep me")
 
     ok, _ = sss.sync_one("pr-review-loop", check_only=False)
 
     assert ok is True
     assert (dest / "pr-review-loop").is_symlink()
-    assert (squatter / "keep.txt").read_text() == "keep me"
+    assert (bystander / "keep.txt").read_text() == "keep me"
+
+
+def _windows_replace(real_replace):
+    """Stand-in for `os.replace()` that enforces the Windows `MoveFileExW`
+    restriction Ubuntu CI cannot reproduce: an existing destination cannot
+    be replaced when either side names a directory, and a symlink created
+    with `target_is_directory=True` counts as a directory entry there.
+    """
+
+    def _replace(src, dst, *args, **kwargs):
+        src_path, dst_path = Path(src), Path(dst)
+        if dst_path.is_symlink() or dst_path.exists():
+            if src_path.is_symlink() or src_path.is_dir() or dst_path.is_dir():
+                raise OSError("simulated Windows MoveFileExW: access is denied")
+        return real_replace(src, dst, *args, **kwargs)
+
+    return _replace
+
+
+def test_placeholder_recovery_creates_the_link_at_dest_itself(dirs, monkeypatch):
+    """The new symlink must be created at `dest` directly, with the old
+    entry moved aside first - never built at a scratch path and swapped
+    over `dest`. On Windows that swap is impossible for this very case
+    (directory symlink over a regular-file placeholder), so asserting the
+    call shape is how Linux CI protects the Windows recovery path.
+    """
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+    expected_target = sss._relative_target("pr-review-loop")
+    (dest / "pr-review-loop").write_text(expected_target)
+
+    link_paths: list[str] = []
+    real_symlink = sss.os.symlink
+
+    def _recording_symlink(target, link_path, **kwargs):
+        link_paths.append(str(link_path))
+        return real_symlink(target, link_path, **kwargs)
+
+    monkeypatch.setattr(sss.os, "symlink", _recording_symlink)
+
+    ok, message = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is True, message
+    assert link_paths == [str(dest / "pr-review-loop")]
+
+
+@pytest.mark.parametrize(
+    "existing",
+    ["placeholder", "wrong-symlink"],
+    ids=["windows_placeholder_file", "wrong_target_symlink"],
+)
+def test_replacement_works_under_windows_replace_semantics(dirs, monkeypatch, existing):
+    """Both replacement paths must survive `MoveFileExW`'s refusal to
+    replace an existing entry involving a directory - the placeholder
+    recovery path especially, since that is the Windows-only scenario the
+    script exists for.
+    """
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+    _make_skill(source, "skill-authoring")
+    expected_target = sss._relative_target("pr-review-loop")
+    if existing == "placeholder":
+        (dest / "pr-review-loop").write_text(expected_target)
+    else:
+        (dest / "pr-review-loop").symlink_to(source / "skill-authoring")
+
+    monkeypatch.setattr(sss.os, "replace", _windows_replace(sss.os.replace))
+
+    ok, message = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is True, message
+    link = dest / "pr-review-loop"
+    assert link.is_symlink()
+    assert sss._normalize_target(os.readlink(link)) == sss._normalize_target(expected_target)
+    assert (link / "SKILL.md").is_file()
+    assert _scratch_entries(dest, "pr-review-loop") == []
+
+
+def test_unrestorable_original_is_reported_and_not_silently_lost(dirs, monkeypatch):
+    """If symlink creation fails *and* the stashed original cannot be put
+    back, the failure message must say where the original is rather than
+    implying it was left untouched.
+    """
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+    expected_target = sss._relative_target("pr-review-loop")
+    (dest / "pr-review-loop").write_text(expected_target)
+
+    real_replace = sss.os.replace
+    calls: list[int] = []
+
+    def _replace_once(src, dst, *args, **kwargs):
+        calls.append(1)
+        if len(calls) > 1:  # the restore attempt
+            raise OSError("simulated: cannot restore")
+        return real_replace(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(sss.os, "replace", _replace_once)
+    monkeypatch.setattr(
+        sss.os, "symlink", lambda *a, **k: (_ for _ in ()).throw(OSError("simulated"))
+    )
+
+    ok, message = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is False
+    assert "FAILED" in message
+    assert "could not be put back" in message
+    stashes = [p for p in dest.iterdir() if p.name.startswith(".pr-review-loop.stash-")]
+    assert len(stashes) == 1
+    assert (stashes[0] / "pr-review-loop").read_text() == expected_target
 
 
 def test_sync_one_wrong_target_fix_failure_leaves_original_symlink_intact(dirs, monkeypatch):
