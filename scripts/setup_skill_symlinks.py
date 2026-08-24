@@ -24,9 +24,11 @@ Usage: python scripts/setup_skill_symlinks.py [--check]
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import re
 import sys
+import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -102,8 +104,16 @@ def _create_symlink_safely(dest: Path, target: str) -> OSError | None:
     failure case `dest` is left exactly as it was before the call (a
     caller replacing an existing, wrong-target symlink or a Windows
     placeholder file never ends up with neither the old nor the new one),
-    and the temporary path is cleaned up so a failed run doesn't leave a
-    stray `<name>.tmp-symlink` entry behind.
+    and the temporary link is cleaned up so a failed run doesn't leave a
+    stray `<name>.tmp-symlink-<suffix>` entry behind.
+
+    The temporary path carries a random suffix and is only ever removed
+    again if *this* call is what created it: a fixed scratch name could
+    collide with an unrelated contributor file (or directory) sitting at
+    that path, and removing it would make a tool documented as
+    non-clobbering destroy exactly the kind of content it promises not to
+    touch. On the (practically impossible) collision, `os.symlink()`
+    raises `FileExistsError` and the call reports failure instead.
 
     `target_is_directory=True` is always correct here since every symlink
     this script creates points at a skill *directory*
@@ -113,15 +123,18 @@ def _create_symlink_safely(dest: Path, target: str) -> OSError | None:
     (Explorer, `dir`) don't resolve correctly. Ignored on POSIX.
     """
 
-    tmp_dest = dest.with_name(dest.name + ".tmp-symlink")
-    if tmp_dest.exists() or tmp_dest.is_symlink():
-        tmp_dest.unlink()
+    tmp_dest = dest.with_name(f"{dest.name}.tmp-symlink-{uuid.uuid4().hex[:8]}")
+    created = False
     try:
         os.symlink(target, tmp_dest, target_is_directory=True)
+        created = True
         os.replace(tmp_dest, dest)
     except OSError as exc:
-        if tmp_dest.exists() or tmp_dest.is_symlink():
-            tmp_dest.unlink()
+        if created:
+            # Cleanup must not mask the failure that actually matters, and
+            # only ever removes the link created just above.
+            with contextlib.suppress(OSError):
+                tmp_dest.unlink()
         return exc
     return None
 

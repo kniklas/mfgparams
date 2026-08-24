@@ -37,6 +37,11 @@ def _make_skill(source: Path, name: str) -> None:
     (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
 
 
+def _scratch_entries(dest: Path) -> list[str]:
+    """Names of leftover scratch entries created by _create_symlink_safely()."""
+    return sorted(p.name for p in dest.iterdir() if ".tmp-symlink" in p.name)
+
+
 # --- discover_source_skills ---------------------------------------------------
 
 
@@ -274,7 +279,53 @@ def test_create_symlink_safely_handles_replace_failure(dirs, monkeypatch):
     assert ok is False
     assert "FAILED" in message
     assert not (dest / "pr-review-loop").exists()
-    assert not (dest / "pr-review-loop.tmp-symlink").exists()
+    assert _scratch_entries(dest) == []
+
+
+def test_create_symlink_safely_leaves_no_scratch_entry_on_success(dirs):
+    """The temporary link is swapped into place, never left behind."""
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+
+    ok, _ = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is True
+    assert _scratch_entries(dest) == []
+
+
+def test_create_symlink_safely_never_removes_an_occupying_scratch_path(dirs):
+    """An unrelated contributor file already sitting at a scratch-looking
+    path must survive: this tool is documented as non-clobbering, so it
+    must not delete anything it did not create itself.
+    """
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+    squatter = dest / "pr-review-loop.tmp-symlink"
+    squatter.write_text("someone's unrelated work")
+
+    ok, _ = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is True
+    assert (dest / "pr-review-loop").is_symlink()
+    assert squatter.is_file()
+    assert squatter.read_text() == "someone's unrelated work"
+
+
+def test_create_symlink_safely_survives_a_directory_at_the_scratch_path(dirs):
+    """A *directory* at a scratch-looking path must neither be removed nor
+    raise an uncaught `IsADirectoryError` out of `sync_one()`/`main()`.
+    """
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+    squatter = dest / "pr-review-loop.tmp-symlink"
+    squatter.mkdir()
+    (squatter / "keep.txt").write_text("keep me")
+
+    ok, _ = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is True
+    assert (dest / "pr-review-loop").is_symlink()
+    assert (squatter / "keep.txt").read_text() == "keep me"
 
 
 def test_sync_one_wrong_target_fix_failure_leaves_original_symlink_intact(dirs, monkeypatch):
