@@ -42,12 +42,23 @@ jobs:
       # Cyclomatic complexity (FR-001) is enforced here via ruff's C90/mccabe
       # rule, not in a separate job (specs/003-ci-quality-security-gates
       # contracts/ci-checks-contract.md).
-      # scripts/sync_agent_integrations.py is named explicitly (not the whole
-      # scripts/ dir) so this doesn't also pull the pre-existing, unrelated
-      # scripts/check_maintainability.py into scope (specs/011-multi-agent-
-      # skill-sync tasks.md T002; Constitution Principle IX).
-      - run: ruff check src/ tests/ scripts/sync_agent_integrations.py
-      - run: black --check src/ tests/ scripts/sync_agent_integrations.py
+      # scripts/sync_agent_integrations.py and scripts/setup_skill_symlinks.py
+      # are named explicitly (not the whole scripts/ dir) so this doesn't
+      # also pull the pre-existing, unrelated scripts/check_maintainability.py
+      # into scope (specs/011-multi-agent-skill-sync tasks.md T002;
+      # Constitution Principle IX).
+      - run: ruff check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+      - run: black --check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+      # Static analysis of the helper above only proves the *script* is
+      # clean; this runs it against the real checkout so the committed
+      # `.claude/skills/*` symlinks themselves are gated (a deleted,
+      # wrong-target, or replaced-by-a-copy link fails the build). The
+      # script's own unit tests can't cover this: they redirect
+      # SOURCE_DIR/DEST_DIR at a temporary tree. `--check` writes nothing
+      # and exits non-zero on any missing/wrong link; the ubuntu-latest
+      # checkout materializes real symlinks, so the links are genuine here
+      # (Constitution Principle XI v1.9.1).
+      - run: python scripts/setup_skill_symlinks.py --check
 
   complexity:
     name: complexity
@@ -68,7 +79,7 @@ jobs:
       # surface the script's `mi_summary` $GITHUB_OUTPUT line as a job output
       # below, without a second `radon` invocation (research.md #4).
       - id: mi
-        run: python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py
+        run: python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
     outputs:
       mi_summary: ${{ steps.mi.outputs.mi_summary }}
 
@@ -82,9 +93,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
-      # scripts/sync_agent_integrations.py is named explicitly, same rationale
-      # as the `lint` job above (specs/011-multi-agent-skill-sync T002).
-      - run: mypy src/machine_calc scripts/sync_agent_integrations.py
+      # scripts/sync_agent_integrations.py and scripts/setup_skill_symlinks.py
+      # are named explicitly, same rationale as the `lint` job above
+      # (specs/011-multi-agent-skill-sync T002).
+      - run: mypy src/machine_calc scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
 
   security:
     name: security
@@ -96,9 +108,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
-      # scripts/sync_agent_integrations.py is named explicitly, same rationale
-      # as the `lint` job above (specs/011-multi-agent-skill-sync T002).
-      - run: bandit -r src scripts/sync_agent_integrations.py -ll
+      # scripts/sync_agent_integrations.py and scripts/setup_skill_symlinks.py
+      # are named explicitly, same rationale as the `lint` job above
+      # (specs/011-multi-agent-skill-sync T002).
+      - run: bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll
 
   dependency-scan:
     name: dependency-scan

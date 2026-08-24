@@ -305,6 +305,49 @@ only when something actually drifted. This keeps per-agent instructions from bei
 hand-duplicated or silently going stale, per `.specify/memory/constitution.md`
 Principle XI — see `specs/011-multi-agent-skill-sync` for the full design.
 
+### Shared skills across coding agents
+
+Some repo-specific skills under `.github/skills/` (GitHub Copilot's skill
+directory) are genuinely useful from Claude Code too — e.g. `pr-review-loop`,
+`pypi-package-builder`, `skill-authoring`. Rather than hand-copying them into
+`.claude/skills/` (which would duplicate and drift, exactly what
+`.specify/memory/constitution.md` Principle XI forbids), each one is
+symlinked from `.claude/skills/<name>` to the canonical skill directory
+`.github/skills/<name>/` (which holds `SKILL.md` and any supporting
+files) — one physical directory, referenced from two places, so it can't
+diverge (Principle XI's "genuinely shared, hand-authored skills"
+exception, v1.9.0).
+
+`code-review` is deliberately **not** symlinked: it collides with Claude
+Code's own bundled `/code-review` skill, and a same-named project skill
+takes precedence over a bundled one, so linking it would silently shadow
+Claude Code's built-in review capability instead of adding to it.
+
+**Setting this up** (already done once and committed as real symlinks, but
+run this after cloning if `.claude/skills/<name>` looks broken or missing —
+notably on Windows, where a clone made without symlink support checked out
+as plain text files instead of real symlinks):
+
+```bash
+python scripts/setup_skill_symlinks.py          # create/fix the symlinks
+python scripts/setup_skill_symlinks.py --check  # report status only, exit non-zero if anything's wrong
+```
+
+CI runs the `--check` form in the `lint` job, so a committed link that
+goes missing, points at the wrong skill, or gets replaced by a hand-copied
+duplicate fails the build rather than drifting unnoticed.
+
+On Windows, running the script above requires either Developer Mode
+(Settings > Update & Security > For developers) or an elevated
+(Administrator) terminal — the script's error message repeats this if it
+can't create a symlink. Separately, and only relevant to *future* clones
+(not to fixing an existing checkout with the script above): setting
+`git config --global core.symlinks true` **before** cloning makes `git
+checkout` materialize a real symlink for you in the first place, instead
+of the plain-text placeholder file that puts you in this situation.
+`core.symlinks` has no effect on the script's own symlink creation —
+Developer Mode/elevation alone is what that needs.
+
 ### Documented exceptions instead of silent suppressions
 
 If a finding is a genuine false positive or an accepted, understood risk, suppress it
