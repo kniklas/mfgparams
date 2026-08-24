@@ -63,6 +63,13 @@ always reports the same first failure: material and tool presence are
 checked first, then the material and tool are resolved, then the geometry
 (diameter, depth), then — last — the ``mode``/``target_rpm`` combination.
 
+``diameter`` and ``depth`` must each be a positive, finite number within
+the configured bound. ``NaN``, ``+inf``/``-inf`` and non-numeric values
+return ``INVALID_DIAMETER``/``INVALID_DEPTH`` rather than passing
+validation or raising from the bound comparison (issue #56) — the same
+posture the milling validators and ``validate_target_rpm()`` already
+applied.
+
 Calculation modes
 -------------------
 

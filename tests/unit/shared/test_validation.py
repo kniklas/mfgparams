@@ -1,5 +1,7 @@
 """Unit tests for shared input validation (T015)."""
 
+import pytest
+
 from machine_calc.config import Configuration
 from machine_calc.validation import (
     validate_depth_mm,
@@ -87,3 +89,28 @@ def test_custom_configuration_bounds_are_respected():
     config = Configuration(max_diameter_mm=150.0, max_depth_mm=600.0)
     assert validate_diameter_mm(120, config) is None
     assert validate_depth_mm(550, config) is None
+
+
+@pytest.mark.parametrize(
+    "validate,code",
+    [
+        (lambda v: validate_diameter_mm(v, CONFIG), "INVALID_DIAMETER"),
+        (lambda v: validate_depth_mm(v, CONFIG), "INVALID_DEPTH"),
+    ],
+)
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), None, "10", True])
+def test_diameter_and_depth_reject_non_finite_and_non_numeric(validate, code, value):
+    """Regression for issue #56.
+
+    ``NaN`` compares ``False`` against both ``<= 0`` and ``> maximum``, so
+    before the fix it passed validation and reached the calculation,
+    producing a ``NaN``-poisoned result instead of a structured error. The
+    same guard also covers ``Infinity``, ``None``, ``bool`` and non-numeric
+    values, matching every milling validator
+    (``test_validation_milling.test_every_milling_validator_rejects_non_positive_and_non_numeric``).
+    """
+
+    error = validate(value)
+
+    assert error is not None
+    assert error.code == code

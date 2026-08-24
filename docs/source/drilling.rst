@@ -130,19 +130,12 @@ Setting                          Default     Applies to
 ``max_depth_mm``                 500.0 mm    Hole depth.
 ===============================  ==========  =========================================
 
-In addition, both values must be positive and within the bound above.
-
-.. note::
-    ``validate_diameter_mm()``/``validate_depth_mm()`` do not currently
-    reject ``NaN``: their bound check compares against the maximum, and
-    every comparison against ``NaN`` is false, so a ``NaN`` value (which
-    ``_prompt_number()`` also happily parses from literal ``nan`` input)
-    silently passes validation and reaches the calculation instead of
-    being re-prompted. ``+inf``/``-inf`` *are* correctly rejected today,
-    but not both by the same check: ``+inf`` fails the maximum-bound
-    comparison, while ``-inf`` fails the earlier ``<= 0`` positivity
-    check. Tracked as a pre-existing bug in issue #56, not something this
-    drilling documentation PR introduces or fixes.
+In addition, both values must be positive, finite, and within the bound
+above. ``NaN``, ``+inf``/``-inf`` and non-numeric values are all rejected
+as ``INVALID_DIAMETER``/``INVALID_DEPTH`` before the bound is checked, so
+the CLI re-prompts for them — including the literal ``nan`` that
+``_prompt_number()`` happily parses via ``float("nan")`` — rather than
+letting a ``NaN`` poison the calculation (fixed in issue #56).
 
 Library callers
 can override these bounds via ``calculate()``'s ``config_path`` argument

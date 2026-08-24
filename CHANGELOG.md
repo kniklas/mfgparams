@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `validate_diameter_mm()`/`validate_depth_mm()` no longer let a `NaN`
+  drill diameter or hole depth pass validation (issue #56). Both checks
+  (`value <= 0` and `value > maximum`) are `False` for `NaN`, so a `NaN`
+  silently reached the calculation and produced a `NaN`-poisoned
+  `CalculationResult` with `error=None` instead of a structured
+  `INVALID_DIAMETER`/`INVALID_DEPTH` error. In the interactive CLI, the
+  literal `nan` — which `_prompt_number()` parses successfully via
+  `float("nan")` — was accepted at the "Drill diameter"/"Hole depth"
+  prompt rather than being re-prompted.
+- Both validators now route through the module's existing
+  `_is_positive_finite_number()` guard, the same one every milling
+  validator and `validate_target_rpm()` already used, so a non-numeric
+  value returns an `ErrorInfo` instead of raising `TypeError` from the
+  bound comparison, per the never-raises contract (FR-015). As a
+  consequence, `+inf`/`-inf` (already rejected before, via two different
+  checks) now report the "must be greater than 0" message rather than
+  "must not exceed <max> mm", matching milling's wording for the same
+  input, and a `bool` is no longer accepted as a 1 mm diameter.
+
 ## [0.4.0]
 
 ### Added
