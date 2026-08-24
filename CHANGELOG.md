@@ -35,8 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   short-circuited as inherently finite and the value is rejected by the
   caller's exact bound comparison. `units.to_metric_length()` catches the
   same overflow from the inch-to-mm multiplication. This also fixes the
-  **milling** validators, which shared the helper and raised
-  `OverflowError` for such an input before this release.
+  **bounded** milling validators (`validate_mill_diameter_mm()`,
+  `validate_depth_of_cut_mm()`, `validate_length_of_cut_mm()`), which
+  shared the helper and raised `OverflowError` for such an input before
+  this release. The *unbounded* milling validators
+  (`validate_tooth_count()`, `validate_feed_per_tooth_mm()`) still raise
+  for an enormous `int` — unchanged from previous releases, since they
+  have no maximum to reject it against and the value reaches float
+  arithmetic downstream. Tracked separately in issue #60.
 - Drilling's imperial path no longer raises `TypeError` for a non-numeric
   `diameter`/`depth`. `calculate(..., unit_system=UnitSystem.IMPERIAL)`
   converted lengths with a bare `in_to_mm()` *before* validation, so
