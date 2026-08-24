@@ -62,6 +62,16 @@ def _relative_target(name: str) -> str:
     return os.path.relpath(SOURCE_DIR / name, DEST_DIR)
 
 
+# A leading `/`, `\\` (including a UNC `\\\\server\\share`), or `C:\\`-style
+# drive prefix - i.e. the shapes that make a symlink target absolute.
+_ABSOLUTE_PREFIX = re.compile(r"^([/\\]|[A-Za-z]:[/\\])")
+
+# Stands in for the leading separator of an absolute target in the
+# normalized component tuple. It can never collide with a real component,
+# because the split below is on exactly this character class.
+_ROOT = "/"
+
+
 def _normalize_target(target: str) -> tuple[str, ...]:
     """Split a symlink-target-like path into normalized components.
 
@@ -72,8 +82,21 @@ def _normalize_target(target: str) -> tuple[str, ...]:
     would report a perfectly valid Windows checkout as wrong. Also strips
     surrounding whitespace/newlines, so a plain-text placeholder file's
     trailing newline doesn't cause a false mismatch either.
+
+    Absoluteness is kept as a leading `_ROOT` component: the empty string a
+    leading separator splits off is dropped along with the other empties,
+    so without it an absolute target that happens to share the expected
+    target's components (`/../../.github/skills/<name>` against
+    `../../.github/skills/<name>`) would compare *equal* and be reported as
+    already linked - even though it resolves somewhere else entirely, and
+    the expected target this is compared against is always relative
+    (`_relative_target()`).
     """
-    return tuple(part for part in re.split(r"[\\/]+", target.strip()) if part not in ("", "."))
+    stripped = target.strip()
+    parts = tuple(part for part in re.split(r"[\\/]+", stripped) if part not in ("", "."))
+    if _ABSOLUTE_PREFIX.match(stripped):
+        return (_ROOT,) + parts
+    return parts
 
 
 def _windows_symlink_hint(error: OSError) -> str:

@@ -167,6 +167,46 @@ def test_sync_one_backslash_target_still_reads_as_ok(dirs):
     assert sss._normalize_target(backslash_style) == sss._normalize_target(expected)
 
 
+def test_normalize_target_keeps_absolute_and_relative_distinct():
+    """A leading separator splits off an empty component that is dropped
+    with the other empties, so absoluteness has to be preserved explicitly
+    - otherwise an absolute target sharing the expected target's components
+    compares equal to it even though it resolves somewhere else entirely.
+    """
+    relative = "../../.github/skills/pr-review-loop"
+
+    assert sss._normalize_target(relative) != sss._normalize_target(f"/{relative}")
+    assert sss._normalize_target(relative) != sss._normalize_target(f"\\{relative}")
+    assert sss._normalize_target("a/b") != sss._normalize_target("/a/b")
+    # ...while separator style alone still must not matter.
+    assert sss._normalize_target(relative) == sss._normalize_target(relative.replace("/", "\\"))
+
+
+def test_sync_one_reports_absolute_lookalike_target_as_wrong(dirs):
+    """An absolute symlink target whose components match the expected
+    relative one resolves outside the repository, so `--check` must report
+    it as WRONG rather than as already linked - the source-side SKILL.md
+    check alone cannot catch it, since the source is present either way.
+    """
+    source, dest = dirs
+    _make_skill(source, "pr-review-loop")
+    expected_target = sss._relative_target("pr-review-loop")
+    lookalike = f"/{expected_target}"
+    (dest / "pr-review-loop").symlink_to(lookalike)
+
+    ok, message = sss.sync_one("pr-review-loop", check_only=True)
+
+    assert ok is False
+    assert "WRONG" in message
+
+    ok, message = sss.sync_one("pr-review-loop", check_only=False)
+
+    assert ok is True, message
+    link = dest / "pr-review-loop"
+    assert sss._normalize_target(os.readlink(link)) == sss._normalize_target(expected_target)
+    assert (link / "SKILL.md").is_file()
+
+
 def test_sync_one_replaces_windows_placeholder_file(dirs):
     """git checks a symlink blob out as a plain-text file containing the
     target string when `core.symlinks=false` (the common Windows default
