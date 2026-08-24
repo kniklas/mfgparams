@@ -2,6 +2,7 @@
 
 import pytest
 
+from machine_calc import UnitSystem, calculate
 from machine_calc.config import Configuration
 from machine_calc.validation import (
     validate_depth_mm,
@@ -114,3 +115,28 @@ def test_diameter_and_depth_reject_non_finite_and_non_numeric(validate, code, va
 
     assert error is not None
     assert error.code == code
+
+
+@pytest.mark.parametrize("value", [float("nan"), "10", True, None])
+def test_imperial_non_numeric_geometry_returns_error_not_typeerror(value):
+    """Regression for the #56 review follow-up.
+
+    Drilling converted imperial lengths with a bare ``in_to_mm()`` before
+    validating, so a non-numeric ``diameter`` raised ``TypeError`` from the
+    multiplication instead of returning a structured error, violating the
+    never-raises contract (FR-015). ``units.to_metric_length()`` now leaves
+    such values unconverted so the validators reject them, exactly as
+    milling's ``_to_metric()`` already did.
+    """
+
+    result = calculate(
+        diameter=value,
+        depth=1,
+        material="Aluminum",
+        tool="HSS",
+        unit_system=UnitSystem.IMPERIAL,
+    )
+
+    assert result.error is not None
+    assert result.error.code == "INVALID_DIAMETER"
+    assert result.spindle_speed_rpm is None

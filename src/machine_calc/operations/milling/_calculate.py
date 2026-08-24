@@ -35,10 +35,10 @@ from machine_calc.registry import WorkpieceMaterial, get_material, get_material_
 from machine_calc.units import (
     cm3_min_to_in3_min,
     hp_to_kw,
-    in_to_mm,
     kw_to_hp,
     mm_to_in,
     nm_to_in_lb,
+    to_metric_length,
 )
 from machine_calc.validation import (
     validate_depth_of_cut_mm,
@@ -173,21 +173,15 @@ def _resolve_material_and_tool(
 
 
 def _to_metric(value: float, unit_system: UnitSystem) -> float:
-    """Convert a length input to canonical mm when the caller used imperial.
+    """Thin alias for :func:`~machine_calc.units.to_metric_length`.
 
-    Non-numeric, ``None``, and ``bool`` values are passed through
-    unconverted rather than fed to :func:`~machine_calc.units.in_to_mm`,
-    which would either raise (``None``/strings) or silently coerce
-    (``True``/``False``). Leaving them unconverted lets the downstream
-    ``_is_positive_finite_number``-based validators reject them with the
-    documented structured error instead (FR-012).
+    The guard this function introduced now lives in
+    :mod:`machine_calc.units` so drilling's imperial path can share it
+    verbatim (issue #56 review follow-up); the local name is kept because
+    the call sites below read better with it.
     """
 
-    if unit_system is not UnitSystem.IMPERIAL:
-        return value
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return value
-    return in_to_mm(value)
+    return to_metric_length(value, unit_system)
 
 
 def _validate_geometry(

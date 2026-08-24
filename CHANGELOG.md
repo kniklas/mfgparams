@@ -20,13 +20,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prompt rather than being re-prompted.
 - Both validators now route through the module's existing
   `_is_positive_finite_number()` guard, the same one every milling
-  validator and `validate_target_rpm()` already used, so a non-numeric
-  value returns an `ErrorInfo` instead of raising `TypeError` from the
-  bound comparison, per the never-raises contract (FR-015). As a
+  validator already used — and the same validation posture
+  `validate_target_rpm()` applies via its own equivalent inline
+  type/finiteness checks — so a non-numeric value returns an `ErrorInfo`
+  instead of raising `TypeError` from the bound comparison, per the
+  never-raises contract (FR-015). As a
   consequence, `+inf`/`-inf` (already rejected before, via two different
   checks) now report the "must be greater than 0" message rather than
   "must not exceed <max> mm", matching milling's wording for the same
   input, and a `bool` is no longer accepted as a 1 mm diameter.
+- Drilling's imperial path no longer raises `TypeError` for a non-numeric
+  `diameter`/`depth`. `calculate(..., unit_system=UnitSystem.IMPERIAL)`
+  converted lengths with a bare `in_to_mm()` *before* validation, so
+  `diameter="abc"` raised from the inch-to-mm multiplication rather than
+  returning `INVALID_DIAMETER`. Both operations now share
+  `units.to_metric_length()`, which passes non-numeric and `bool` values
+  through unconverted so the validators reject them — the guard milling
+  already applied privately as `_to_metric()`.
 
 ## [0.4.0]
 

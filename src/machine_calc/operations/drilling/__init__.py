@@ -17,10 +17,10 @@ from machine_calc.models import CalculationMode, CalculationResult, ErrorInfo, U
 from machine_calc.registry import get_material, get_material_validation
 from machine_calc.units import (
     hp_to_kw,
-    in_to_mm,
     kw_to_hp,
     mm_to_in,
     nm_to_in_lb,
+    to_metric_length,
 )
 from machine_calc.validation import (
     validate_depth_mm,
@@ -197,8 +197,14 @@ def _validate_geometry(
     complexity/Maintainability Index thresholds configured in
     ``pyproject.toml`` (FR-001/FR-002).
     """
-    diameter_mm = in_to_mm(diameter) if unit_system is UnitSystem.IMPERIAL else diameter
-    depth_mm = in_to_mm(depth) if unit_system is UnitSystem.IMPERIAL else depth
+    # to_metric_length() (not a bare in_to_mm() call) so a non-numeric or
+    # bool length is passed through unconverted and rejected by the
+    # validators below as INVALID_DIAMETER/INVALID_DEPTH, rather than
+    # raising TypeError from the multiplication inside in_to_mm() before
+    # validation runs — milling already routed its imperial inputs through
+    # this guard (issue #56 review follow-up).
+    diameter_mm = to_metric_length(diameter, unit_system)
+    depth_mm = to_metric_length(depth, unit_system)
 
     diameter_error = validate_diameter_mm(diameter_mm, config, locale)
     if diameter_error:

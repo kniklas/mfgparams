@@ -24,8 +24,10 @@ def _is_positive_finite_number(value: object) -> bool:
 
     Shared guard for every dimensional validator in this module: zero,
     negative, non-numeric, ``None``, ``bool``, ``NaN`` and ``Infinity`` are
-    all rejected (specs/009-milling-calculations FR-008), the posture first
-    established by :func:`validate_target_rpm`. Drilling's diameter/depth
+    all rejected (specs/009-milling-calculations FR-008). It applies the
+    same validation *posture* as :func:`validate_target_rpm`, which
+    performs its own equivalent type/finiteness checks inline rather than
+    calling this helper. Drilling's diameter/depth
     validators route through it too, so that a ``NaN`` — for which both
     ``value <= 0`` and ``value > maximum`` are ``False`` — cannot slip past
     the bound checks and poison the calculation (issue #56), and so that a
