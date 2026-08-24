@@ -49,9 +49,9 @@ mid-loop, so re-fetch it whenever re-checking suppression status.
 Initialize (mentally or in a scratch note) two counters for this session:
 - **review-fix commit count** — commits made *specifically* to address a
   Copilot review comment or a failing CI job. Resets only if the user
-  explicitly asks to continue past the 10-commit checkpoint (see §4).
+  explicitly asks to continue past the 5-commit checkpoint (see §4).
 - **running summary** — one line per commit describing what changed and
-  why, to be presented at the 10-commit checkpoint and again at closure.
+  why, to be presented at the 5-commit checkpoint and again at closure.
 
 Also track a boolean:
 - **copilot-review-invoked** — set true only after explicitly requesting
@@ -228,10 +228,10 @@ non-suppressed Copilot review comments remain unresolved.
    repos/:owner/:repo/commits/<sha>/check-runs` instead.)
 9. Re-fetch review threads (§2) to see what's newly resolved/added.
 
-## 4. 10-commit checkpoint
+## 4. 5-commit checkpoint
 
 The moment the **review-fix commit count** (from step 5, not all commits
-on the PR) reaches 10, stop looping immediately — do not start another
+on the PR) reaches 5, stop looping immediately — do not start another
 fix — and:
 
 1. Summarize all review-fix commits made so far in this session (one line
@@ -248,7 +248,7 @@ fix — and:
    accounting.
 
 If the user says yes, keep counting further commits and re-checkpoint
-every additional 10.
+every additional 5.
 
 ## 5. Exit criteria for the loop
 
@@ -321,7 +321,7 @@ merge, branch deletion, and cleanup) has actually finished:
      human-decision waiting intervals (this includes CI/review polling
      time, since the agent was actively driving that, not blocked).
    - **Time waiting on human decisions** — the sum of the recorded
-     waiting intervals (e.g. "ambiguous PR confirmation — 1m", "10-commit
+     waiting intervals (e.g. "ambiguous PR confirmation — 1m", "5-commit
      checkpoint: continue? — 4m", "closure approval — 2m"), including the
      closure-approval interval closed above.
    Report these three numbers in chat.
@@ -389,7 +389,7 @@ rm /tmp/pr-aic-summary.md
 
 ## 7. Anti-patterns to avoid
 
-- Counting all commits (docs typos, rebases) toward the 10-commit
+- Counting all commits (docs typos, rebases) toward the 5-commit
   checkpoint instead of only review/CI-fix commits.
 - Treating a resolved-but-still-`isOutdated:false`-with-new-diff thread as
   settled — GitHub can silently re-open relevance after a force-push;
