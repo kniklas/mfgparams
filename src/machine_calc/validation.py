@@ -38,6 +38,15 @@ def _is_positive_finite_number(value: object) -> bool:
 
     if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
+    if isinstance(value, int):
+        # Python ints are arbitrary-precision and therefore always finite,
+        # but ``math.isfinite()`` coerces its argument to a C double first,
+        # so it raises ``OverflowError`` for a value such as ``10**1000``
+        # instead of answering the question. Short-circuit on the type so
+        # an enormous int is rejected by the caller's bound check (which
+        # compares exactly, without coercion) rather than raising, per the
+        # never-raises contract (FR-015).
+        return value > 0
     return math.isfinite(value) and value > 0
 
 

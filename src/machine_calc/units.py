@@ -51,7 +51,14 @@ def to_metric_length(value: float, unit_system: UnitSystem) -> float:
         return value
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return value
-    return in_to_mm(value)
+    try:
+        return in_to_mm(value)
+    except OverflowError:
+        # An int too large to coerce to a C double (e.g. ``10**1000``).
+        # Returned unconverted: it is far beyond every configured maximum
+        # either way, so the validators still reject it with the documented
+        # bound error instead of the conversion raising.
+        return value
 
 
 def cm3_min_to_in3_min(value_cm3_min: float) -> float:

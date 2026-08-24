@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks) now report the "must be greater than 0" message rather than
   "must not exceed <max> mm", matching milling's wording for the same
   input, and a `bool` is no longer accepted as a 1 mm diameter.
+- `_is_positive_finite_number()` no longer raises `OverflowError` for an
+  enormous `int` such as `10**1000`. `math.isfinite()` coerces its
+  argument to a C double, so it raised instead of answering; `int` is now
+  short-circuited as inherently finite and the value is rejected by the
+  caller's exact bound comparison. `units.to_metric_length()` catches the
+  same overflow from the inch-to-mm multiplication. This also fixes the
+  **milling** validators, which shared the helper and raised
+  `OverflowError` for such an input before this release.
 - Drilling's imperial path no longer raises `TypeError` for a non-numeric
   `diameter`/`depth`. `calculate(..., unit_system=UnitSystem.IMPERIAL)`
   converted lengths with a bare `in_to_mm()` *before* validation, so

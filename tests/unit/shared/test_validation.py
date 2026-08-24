@@ -117,26 +117,43 @@ def test_diameter_and_depth_reject_non_finite_and_non_numeric(validate, code, va
     assert error.code == code
 
 
-@pytest.mark.parametrize("value", [float("nan"), "10", True, None])
-def test_imperial_non_numeric_geometry_returns_error_not_typeerror(value):
-    """Regression for the #56 review follow-up.
+@pytest.mark.parametrize("unit_system", [UnitSystem.METRIC, UnitSystem.IMPERIAL])
+@pytest.mark.parametrize(
+    "field,code", [("diameter", "INVALID_DIAMETER"), ("depth", "INVALID_DEPTH")]
+)
+@pytest.mark.parametrize("value", [float("nan"), "10", True, None, 10**1000])
+def test_geometry_never_raises_for_invalid_input(unit_system, field, code, value):
+    """Regression for the #56 review follow-ups.
 
-    Drilling converted imperial lengths with a bare ``in_to_mm()`` before
-    validating, so a non-numeric ``diameter`` raised ``TypeError`` from the
-    multiplication instead of returning a structured error, violating the
-    never-raises contract (FR-015). ``units.to_metric_length()`` now leaves
-    such values unconverted so the validators reject them, exactly as
-    milling's ``_to_metric()`` already did.
+    Two distinct never-raises (FR-015) gaps are covered here, both of which
+    a diameter-only or metric-only test would miss:
+
+    - Drilling converted *imperial* lengths with a bare ``in_to_mm()``
+      before validating, so a non-numeric length raised ``TypeError`` from
+      the multiplication. ``units.to_metric_length()`` now leaves such
+      values unconverted so the validators reject them.
+    - ``math.isfinite()`` coerces to a C double, so an enormous ``int``
+      such as ``10**1000`` raised ``OverflowError`` inside
+      ``_is_positive_finite_number()`` (and, for imperial, inside the
+      inch-to-mm multiplication) rather than being rejected by the bound
+      check as it was before this PR.
+
+    Both ``diameter`` and ``depth`` are exercised under both unit systems:
+    the two conversions are separate call sites, so parameterizing only
+    ``diameter`` would let a regression in ``depth``'s conversion pass.
+    ``diameter=1``/``depth=1`` keep the *other* field valid under both unit
+    systems (1 in = 25.4 mm, within every default bound) so the assertion
+    pins the field under test rather than validation order.
     """
 
+    geometry = {"diameter": 1, "depth": 1, field: value}
     result = calculate(
-        diameter=value,
-        depth=1,
         material="Aluminum",
         tool="HSS",
-        unit_system=UnitSystem.IMPERIAL,
+        unit_system=unit_system,
+        **geometry,
     )
 
     assert result.error is not None
-    assert result.error.code == "INVALID_DIAMETER"
+    assert result.error.code == code
     assert result.spindle_speed_rpm is None
