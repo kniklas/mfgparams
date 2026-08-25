@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0]
+
 ### Changed
 
 - **Breaking**: the package is renamed from `machine-calc`/`machine_calc` to
@@ -17,14 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mfgparams` replaces `pip install machine-calc`, `import mfgparams` replaces
   `import machine_calc`, and the `mfgparams` console script (and `python -m
   mfgparams`) replaces `machine-calc`/`python -m machine_calc`. The
-  `MACHINE_CALC_LOCALE` and `MACHINE_CALC_RUN_PERFORMANCE_TESTS` environment
-  variables are renamed to `MFGPARAMS_LOCALE` and
-  `MFGPARAMS_RUN_PERFORMANCE_TESTS` accordingly. No calculation logic, CLI
+  `MACHINE_CALC_LOCALE`, `MACHINE_CALC_RUN_PERFORMANCE_TESTS`, and
+  `MACHINE_CALC_PERFORMANCE_SUMMARY_PATH` environment variables are renamed
+  to `MFGPARAMS_LOCALE`, `MFGPARAMS_RUN_PERFORMANCE_TESTS`, and
+  `MFGPARAMS_PERFORMANCE_SUMMARY_PATH` accordingly. No calculation logic, CLI
   behavior, or public API signature changed — only identifiers and text tied
   to the package's name. Previously published `machine-calc` releases on
   PyPI are unaffected; only this and future releases use the new name. The
   GitHub repository itself keeps its current name for now (see
   specs/012-rename-package-mfgparams/spec.md's Clarifications).
+- Per Constitution Principle IV, this breaking change bumps the version's
+  MAJOR component: `0.4.0` → `1.0.0`.
 
 ### Fixed
 
