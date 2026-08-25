@@ -4,7 +4,7 @@ response (T011).
 Per contracts/library-api-delta.md.
 """
 
-from machine_calc import CalculationMode, calculate
+from mfgparams import CalculationMode, calculate
 
 
 def test_zero_available_power_is_infeasible():

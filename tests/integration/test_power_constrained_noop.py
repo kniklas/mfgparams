@@ -7,7 +7,7 @@ Covers both the comfortable-surplus case and the exact-equality boundary
 
 import math
 
-from machine_calc import CalculationMode, calculate
+from mfgparams import CalculationMode, calculate
 
 
 def test_power_constrained_matches_standard_when_budget_exceeds_nominal():

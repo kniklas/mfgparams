@@ -1,7 +1,7 @@
 """Unit tests for scripts/setup_skill_symlinks.py (Constitution Principle XI
 v1.9.0's "genuinely shared, hand-authored skills" exception).
 
-`scripts/` is not part of the installed `machine_calc` package (it is
+`scripts/` is not part of the installed `mfgparams` package (it is
 CI-only tooling, mirroring scripts/sync_agent_integrations.py's test
 setup), so the module under test is imported directly by path.
 """

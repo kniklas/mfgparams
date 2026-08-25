@@ -2,9 +2,9 @@
 
 import pytest
 
-from machine_calc import UnitSystem, calculate
-from machine_calc.config import Configuration
-from machine_calc.validation import (
+from mfgparams import UnitSystem, calculate
+from mfgparams.config import Configuration
+from mfgparams.validation import (
     validate_depth_mm,
     validate_diameter_mm,
     validate_material_present,

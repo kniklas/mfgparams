@@ -23,8 +23,8 @@ from .harness import PerformanceReport
 #: Environment variable a caller (e.g. CI) can set to override where the
 #: Suite Run Summary JSON is written; defaults to a fixed path under the
 #: system temp directory so it never gets committed to the repo.
-SUMMARY_PATH_ENV_VAR = "MACHINE_CALC_PERFORMANCE_SUMMARY_PATH"
-_DEFAULT_SUMMARY_FILENAME = "machine_calc_perf_summary.json"
+SUMMARY_PATH_ENV_VAR = "MFGPARAMS_PERFORMANCE_SUMMARY_PATH"
+_DEFAULT_SUMMARY_FILENAME = "mfgparams_perf_summary.json"
 
 _REPORTS: list[PerformanceReport] = []
 

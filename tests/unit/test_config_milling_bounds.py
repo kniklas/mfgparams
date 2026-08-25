@@ -8,8 +8,8 @@ alone.
 
 import pytest
 
-from machine_calc import calculate, calculate_end_milling
-from machine_calc.config import (
+from mfgparams import calculate, calculate_end_milling
+from mfgparams.config import (
     DEFAULT_MAX_DEPTH_MM,
     DEFAULT_MAX_DEPTH_OF_CUT_MM,
     DEFAULT_MAX_DIAMETER_MM,

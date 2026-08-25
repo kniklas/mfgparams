@@ -6,9 +6,9 @@ within 5%, applied independently per output value).
 
 import math
 
-from machine_calc.operations.drilling.formulas import calculate_drilling_metrics
-from machine_calc.operations.drilling.tools import get_tool
-from machine_calc.registry import get_material
+from mfgparams.operations.drilling.formulas import calculate_drilling_metrics
+from mfgparams.operations.drilling.tools import get_tool
+from mfgparams.registry import get_material
 
 
 def test_nominal_mild_steel_carbide():
@@ -36,8 +36,8 @@ def test_nominal_mild_steel_carbide():
 
 
 def test_all_registered_materials_and_tools_produce_positive_results():
-    from machine_calc.operations.drilling.tools import list_tools
-    from machine_calc.registry import list_materials
+    from mfgparams.operations.drilling.tools import list_tools
+    from mfgparams.registry import list_materials
 
     for material_name in list_materials():
         for tool_name in list_tools():

@@ -1,9 +1,9 @@
 ---
 name: code-review
-description: Repo-specific context for GitHub Copilot code review on machine-calc pull requests. Applies constitution-derived checks around calculation correctness, resource-constrained hardware limits, packaging conventions, and lint/type/test gates whenever reviewing changes in this repository.
+description: Repo-specific context for GitHub Copilot code review on mfgparams pull requests. Applies constitution-derived checks around calculation correctness, resource-constrained hardware limits, packaging conventions, and lint/type/test gates whenever reviewing changes in this repository.
 ---
 
-# Code Review Skill (machine-calc)
+# Code Review Skill (mfgparams)
 
 Use this skill whenever reviewing a pull request in this repository. It
 gives Copilot code review repo-specific context beyond generic best
@@ -26,7 +26,7 @@ practices: this project's constitution
 ## 2. Calculation correctness (Constitution Principles I & III)
 
 Flag any of the following in changed calculation code
-(`src/machine_calc/**`, especially `operations/*/formulas.py`):
+(`src/mfgparams/**`, especially `operations/*/formulas.py`):
 
 - Floating-point equality checks using `==` instead of `math.isclose` (or
   an explicit tolerance).

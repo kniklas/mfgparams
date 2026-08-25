@@ -1,6 +1,6 @@
 """Unit tests for configuration loading and default-bound fallback (T017)."""
 
-from machine_calc.config import (
+from mfgparams.config import (
     DEFAULT_MAX_DEPTH_MM,
     DEFAULT_MAX_DIAMETER_MM,
     load_configuration,
@@ -21,7 +21,7 @@ def test_nonexistent_file_returns_defaults(tmp_path):
 
 
 def test_file_overrides_both_bounds(tmp_path):
-    config_file = tmp_path / "machine-calc.toml"
+    config_file = tmp_path / "mfgparams.toml"
     config_file.write_text("max_diameter_mm = 150\nmax_depth_mm = 600\n")
 
     config = load_configuration(str(config_file))
@@ -30,7 +30,7 @@ def test_file_overrides_both_bounds(tmp_path):
 
 
 def test_file_with_partial_keys_falls_back_for_missing_key(tmp_path):
-    config_file = tmp_path / "machine-calc.toml"
+    config_file = tmp_path / "mfgparams.toml"
     config_file.write_text("max_diameter_mm = 150\n")
 
     config = load_configuration(str(config_file))
@@ -39,7 +39,7 @@ def test_file_with_partial_keys_falls_back_for_missing_key(tmp_path):
 
 
 def test_empty_file_returns_defaults(tmp_path):
-    config_file = tmp_path / "machine-calc.toml"
+    config_file = tmp_path / "mfgparams.toml"
     config_file.write_text("")
 
     config = load_configuration(str(config_file))

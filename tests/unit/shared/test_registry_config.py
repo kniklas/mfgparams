@@ -1,4 +1,4 @@
-"""Unit tests for `machine_calc.registry_config` (T013).
+"""Unit tests for `mfgparams.registry_config` (T013).
 
 Covers valid parse, malformed TOML, missing/unreadable user path,
 duplicate-within-file rejection, override-by-name, append-new-name, and
@@ -11,7 +11,7 @@ import math
 
 import pytest
 
-from machine_calc.registry_config import (
+from mfgparams.registry_config import (
     RawRegistryEntry,
     RegistryConfigError,
     load_and_merge,
@@ -94,7 +94,7 @@ def test_parse_missing_name_raises_registry_config_error():
 
 def test_missing_user_path_returns_bundled_only_with_notice(tmp_path):
     missing_path = str(tmp_path / "does-not-exist.toml")
-    result = load_and_merge("machine_calc.data", "materials.toml", missing_path, "materials")
+    result = load_and_merge("mfgparams.data", "materials.toml", missing_path, "materials")
     assert result.notice_key == "notice.materials_config.not_found"
     assert dict(result.notice_kwargs)["path"] == missing_path
     names = [entry.name for entry in result.entries]
@@ -102,7 +102,7 @@ def test_missing_user_path_returns_bundled_only_with_notice(tmp_path):
 
 
 def test_none_user_path_returns_bundled_only_no_notice():
-    result = load_and_merge("machine_calc.data", "materials.toml", None, "materials")
+    result = load_and_merge("mfgparams.data", "materials.toml", None, "materials")
     assert result.notice_key is None
     names = [entry.name for entry in result.entries]
     assert names == [
@@ -126,7 +126,7 @@ def test_duplicate_name_within_user_file_raises(tmp_path):
     path = tmp_path / "dup.toml"
     path.write_text(DUPLICATE_TOML)
     with pytest.raises(RegistryConfigError) as exc_info:
-        load_and_merge("machine_calc.data", "materials.toml", str(path), "materials")
+        load_and_merge("mfgparams.data", "materials.toml", str(path), "materials")
     assert exc_info.value.message_key == "error.materials_config.duplicate_entry"
     assert exc_info.value.kwargs["name"] == "Bronze"
 
@@ -135,7 +135,7 @@ def test_malformed_user_file_raises(tmp_path):
     path = tmp_path / "bad.toml"
     path.write_text(MALFORMED_TOML)
     with pytest.raises(RegistryConfigError) as exc_info:
-        load_and_merge("machine_calc.data", "materials.toml", str(path), "materials")
+        load_and_merge("mfgparams.data", "materials.toml", str(path), "materials")
     assert exc_info.value.message_key == "error.materials_config.malformed"
 
 
@@ -212,15 +212,15 @@ def test_unreadable_user_file_returns_notice_not_error(tmp_path):
         # skip in that case rather than asserting a false negative.
         if os.access(path, os.R_OK):
             pytest.skip("current user can still read a 0-permission file")
-        result = load_and_merge("machine_calc.data", "materials.toml", str(path), "materials")
+        result = load_and_merge("mfgparams.data", "materials.toml", str(path), "materials")
         assert result.notice_key == "notice.materials_config.not_found"
     finally:
         path.chmod(stat.S_IWRITE | stat.S_IREAD)
 
 
 def test_clear_cache_does_not_raise():
-    from machine_calc.registry_config import clear_cache
+    from mfgparams.registry_config import clear_cache
 
     clear_cache()
-    result = load_and_merge("machine_calc.data", "materials.toml", None, "materials")
+    result = load_and_merge("mfgparams.data", "materials.toml", None, "materials")
     assert result.notice_key is None

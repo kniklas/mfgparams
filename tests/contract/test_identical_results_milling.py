@@ -10,8 +10,8 @@ import re
 
 import pytest
 
-from machine_calc import calculate_end_milling, calculate_face_milling
-from machine_calc.cli import run
+from mfgparams import calculate_end_milling, calculate_face_milling
+from mfgparams.cli import run
 
 _END_MILLING = {
     "answers": [

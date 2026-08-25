@@ -1,0 +1,60 @@
+# Phase 1 Data Model: Rename Package to mfgparams
+
+This feature introduces no new data entities, persisted records, or state transitions (see
+spec's Key Entities: N/A). What it does change is a set of **identifiers** used throughout the
+project, and the **reference sites** where each identifier appears. Modeling those as the
+"entities" here gives `/speckit-tasks` a concrete inventory to work from.
+
+## Identifiers
+
+| Identifier | Old value | New value | Where it's declared |
+|---|---|---|---|
+| Distribution name | `machine-calc` | `mfgparams` | `pyproject.toml` `[project].name` |
+| Import/module name | `machine_calc` | `mfgparams` | `src/<name>/` directory + every `import`/`from` statement |
+| CLI entry point command | `machine-calc` | `mfgparams` | `pyproject.toml` `[project.scripts]` |
+| Version pointer path | `machine_calc.__version__` | `mfgparams.__version__` | `pyproject.toml` `[tool.setuptools.dynamic].version` |
+| setuptools package-data key | `machine_calc` | `mfgparams` | `pyproject.toml` `[tool.setuptools.package-data]` |
+| pytest coverage target | `--cov=machine_calc` | `--cov=mfgparams` | `pyproject.toml` `[tool.pytest.ini_options].addopts` |
+| coverage source | `machine_calc` | `mfgparams` | `pyproject.toml` `[tool.coverage.run].source` |
+| mypy target | `src/machine_calc` | `src/mfgparams` | `pyproject.toml` `[tool.mypy].files` |
+| CI tool targets (bandit/radon/xenon) | path(s) containing `machine_calc` | `mfgparams` equivalent | `.github/workflows/ci.yml` |
+| Locale env var | `MACHINE_CALC_LOCALE` | `MFGPARAMS_LOCALE` | `src/<name>/i18n.py` |
+| Performance opt-in env var | `MACHINE_CALC_RUN_PERFORMANCE_TESTS` | `MFGPARAMS_RUN_PERFORMANCE_TESTS` | `tests/performance/conftest.py`, `.github/workflows/ci.yml` |
+| Performance summary-path env var | `MACHINE_CALC_PERFORMANCE_SUMMARY_PATH` | `MFGPARAMS_PERFORMANCE_SUMMARY_PATH` | `.github/workflows/ci.yml`, `tests/performance/results.py` |
+
+Each row is a required edit; FR-001/FR-002/FR-003 are satisfied only when every row's "New
+value" is in effect and every reference site below is updated to match.
+
+## Reference site categories
+
+| Category | Examples | In scope? |
+|---|---|---|
+| Source code | `src/machine_calc/**/*` — imports, docstrings, module header comments, dynamic/string-literal package-path references (e.g. `importlib.import_module(f"machine_calc...")`, `_BUNDLED_PACKAGE` constants), and bundled TOML data-file comments | Yes — rename directory, update every import/reference, not just static imports |
+| Tests | `tests/**/*.py` — imports, plus non-import functional references (hard-coded file paths, `importlib.metadata.version(...)`, subprocess/argv values, string-literal assertions) | Yes |
+| Packaging metadata | `pyproject.toml` (see Identifiers table above) | Yes |
+| Documentation prose | `README.md`, `CHANGELOG.md` (new entries), `docs/source/*.rst`, `docs/source/conf.py` | Yes, except historical CHANGELOG entries predating the rename |
+| Sphinx autodoc directives | `docs/source/*.rst` `automodule::`/`autoclass::` targets | Yes — literal import paths, must match new module name |
+| CI/CD workflow config | `.github/workflows/ci.yml` | Yes, for tool-target paths; not for anything referencing the repo slug/URL |
+| Scripts | `scripts/sync_agent_integrations.py` and similar | Yes |
+| Environment variable names | `MACHINE_CALC_LOCALE`, `MACHINE_CALC_RUN_PERFORMANCE_TESTS`, `MACHINE_CALC_PERFORMANCE_SUMMARY_PATH` — spanning source (`i18n.py`), tests (`conftest.py`, `results.py`, and callers), CI config, and README | Yes — found via /speckit-analyze finding E1; easy to miss since they don't match an import-statement pattern |
+| Hand-authored skill docs | `.github/skills/{pypi-package-builder,pr-review-loop,code-review,skill-authoring}/SKILL.md` | Yes — these are the constitution's explicit hand-authored exception, safe to edit directly |
+| Spec history (specs 001-011) | Prior feature specs/plans/tasks referencing `machine_calc` | **No** — historical record of what was true when written; not rewritten |
+| Generated per-agent files | `.github/agents/*.agent.md`, `.github/prompts/*.prompt.md`, `.claude/skills/speckit-*` | N/A — verified to contain no project-specific package name; nothing to change, and they must not be hand-patched regardless (Principle XI) |
+| Repository-slug URLs | `github.com/kniklas/machine-calc` in README badges/issue link, `LICENSE.md` notice, and the GitHub Pages URL shape `kniklas.github.io/machine-calc` (README's Sphinx-docs link) | **No** — excluded per spec Clarifications; the repository itself is not renamed by this feature |
+| Constitution | `.specify/memory/constitution.md`'s 3 prose mentions | **No** — has its own amendment procedure; routed through `/speckit-constitution` (tasks.md T024), not edited here |
+| Generated/build artifacts | `src/*.egg-info/`, `build/`, `dist/`, `.mypy_cache/`, `.ruff_cache/`, `.pytest_cache/` | **No** — gitignored, regenerated by the next build/test run, never hand-edited |
+
+## Exclusion rule (authoritative)
+
+A reference to the old name is **out of scope for editing** if, and only if, it is:
+
+1. Part of a URL whose host+path is `github.com/kniklas/machine-calc` or
+   `kniklas.github.io/machine-calc` (or a sub-path of either), or
+2. Located inside a pre-existing spec/plan/tasks/CHANGELOG entry that documents project history
+   as it stood before this rename, or
+3. Located inside a gitignored, generated directory, or
+4. Located inside `.specify/memory/constitution.md` (its own amendment procedure applies instead).
+
+Every other occurrence of `machine_calc` or `machine-calc` in a tracked file is in scope and
+MUST be updated to `mfgparams` (FR-003). The verification test from `research.md` item 4 encodes
+this exact rule so it can be checked mechanically rather than by re-reading every file by hand.

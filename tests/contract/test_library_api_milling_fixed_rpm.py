@@ -6,7 +6,7 @@ fields are populated for both milling sub-operations. Mirrors
 tests/contract/test_library_api_fixed_rpm.py (drilling).
 """
 
-from machine_calc import (
+from mfgparams import (
     CalculationMode,
     UnitSystem,
     calculate_end_milling,

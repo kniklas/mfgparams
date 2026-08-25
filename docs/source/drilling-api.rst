@@ -2,13 +2,13 @@ Drilling API reference (developers)
 ====================================
 
 This page documents the drilling public API and the internal structure of
-``machine_calc.operations.drilling`` for contributors adding or extending
+``mfgparams.operations.drilling`` for contributors adding or extending
 drilling behaviour. For end-user CLI guidance see :doc:`drilling`.
 
 Public entry points
 --------------------
 
-Both names are importable directly from ``machine_calc``.
+Both names are importable directly from ``mfgparams``.
 
 ``calculate(...)``
     .. code-block:: python
@@ -40,11 +40,11 @@ convention: kW under ``METRIC``, HP under ``IMPERIAL``.
 Results and errors
 -------------------
 
-``calculate`` returns a :class:`~machine_calc.models.CalculationResult` and
+``calculate`` returns a :class:`~mfgparams.models.CalculationResult` and
 never raises for an expected validation failure. On success every numeric
 field is populated except ``material_removal_rate``, which stays ``None`` —
 that field is specific to milling. On failure ``error`` is an
-:class:`~machine_calc.models.ErrorInfo` with a stable ``code`` and a
+:class:`~mfgparams.models.ErrorInfo` with a stable ``code`` and a
 translated ``message``, and every numeric field is ``None``.
 
 Base error codes (``001-metal-drilling-calc``): ``INVALID_DIAMETER``,
@@ -77,8 +77,8 @@ Calculation modes
 
 ``calculate`` accepts ``mode``/``target_rpm``/``available_power`` arguments,
 added by ``002-constrained-calculation-modes``. Milling's entry points
-(:func:`~machine_calc.calculate_end_milling`,
-:func:`~machine_calc.calculate_face_milling`) accept the identical set,
+(:func:`~mfgparams.calculate_end_milling`,
+:func:`~mfgparams.calculate_face_milling`) accept the identical set,
 reusing this same contract.
 
 ``CalculationMode.STANDARD`` (default)
@@ -130,7 +130,7 @@ Package layout
 
 .. code-block:: text
 
-    machine_calc/operations/drilling/
+    mfgparams/operations/drilling/
         __init__.py         calculate() and its validate/convert/assemble orchestration
         formulas.py          calculate_drilling_metrics / calculate_drilling_metrics_at_rpm /
                               calculate_power_constrained_metrics
@@ -140,7 +140,7 @@ Package layout
 Unlike milling, drilling has a single sub-operation, so it needs no shared
 orchestration layer analogous to milling's ``_calculate.py`` — ``__init__.py``
 implements ``calculate()`` directly, delegating geometry/mode validation to
-:mod:`machine_calc.validation` and metrics computation to ``formulas.py``.
+:mod:`mfgparams.validation` and metrics computation to ``formulas.py``.
 
 Formulas
 --------

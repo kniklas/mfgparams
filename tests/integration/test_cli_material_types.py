@@ -13,8 +13,8 @@ import logging
 
 import pytest
 
-from machine_calc import i18n
-from machine_calc.cli import run
+from mfgparams import i18n
+from mfgparams.cli import run
 
 
 def _feed(monkeypatch, answers):
@@ -337,7 +337,7 @@ class TestCategoryLabelLocalization:
         i18n.clear_catalog_cache()
 
     def test_unsupported_locale_falls_back_to_english_labels(self, monkeypatch, capsys):
-        monkeypatch.setenv("MACHINE_CALC_LOCALE", "xx-no-catalog")
+        monkeypatch.setenv("MFGPARAMS_LOCALE", "xx-no-catalog")
         i18n.clear_catalog_cache()
         _feed(
             monkeypatch,
@@ -614,7 +614,7 @@ class TestMaterialsConfigLoadCaching:
         `functools.cache` key and silently rereads and reparses both the
         bundled and the user file a second time.
         """
-        from machine_calc import registry_config
+        from mfgparams import registry_config
 
         registry_config.clear_cache()
         config_path = _write_config(
@@ -750,7 +750,7 @@ specific_cutting_force = 750.0
             ["drilling", "metric", "standard", "Al{O}Y", "Bronze", "Carbide", "10", "25", "", "n"],
         )
 
-        with caplog.at_level(logging.WARNING, logger="machine_calc.i18n"):
+        with caplog.at_level(logging.WARNING, logger="mfgparams.i18n"):
             run(materials_config_path=config_path)
 
         capsys.readouterr()

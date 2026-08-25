@@ -6,8 +6,8 @@ result (FR-013, FR-016).
 
 import builtins
 
-from machine_calc import UnitSystem, calculate
-from machine_calc.cli import run
+from mfgparams import UnitSystem, calculate
+from mfgparams.cli import run
 
 
 def test_repl_displays_values_matching_direct_calculate(monkeypatch, capsys):

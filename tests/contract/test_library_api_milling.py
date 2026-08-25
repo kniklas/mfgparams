@@ -1,7 +1,7 @@
 """Contract test: the public milling API surface (T039, US4).
 
 Checks the four public entry points against
-``contracts/library-api-milling.md`` — importability from ``machine_calc``,
+``contracts/library-api-milling.md`` — importability from ``mfgparams``,
 exact signatures (parameter names, order and defaults), and the documented
 success/error ``CalculationResult`` shapes.
 
@@ -17,16 +17,16 @@ from pathlib import Path
 
 import pytest
 
-import machine_calc
-from machine_calc import (
+import mfgparams
+from mfgparams import (
     calculate_end_milling,
     calculate_face_milling,
     list_end_mill_tools,
     list_face_mill_tools,
 )
-from machine_calc.models import CalculationMode, CalculationResult, UnitSystem
+from mfgparams.models import CalculationMode, CalculationResult, UnitSystem
 
-_SRC = Path(machine_calc.__file__).parent
+_SRC = Path(mfgparams.__file__).parent
 
 _COMMON_TAIL = [
     ("material", inspect.Parameter.empty),
@@ -72,9 +72,9 @@ _EXPECTED_SIGNATURES = {
     ],
 )
 def test_entry_point_is_importable_from_the_package_root(name):
-    assert hasattr(machine_calc, name)
-    assert name in machine_calc.__all__
-    assert callable(getattr(machine_calc, name))
+    assert hasattr(mfgparams, name)
+    assert name in mfgparams.__all__
+    assert callable(getattr(mfgparams, name))
 
 
 @pytest.mark.parametrize(
@@ -157,8 +157,8 @@ def _python_files(relative: str) -> list[Path]:
 @pytest.mark.parametrize(
     "package,forbidden",
     [
-        ("operations/milling", "machine_calc.operations.drilling"),
-        ("operations/drilling", "machine_calc.operations.milling"),
+        ("operations/milling", "mfgparams.operations.drilling"),
+        ("operations/drilling", "mfgparams.operations.milling"),
     ],
     ids=["milling_does_not_import_drilling", "drilling_does_not_import_milling"],
 )
@@ -178,14 +178,14 @@ def test_operations_depend_only_on_shared_top_level_modules():
     """Anything an operation imports from the package must be a shared module."""
 
     for package in ("operations/milling", "operations/drilling"):
-        own_prefix = f"machine_calc.{package.replace('/', '.')}"
+        own_prefix = f"mfgparams.{package.replace('/', '.')}"
         for path in _python_files(package):
             for module in _imported_modules(path):
-                if not module.startswith("machine_calc."):
+                if not module.startswith("mfgparams."):
                     continue
                 if module.startswith(own_prefix):
                     continue
-                remainder = module[len("machine_calc.") :]
+                remainder = module[len("mfgparams.") :]
                 assert "." not in remainder, (
                     f"{path.relative_to(_SRC)} imports {module}, which is neither its own "
                     "package nor a shared top-level module (FR-014, Constitution VI)"

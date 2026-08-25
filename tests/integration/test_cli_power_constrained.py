@@ -7,7 +7,7 @@ power" suffix label (contracts/cli-repl-delta.md).
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 
 def test_power_constrained_mode_prompts_for_power_and_labels_result(monkeypatch, capsys):

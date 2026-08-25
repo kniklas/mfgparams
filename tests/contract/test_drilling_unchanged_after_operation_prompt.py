@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from machine_calc.cli import run
-from machine_calc.i18n import translate
+from mfgparams.cli import run
+from mfgparams.i18n import translate
 
 _DATA = Path(__file__).parent / "data"
 _BASELINE = _DATA / "drilling_baseline_session.txt"

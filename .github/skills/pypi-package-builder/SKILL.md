@@ -3,7 +3,7 @@ name: pypi-package-builder
 description: 'Repo-specific skill for scaffolding, packaging, and publishing a Python distribution from this repository to PyPI. Use when asked to create a pip-installable package, set up pyproject.toml, add packaging/build config, version the package, set up PyPI publishing CI, or prepare a release. Follows this repo''s Python conventions in .github/instructions/python.instructions.md.'
 ---
 
-# PyPI Package Builder (machine-calc)
+# PyPI Package Builder (mfgparams)
 
 Use this skill whenever the task is to turn (part of) this repository into a
 publishable Python package, or to maintain/release an already-packaged one.
@@ -36,8 +36,8 @@ tests/
   test_<module>.py
 ```
 
-- PyPI distribution name: lowercase with hyphens, e.g. `machine-calc`.
-- Python import name: underscores, e.g. `machine_calc`.
+- PyPI distribution name: lowercase with hyphens, e.g. `mfgparams`.
+- Python import name: underscores, e.g. `mfgparams`.
 - Include an empty `py.typed` marker file if the package ships type hints
   (per PEP 561) — required since `.github/instructions/python.instructions.md`
   mandates type hints on public APIs.
@@ -62,7 +62,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "machine-calc"
+name = "mfgparams"
 version = "0.1.0"
 description = "TODO: one-line summary"
 readme = "README.md"
@@ -80,7 +80,7 @@ dependencies = []
 dev = ["pytest", "mypy", "ruff", "black"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/machine_calc"]
+packages = ["src/mfgparams"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -97,7 +97,7 @@ If the package needs a CLI entry point, add:
 
 ```toml
 [project.scripts]
-machine-calc = "machine_calc.cli:main"
+mfgparams = "mfgparams.cli:main"
 ```
 
 ## 4. Versioning

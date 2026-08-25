@@ -5,7 +5,7 @@ An exceeded power budget sets ``feasibility_warning`` without altering
 ``target_rpm``/``spindle_speed_rpm``; a sufficient budget leaves no warning.
 """
 
-from machine_calc import CalculationMode, calculate
+from mfgparams import CalculationMode, calculate
 
 
 def test_exceeded_power_sets_feasibility_warning_but_keeps_target_rpm():

@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python <3.11
     import tomli as tomllib  # type: ignore[no-redef]
 
-from machine_calc import UnitSystem, calculate
+from mfgparams import UnitSystem, calculate
 
 _FIXTURES_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "materials"
 _BENCHMARK_FIXTURE = _FIXTURES_DIR / "wood-benchmark-cases.toml"
@@ -130,7 +130,7 @@ def test_feasibility_warning_imperial_power_conversion():
 
 
 def test_config_path_overrides_default_bounds(tmp_path):
-    config_file = tmp_path / "machine-calc.toml"
+    config_file = tmp_path / "mfgparams.toml"
     config_file.write_text("max_diameter_mm = 150\nmax_depth_mm = 600\n")
 
     result = calculate(

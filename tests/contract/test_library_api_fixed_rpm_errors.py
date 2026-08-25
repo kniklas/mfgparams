@@ -5,7 +5,7 @@ Per contracts/library-api-delta.md.
 
 import math
 
-from machine_calc import CalculationMode, calculate
+from mfgparams import CalculationMode, calculate
 
 
 def test_zero_target_rpm_is_invalid():

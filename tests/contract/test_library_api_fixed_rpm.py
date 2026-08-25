@@ -5,7 +5,7 @@ Per contracts/library-api-delta.md: ``spindle_speed_rpm`` echoes
 (feed_rate, machining_time, torque, power_required) are populated.
 """
 
-from machine_calc import CalculationMode, UnitSystem, calculate
+from mfgparams import CalculationMode, UnitSystem, calculate
 
 
 def test_fixed_rpm_success_response_shape():

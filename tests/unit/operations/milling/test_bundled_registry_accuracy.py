@@ -25,11 +25,11 @@ import math
 
 import pytest
 
-from machine_calc import calculate_end_milling, calculate_face_milling
-from machine_calc.operations.milling.end_milling.tools import get_end_mill_tool
-from machine_calc.operations.milling.face_milling.tools import get_face_mill_tool
-from machine_calc.registry import get_material
-from machine_calc.registry_config import clear_cache
+from mfgparams import calculate_end_milling, calculate_face_milling
+from mfgparams.operations.milling.end_milling.tools import get_end_mill_tool
+from mfgparams.operations.milling.face_milling.tools import get_face_mill_tool
+from mfgparams.registry import get_material
+from mfgparams.registry_config import clear_cache
 
 #: SC-002: each reported value must be within 5% of the reference value.
 SC002_REL_TOL = 0.05

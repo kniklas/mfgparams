@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from machine_calc.registry import (
+from mfgparams.registry import (
     DEFAULT_MATERIAL_TYPE,
     get_material,
     get_material_validation,

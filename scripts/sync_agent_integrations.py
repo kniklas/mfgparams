@@ -3,7 +3,7 @@ from Spec Kit's upstream template source and report whether anything
 changed, for the periodic multi-agent skill sync workflow
 (specs/011-multi-agent-skill-sync).
 
-Not part of the machine_calc package: this is CI-only tooling invoked by
+Not part of the mfgparams package: this is CI-only tooling invoked by
 .github/workflows/ci.yml's sync-agent-integrations job.
 """
 

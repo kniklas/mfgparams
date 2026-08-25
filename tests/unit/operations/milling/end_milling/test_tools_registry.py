@@ -10,13 +10,13 @@ import math
 
 import pytest
 
-from machine_calc.operations.milling.end_milling.tools import (
+from mfgparams.operations.milling.end_milling.tools import (
     END_MILL_TOOL_REGISTRY,
     EndMillTool,
     get_end_mill_tool,
     list_end_mill_tools,
 )
-from machine_calc.registry_config import RegistryConfigError, clear_cache
+from mfgparams.registry_config import RegistryConfigError, clear_cache
 
 _EXPECTED_BUNDLED_TOOLS = {"HSS": 1.0, "Cobalt": 1.15, "Carbide": 2.5, "Coated Carbide": 3.0}
 

@@ -1,9 +1,9 @@
 ---
 name: pr-review-loop
-description: Iteratively drive a machine-calc pull/merge request to green — fixing code until GitHub Copilot (balanced) code review comments and all required CI jobs pass — then require explicit user approval, a high-level summary of all commits, and cleanup of stale branches before closing. Use whenever asked to "work on a PR/MR until it's mergeable", "address Copilot review comments", "get CI green on this PR", or "finish up and close this MR".
+description: Iteratively drive a mfgparams pull/merge request to green — fixing code until GitHub Copilot (balanced) code review comments and all required CI jobs pass — then require explicit user approval, a high-level summary of all commits, and cleanup of stale branches before closing. Use whenever asked to "work on a PR/MR until it's mergeable", "address Copilot review comments", "get CI green on this PR", or "finish up and close this MR".
 ---
 
-# PR Review Loop (machine-calc)
+# PR Review Loop (mfgparams)
 
 Use this skill whenever you are asked to drive an open pull request (the
 user may call it an "MR") to a mergeable, closeable state: fixing code

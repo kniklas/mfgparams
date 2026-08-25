@@ -15,8 +15,8 @@ SC-005).
 
 import pytest
 
-from machine_calc import calculate, list_end_mill_tools, list_face_mill_tools, list_tools
-from machine_calc.registry_config import clear_cache
+from mfgparams import calculate, list_end_mill_tools, list_face_mill_tools, list_tools
+from mfgparams.registry_config import clear_cache
 
 
 @pytest.fixture(autouse=True)
@@ -147,13 +147,13 @@ def test_same_tool_name_in_different_tables_keeps_its_own_values(tmp_path):
         """,
     )
 
-    from machine_calc.operations.milling.end_milling.tools import get_end_mill_tool
-    from machine_calc.operations.milling.face_milling.tools import get_face_mill_tool
+    from mfgparams.operations.milling.end_milling.tools import get_end_mill_tool
+    from mfgparams.operations.milling.face_milling.tools import get_face_mill_tool
 
     assert get_end_mill_tool("Carbide", path).cutting_speed_factor == 4.0
     assert get_face_mill_tool("Carbide", path).cutting_speed_factor == 6.0
     # Drilling's own "Carbide" is unaffected by either override.
-    from machine_calc.operations.drilling.tools import get_tool
+    from mfgparams.operations.drilling.tools import get_tool
 
     assert get_tool("Carbide", path).cutting_speed_factor == 2.5
 
@@ -161,9 +161,9 @@ def test_same_tool_name_in_different_tables_keeps_its_own_values(tmp_path):
 def test_the_three_registries_use_distinct_table_keys():
     """Guard the invariant directly, not just its observable consequences."""
 
-    from machine_calc.operations.drilling import tools as drilling_tools
-    from machine_calc.operations.milling.end_milling import tools as end_tools
-    from machine_calc.operations.milling.face_milling import tools as face_tools
+    from mfgparams.operations.drilling import tools as drilling_tools
+    from mfgparams.operations.milling.end_milling import tools as end_tools
+    from mfgparams.operations.milling.face_milling import tools as face_tools
 
     keys = {
         drilling_tools._TABLE_KEY,

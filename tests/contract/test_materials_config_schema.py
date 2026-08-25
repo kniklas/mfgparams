@@ -10,9 +10,9 @@ import math
 
 import pytest
 
-from machine_calc.operations.drilling.tools import get_tool, list_tools
-from machine_calc.registry import get_material, get_material_validation, list_materials
-from machine_calc.registry_config import RegistryConfigError
+from mfgparams.operations.drilling.tools import get_tool, list_tools
+from mfgparams.registry import get_material, get_material_validation, list_materials
+from mfgparams.registry_config import RegistryConfigError
 
 
 def _write(tmp_path, name, content):

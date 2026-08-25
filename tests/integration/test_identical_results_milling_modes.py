@@ -10,8 +10,8 @@ as a direct library call must yield exactly the same numeric results.
 import builtins
 import re
 
-from machine_calc import CalculationMode, calculate_end_milling, calculate_face_milling
-from machine_calc.cli import run
+from mfgparams import CalculationMode, calculate_end_milling, calculate_face_milling
+from mfgparams.cli import run
 
 #: Displayed label -> (result attribute, decimal places used by the CLI).
 _DISPLAYED = {

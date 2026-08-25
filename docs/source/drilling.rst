@@ -1,7 +1,7 @@
 Drilling calculations (user guide)
 ===================================
 
-machine-calc calculates parameters for twist-drill **drilling**, alongside
+mfgparams calculates parameters for twist-drill **drilling**, alongside
 milling (end milling and face milling). This page covers using it from the
 interactive CLI; see :doc:`drilling-api` for the library API.
 
@@ -10,7 +10,7 @@ Selecting an operation in the REPL
 
 Start the REPL with::
 
-    python -m machine_calc
+    python -m mfgparams
 
 The first question is which machining operation to calculate; drilling is
 the default::

@@ -3,7 +3,7 @@
 
 Parses ``cli.py`` and confirms every ``input(...)``/``print(...)`` call
 site passes either no argument, a variable, or a call to
-``machine_calc.i18n.translate(...)`` — never a hard-coded string literal —
+``mfgparams.i18n.translate(...)`` — never a hard-coded string literal —
 so future edits cannot silently reintroduce untranslated text. Also
 confirms ``logging_setup.py`` (the one place Constitution VIII requires
 plain English) uses ordinary string literals, not catalog lookups.
@@ -14,7 +14,7 @@ from __future__ import annotations
 import ast
 import inspect
 
-from machine_calc import cli, logging_setup
+from mfgparams import cli, logging_setup
 
 
 def _call_sites(source: str, func_names: set[str]) -> list[ast.Call]:
@@ -45,7 +45,7 @@ def test_cli_has_no_hardcoded_user_facing_strings():
 def test_logging_setup_uses_plain_english_not_the_catalog():
     source = inspect.getsource(logging_setup)
     assert "translate(" not in source
-    assert "machine_calc.i18n" not in source and "from machine_calc.i18n" not in source
+    assert "mfgparams.i18n" not in source and "from mfgparams.i18n" not in source
 
 
 #: The milling session functions added by specs/009-milling-calculations.

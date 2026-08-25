@@ -1,7 +1,7 @@
 Milling calculations (user guide)
 =================================
 
-machine-calc calculates parameters for two milling sub-operations —
+mfgparams calculates parameters for two milling sub-operations —
 **end milling** and **face milling** — alongside drilling. This page covers
 using them from the interactive CLI; see :doc:`milling-api` for the library
 API.
@@ -11,7 +11,7 @@ Selecting an operation in the REPL
 
 Start the REPL with::
 
-    python -m machine_calc
+    python -m mfgparams
 
 The first question is which machining operation to calculate. Choosing
 ``milling`` adds a second question for the sub-operation::

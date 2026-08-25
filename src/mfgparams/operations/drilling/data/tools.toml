@@ -1,0 +1,28 @@
+# Bundled default drilling tools (FR-005 of 001-metal-drilling-calc).
+#
+# Lossless re-encoding of the hard-coded `_TOOLS` list that used to live in
+# `operations/drilling/tools.py`
+# (specs/005-configurable-materials-tools/research.md #4). Factors are
+# relative to the HSS baseline (factor 1.0) stored in
+# `mfgparams.registry`'s material reference values; see
+# specs/001-metal-drilling-calc/research.md #4.
+#
+# Schema: specs/005-configurable-materials-tools/contracts/materials-config-schema.md
+
+[[tools]]
+name = "HSS"
+cutting_speed_factor = 1.0
+feed_factor = 1.0
+unit_system = "metric"
+
+[[tools]]
+name = "Cobalt"
+cutting_speed_factor = 1.15
+feed_factor = 1.0
+unit_system = "metric"
+
+[[tools]]
+name = "Carbide"
+cutting_speed_factor = 2.5
+feed_factor = 1.1
+unit_system = "metric"

@@ -2,7 +2,7 @@
 
 import math
 
-from machine_calc.units import (
+from mfgparams.units import (
     ft_min_to_m_min,
     hp_to_kw,
     in_lb_to_nm,

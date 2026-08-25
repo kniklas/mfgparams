@@ -7,7 +7,7 @@ being locked into whichever one they picked first.
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 _DRILLING = ["metric", "standard", "Metal", "Mild Steel", "Carbide", "10", "25", ""]
 _END_MILLING = [

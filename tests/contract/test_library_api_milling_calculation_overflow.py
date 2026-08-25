@@ -12,7 +12,7 @@ already has its own ``INFEASIBLE_POWER_BUDGET`` guard, covered by
 tests/contract/test_library_api_milling_power_constrained_errors.py).
 """
 
-from machine_calc import CalculationMode, calculate_end_milling, calculate_face_milling
+from mfgparams import CalculationMode, calculate_end_milling, calculate_face_milling
 
 _END_MILLING_ARGS = dict(
     diameter=10,

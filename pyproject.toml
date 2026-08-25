@@ -3,9 +3,9 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "machine-calc"
+name = "mfgparams"
 # Single source of truth (Constitution IV): the version lives in
-# src/machine_calc/__init__.py and is read statically from there.
+# src/mfgparams/__init__.py and is read statically from there.
 dynamic = ["version"]
 description = "Metal machining calculation library and interactive CLI, covering drilling and milling operations."
 readme = "README.md"
@@ -44,16 +44,16 @@ dev = [
 ]
 
 [project.scripts]
-machine-calc = "machine_calc.__main__:main"
+mfgparams = "mfgparams.__main__:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "machine_calc.__version__" }
+version = { attr = "mfgparams.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-machine_calc = [
+mfgparams = [
     "data/*.toml",
     "operations/drilling/data/*.toml",
     "operations/milling/end_milling/data/*.toml",
@@ -62,13 +62,13 @@ machine_calc = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=machine_calc --cov-report=term-missing --cov-fail-under=90"
+addopts = "--cov=mfgparams --cov-report=term-missing --cov-fail-under=90"
 markers = [
     "performance: opt-in legacy-hardware time/memory budget checks (see tests/performance/)",
 ]
 
 [tool.coverage.run]
-source = ["machine_calc"]
+source = ["mfgparams"]
 
 [tool.coverage.report]
 fail_under = 90
@@ -89,7 +89,7 @@ line-length = 100
 target-version = ["py39"]
 
 [tool.mypy]
-files = ["src/machine_calc"]
+files = ["src/mfgparams"]
 warn_return_any = true
 ignore_missing_imports = true
 

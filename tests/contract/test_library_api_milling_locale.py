@@ -1,7 +1,7 @@
 """Contract test: locale handling in the milling library API (T041, FR-019).
 
 The milling entry points follow the same i18n contract as drilling: an
-explicit ``locale`` argument wins, ``MACHINE_CALC_LOCALE`` is consulted
+explicit ``locale`` argument wins, ``MFGPARAMS_LOCALE`` is consulted
 otherwise, and anything unrecognised falls back to English without raising
 (FR-019c/e). Error *codes* are stable identifiers and must never be
 translated — only the human-readable ``message`` changes.
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from machine_calc import calculate_end_milling, calculate_face_milling, i18n
+from mfgparams import calculate_end_milling, calculate_face_milling, i18n
 
 #: A minimal non-English catalog, registered directly into the cache so the
 #: test does not depend on which locales happen to ship with the package.
@@ -35,7 +35,7 @@ _IDS = ["end_milling", "face_milling"]
 
 @pytest.fixture(autouse=True)
 def fixture_catalog(monkeypatch):
-    monkeypatch.delenv("MACHINE_CALC_LOCALE", raising=False)
+    monkeypatch.delenv("MFGPARAMS_LOCALE", raising=False)
     i18n.clear_catalog_cache()
     monkeypatch.setitem(i18n._catalog_cache, _FIXTURE_LOCALE, _FIXTURE_CATALOG)
     yield

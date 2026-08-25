@@ -1,4 +1,4 @@
-"""Integration test: ``MACHINE_CALC_LOCALE`` env var handling at CLI startup
+"""Integration test: ``MFGPARAMS_LOCALE`` env var handling at CLI startup
 (T026b).
 
 Covers: unset -> English, set to an unrecognized value -> English (no
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import builtins
 
-from machine_calc import i18n
-from machine_calc.cli import run
+from mfgparams import i18n
+from mfgparams.cli import run
 
 _REPL_INPUTS = [
     "drilling",  # machining operation (009 FR-001)
@@ -33,7 +33,7 @@ def _run_repl(monkeypatch):
 
 
 def test_unset_locale_uses_english(monkeypatch, capsys):
-    monkeypatch.delenv("MACHINE_CALC_LOCALE", raising=False)
+    monkeypatch.delenv("MFGPARAMS_LOCALE", raising=False)
     i18n.clear_catalog_cache()
     _run_repl(monkeypatch)
 
@@ -44,7 +44,7 @@ def test_unset_locale_uses_english(monkeypatch, capsys):
 
 
 def test_unrecognized_locale_falls_back_to_english_without_error(monkeypatch, capsys):
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "xx-not-a-real-locale")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "xx-not-a-real-locale")
     i18n.clear_catalog_cache()
     _run_repl(monkeypatch)
 
@@ -59,7 +59,7 @@ def test_valid_non_english_locale_uses_that_catalog(monkeypatch, capsys):
     fixture_key = "cli.result.spindle_speed"
     fixture_catalog = {fixture_key: "Vitesse de broche : {value} RPM"}
 
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "fr-test-fixture")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "fr-test-fixture")
     i18n.clear_catalog_cache()
     monkeypatch.setitem(i18n._catalog_cache, "fr-test-fixture", fixture_catalog)
     _run_repl(monkeypatch)

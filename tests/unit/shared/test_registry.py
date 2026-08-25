@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from machine_calc.operations.drilling.tools import TOOL_REGISTRY, get_tool, list_tools
-from machine_calc.registry import (
+from mfgparams.operations.drilling.tools import TOOL_REGISTRY, get_tool, list_tools
+from mfgparams.registry import (
     MATERIAL_REGISTRY,
     WorkpieceMaterial,
     get_material,
     get_material_validation,
     list_materials,
 )
-from machine_calc.registry_config import RegistryConfigError
+from mfgparams.registry_config import RegistryConfigError
 
 _FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "materials"
 _INVALID_FIXTURE = _FIXTURES_DIR / "wood-invalid-params.toml"
@@ -83,7 +83,7 @@ def test_get_tool_returns_expected_entry():
 
 
 def test_material_validate_rejects_non_positive_fields():
-    from machine_calc.registry import _validate as validate_material
+    from mfgparams.registry import _validate as validate_material
 
     assert "reference_cutting_speed_m_min must be positive" in validate_material(
         WorkpieceMaterial("Bad", 0, 0.2, 1900.0)
@@ -97,8 +97,8 @@ def test_material_validate_rejects_non_positive_fields():
 
 
 def test_tool_validate_rejects_non_positive_fields():
-    from machine_calc.operations.drilling.tools import DrillingTool
-    from machine_calc.operations.drilling.tools import _validate as validate_tool
+    from mfgparams.operations.drilling.tools import DrillingTool
+    from mfgparams.operations.drilling.tools import _validate as validate_tool
 
     with pytest.raises(RegistryConfigError):
         validate_tool(DrillingTool("Bad", 0, 1.0))

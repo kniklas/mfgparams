@@ -13,9 +13,9 @@ import math
 
 import pytest
 
-from machine_calc import calculate_end_milling, calculate_face_milling
-from machine_calc.models import UnitSystem
-from machine_calc.units import (
+from mfgparams import calculate_end_milling, calculate_face_milling
+from mfgparams.models import UnitSystem
+from mfgparams.units import (
     cm3_min_to_in3_min,
     hp_to_kw,
     in3_min_to_cm3_min,

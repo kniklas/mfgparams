@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from machine_calc import i18n
-from machine_calc.cli import run
+from mfgparams import i18n
+from mfgparams.cli import run
 
 
 def _feed_inputs(monkeypatch, inputs):
@@ -99,7 +99,7 @@ def test_warning_and_continue_with_invalid_wood_fixture(monkeypatch, caplog, tmp
 
 
 def test_valid_override_file_lists_new_material(monkeypatch, capsys, tmp_path):
-    config = tmp_path / "my-machine-calc.toml"
+    config = tmp_path / "my-mfgparams.toml"
     config.write_text("""
         [[materials]]
         name = "Bronze"
@@ -189,7 +189,7 @@ def test_translated_name_shown_for_active_locale(monkeypatch, capsys, tmp_path):
         [materials.translations]
         fr = "Acier doux"
         """)
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "fr")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "fr")
     i18n.clear_catalog_cache()
     inputs = iter(
         [
@@ -228,7 +228,7 @@ def test_unsupported_locale_falls_back_to_english_name(monkeypatch, capsys, tmp_
         [materials.translations]
         fr = "Acier doux"
         """)
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "xx-no-catalog")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "xx-no-catalog")
     i18n.clear_catalog_cache()
     # No translation exists for "xx-no-catalog" -> the material prompt's
     # options must still include the plain English name (fallback), so
@@ -261,7 +261,7 @@ def test_imperial_declared_material_matches_metric_equivalent_metric_mode(
         reference_feed_per_rev = 0.2032
         specific_cutting_force = 896.3
         """)
-    from machine_calc import calculate
+    from mfgparams import calculate
 
     imperial_result = calculate(
         diameter=10,

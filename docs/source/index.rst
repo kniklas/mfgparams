@@ -1,4 +1,4 @@
-machine-calc documentation
+mfgparams documentation
 ===========================
 
 Metal machining calculation library and interactive CLI, covering drilling

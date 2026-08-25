@@ -1,9 +1,9 @@
 ---
 name: skill-authoring
-description: Repo-specific checklist for writing or editing files under .github/skills/**/SKILL.md in machine-calc. Applies to any PR that changes a skill's own documentation (not application code) — catches the recurring class of self-consistency and unverified-CLI-behavior bugs found by Copilot review across this repo's own skill-editing PRs (#22, #25, #29, #31, #35).
+description: Repo-specific checklist for writing or editing files under .github/skills/**/SKILL.md in mfgparams. Applies to any PR that changes a skill's own documentation (not application code) — catches the recurring class of self-consistency and unverified-CLI-behavior bugs found by Copilot review across this repo's own skill-editing PRs (#22, #25, #29, #31, #35).
 ---
 
-# Skill Authoring Checklist (machine-calc)
+# Skill Authoring Checklist (mfgparams)
 
 Use this skill whenever a PR modifies a file under `.github/skills/**` —
 that is, the skill is documentation *about how an agent should operate*

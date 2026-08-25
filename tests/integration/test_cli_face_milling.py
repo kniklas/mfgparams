@@ -7,7 +7,7 @@ supplied power rating is exceeded.
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 _ANSWERS = [
     "milling",
