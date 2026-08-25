@@ -8,8 +8,9 @@ Added sections:
     how to develop a feature too large/risky for one pull request: use a long-lived
     integration branch (a numbered feature branch, explicitly created — since
     `/speckit-specify`'s branch-creation hook is optional and not guaranteed to run) rather
-    than `main`, target sub-PRs at that branch under a matching branch-protection ruleset
-    and identical CI/review gates, reconcile with `main` incrementally (merge `main` in, or
+    than `main`, target sub-PRs at that branch under the same two separate branch-protection
+    rulesets `main` uses (status-checks, no-bypass; PR-review, owner-only bypass) and
+    identical CI/review gates, reconcile with `main` incrementally (merge `main` in, or
     rebase the integration branch onto `main` — never the reverse), and only merge to
     `main` once the full feature's tasks are complete, tests pass, and `/speckit-converge`
     confirms the implementation matches spec/plan/tasks, followed by branch cleanup.
@@ -399,12 +400,15 @@ into one PR or merged to `main` in a partially-built state.
   Development Workflow — the quality bar for an intermediate PR is not lower merely
   because its target is not `main`. Because this repository's required-status-check
   ruleset and CodeQL default-setup scanning are currently scoped to `main` (see
-  Additional Constraints/README), the integration branch MUST be brought under a matching
-  ruleset (required status checks and PR-review enforcement equivalent to `main`'s) before
-  its first sub-PR is opened, so this gate is actually enforced and not merely documented;
-  an additional explicit CodeQL workflow trigger covering the integration branch MAY
-  supplement that ruleset if default-setup scanning does not already cover it, but MUST
-  NOT be used as a substitute for the ruleset itself.
+  Additional Constraints/README), the integration branch MUST be brought under the same two
+  separate rulesets `main` uses (a status-checks ruleset with no bypass for anyone, and a
+  distinct PR-review ruleset whose bypass is scoped only to the repository owner) before
+  its first sub-PR is opened, so this gate is actually enforced and not merely documented.
+  These MUST remain two separate rulesets, not combined into one: combining them would let
+  the owner's review bypass also bypass required status checks. An additional explicit
+  CodeQL workflow trigger covering the integration branch MAY supplement this if default-
+  setup scanning does not already cover it, but MUST NOT be used as a substitute for either
+  ruleset.
 - The integration branch MUST be reconciled with `main` (merging `main` into the integration
   branch, or rebasing the integration branch onto `main`) before each new sub-PR is opened
   against it, and again immediately before the final merge to `main`, so divergence is
