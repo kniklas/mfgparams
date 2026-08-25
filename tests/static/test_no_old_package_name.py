@@ -83,9 +83,10 @@ def _stray_matches(relative_path: str) -> list[str]:
 
     findings = []
     for lineno, line in enumerate(text.splitlines(), start=1):
-        if any(substring in line for substring in _REPO_URL_SUBSTRINGS):
-            continue
-        if _OLD_NAME_PATTERN.search(line):
+        checked_line = line
+        for substring in _REPO_URL_SUBSTRINGS:
+            checked_line = checked_line.replace(substring, "")
+        if _OLD_NAME_PATTERN.search(checked_line):
             findings.append(f"{relative_path}:{lineno}: {line.strip()}")
     return findings
 
