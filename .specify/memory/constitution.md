@@ -18,8 +18,19 @@ Templates requiring updates:
   ✅ .specify/templates/plan-template.md (no changes needed)
   ✅ .specify/templates/tasks-template.md (no changes needed)
   ✅ .specify/templates/spec-template.md (no changes needed)
-  ✅ .github/copilot-instructions.md (no changes needed)
-Follow-up TODOs: none
+  ⚠️ .github/copilot-instructions.md (needs reconciliation — its "Spec Kit workflow"
+     section currently describes `speckit.specify` as creating feature branches
+     automatically; Principle XII now states branch creation is optional/hook-gated and
+     MUST be done explicitly. Per Principle XI this file is a generated integration
+     artifact and MUST NOT be hand-patched here; regenerate/reconcile it via the normal
+     Spec Kit integration mechanism as a follow-up, not within this constitution-only PR.)
+Follow-up TODOs:
+  - Reconcile `.github/copilot-instructions.md`'s branch-creation description with
+    Principle XII (see ⚠️ row above).
+  - Run `/speckit-analyze` (or an equivalent cross-artifact consistency check) against a
+    representative in-flight spec per the Governance section's amendment-propagation
+    requirement; not run as part of this amendment since it introduces a new governance
+    principle with no directly affected feature spec/plan/tasks of its own.
 -->
 
 <!--
@@ -385,16 +396,24 @@ into one PR or merged to `main` in a partially-built state.
   for a pull request into `main` (Principles II, III, and IX: tests, type-checking,
   linting, complexity/security/dependency scanning) and MUST receive review per
   Development Workflow — the quality bar for an intermediate PR is not lower merely
-  because its target is not `main`.
+  because its target is not `main`. Because this repository's required-status-check
+  ruleset and CodeQL default-setup scanning are currently scoped to `main` (see
+  Additional Constraints/README), the integration branch MUST be brought under equivalent
+  branch-protection and CodeQL coverage before its first sub-PR is opened — configuring a
+  matching ruleset for the integration branch, or an explicit CodeQL workflow trigger
+  covering it — so this gate is actually enforced and not merely documented.
 - The integration branch MUST be reconciled with `main` (merging `main` into the integration
-  branch, or rebasing the integration branch onto `main` — never the reverse, which would
-  rewrite `main`) before each new sub-PR is opened against it, and again immediately before
-  the final merge to `main`, so divergence is resolved incrementally rather than compounding
-  into an unreviewable final diff.
-- The feature MUST NOT be merged into `main` until: all of its `tasks.md` items are
-  complete, the full test suite passes on the integration branch with `main`'s latest
-  changes reconciled in, and `/speckit-analyze` (or an equivalent cross-artifact
-  consistency check) has been run against the final state.
+  branch, or rebasing the integration branch onto `main`) before each new sub-PR is opened
+  against it, and again immediately before the final merge to `main`, so divergence is
+  resolved incrementally rather than compounding into an unreviewable final diff. Rebasing
+  `main` onto the integration branch MUST NOT be done, since that would rewrite `main`.
+- The feature MUST NOT be merged into `main` until: all of its `tasks.md` items other than
+  ones explicitly designated as post-merge validation/cleanup are complete (a post-merge
+  item, e.g. confirming a scheduled workflow trigger fires, MAY remain open at merge time
+  but MUST be tracked to completion afterward rather than dropped), the full test suite
+  passes on the integration branch with `main`'s latest changes reconciled in, and
+  `/speckit-analyze` (or an equivalent cross-artifact consistency check) has been run
+  against the final state.
 - The final merge to `main` MUST happen through a pull request like any other change; once
   merged, the integration branch and any of its now-obsolete sub-branches MUST be deleted
   to avoid stale, confusing branch state.
