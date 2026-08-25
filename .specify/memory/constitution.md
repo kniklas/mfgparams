@@ -6,10 +6,12 @@ Modified principles: none (all existing principles unchanged)
 Added sections:
   - Principle XII (Long-Lived Feature Branches for Multi-PR Work) — new principle defining
     how to develop a feature too large/risky for one pull request: use a long-lived
-    integration branch (the standard numbered feature branch from `/speckit-specify`)
-    rather than `main`, target sub-PRs at that branch, apply identical CI/review gates to
-    every intermediate PR, reconcile with `main` incrementally, and only merge to `main`
-    once the full feature's tasks/tests/analysis are complete, followed by branch cleanup.
+    integration branch (a numbered feature branch, explicitly created — since
+    `/speckit-specify`'s branch-creation hook is optional and not guaranteed to run) rather
+    than `main`, target sub-PRs at that branch, apply identical CI/review gates to every
+    intermediate PR, reconcile with `main` incrementally (merge `main` in, or rebase the
+    integration branch onto `main`), and only merge to `main` once the full feature's
+    tasks/tests/analysis are complete, followed by branch cleanup.
 Expanded sections: none
 Removed sections: none
 Templates requiring updates:
@@ -369,9 +371,13 @@ hand-duplicated, independently-diverging instruction sets per agent.
 A feature whose spec/plan/tasks are too large or risky to implement, test, and review in a
 single pull request MUST use a long-lived integration branch rather than being force-fit
 into one PR or merged to `main` in a partially-built state.
-- The feature MUST still be created via the standard `/speckit-specify` flow, producing one
-  numbered feature branch (e.g., `NNN-short-name`) off `main`; this branch, not `main`,
-  becomes the integration branch for the feature's full lifetime.
+- The feature MUST still be created via the standard `/speckit-specify` flow, and a numbered
+  feature branch (e.g., `NNN-short-name`) off `main` MUST be explicitly created for it —
+  either via that flow's `before_specify` branch-creation hook where one is configured, or
+  manually using the same naming convention otherwise, since branch creation is optional
+  and independent of the spec directory in the standard flow and MUST NOT be assumed to
+  happen automatically. This branch, not `main`, becomes the integration branch for the
+  feature's full lifetime.
 - Sub-units of work MUST be delivered as separate pull requests targeting the integration
   branch, not `main`, until the feature is complete; `main` MUST NOT receive a pull request
   for a partially-built slice of the feature.
@@ -380,10 +386,11 @@ into one PR or merged to `main` in a partially-built state.
   linting, complexity/security/dependency scanning) and MUST receive review per
   Development Workflow — the quality bar for an intermediate PR is not lower merely
   because its target is not `main`.
-- The integration branch MUST be reconciled with `main` (merge or rebase `main` into it)
-  before each new sub-PR is opened against it, and again immediately before the final
-  merge to `main`, so divergence is resolved incrementally rather than compounding into an
-  unreviewable final diff.
+- The integration branch MUST be reconciled with `main` (merging `main` into the integration
+  branch, or rebasing the integration branch onto `main` — never the reverse, which would
+  rewrite `main`) before each new sub-PR is opened against it, and again immediately before
+  the final merge to `main`, so divergence is resolved incrementally rather than compounding
+  into an unreviewable final diff.
 - The feature MUST NOT be merged into `main` until: all of its `tasks.md` items are
   complete, the full test suite passes on the integration branch with `main`'s latest
   changes reconciled in, and `/speckit-analyze` (or an equivalent cross-artifact
