@@ -8,10 +8,11 @@ Added sections:
     how to develop a feature too large/risky for one pull request: use a long-lived
     integration branch (a numbered feature branch, explicitly created — since
     `/speckit-specify`'s branch-creation hook is optional and not guaranteed to run) rather
-    than `main`, target sub-PRs at that branch, apply identical CI/review gates to every
-    intermediate PR, reconcile with `main` incrementally (merge `main` in, or rebase the
-    integration branch onto `main`), and only merge to `main` once the full feature's
-    tasks/tests/analysis are complete, followed by branch cleanup.
+    than `main`, target sub-PRs at that branch under a matching branch-protection ruleset
+    and identical CI/review gates, reconcile with `main` incrementally (merge `main` in, or
+    rebase the integration branch onto `main` — never the reverse), and only merge to
+    `main` once the full feature's tasks are complete, tests pass, and `/speckit-converge`
+    confirms the implementation matches spec/plan/tasks, followed by branch cleanup.
 Expanded sections: none
 Removed sections: none
 Templates requiring updates:
@@ -398,10 +399,12 @@ into one PR or merged to `main` in a partially-built state.
   Development Workflow — the quality bar for an intermediate PR is not lower merely
   because its target is not `main`. Because this repository's required-status-check
   ruleset and CodeQL default-setup scanning are currently scoped to `main` (see
-  Additional Constraints/README), the integration branch MUST be brought under equivalent
-  branch-protection and CodeQL coverage before its first sub-PR is opened — configuring a
-  matching ruleset for the integration branch, or an explicit CodeQL workflow trigger
-  covering it — so this gate is actually enforced and not merely documented.
+  Additional Constraints/README), the integration branch MUST be brought under a matching
+  ruleset (required status checks and PR-review enforcement equivalent to `main`'s) before
+  its first sub-PR is opened, so this gate is actually enforced and not merely documented;
+  an additional explicit CodeQL workflow trigger covering the integration branch MAY
+  supplement that ruleset if default-setup scanning does not already cover it, but MUST
+  NOT be used as a substitute for the ruleset itself.
 - The integration branch MUST be reconciled with `main` (merging `main` into the integration
   branch, or rebasing the integration branch onto `main`) before each new sub-PR is opened
   against it, and again immediately before the final merge to `main`, so divergence is
@@ -412,8 +415,11 @@ into one PR or merged to `main` in a partially-built state.
   item, e.g. confirming a scheduled workflow trigger fires, MAY remain open at merge time
   but MUST be tracked to completion afterward rather than dropped), the full test suite
   passes on the integration branch with `main`'s latest changes reconciled in, and
-  `/speckit-analyze` (or an equivalent cross-artifact consistency check) has been run
-  against the final state.
+  `/speckit-converge` (or an equivalent implementation-vs-artifact completeness check) has
+  been run against the final state, with any tasks it appends completed —
+  `/speckit-analyze` alone is insufficient here since it only cross-checks `spec.md`,
+  `plan.md`, and `tasks.md` against each other pre-implementation and cannot detect
+  implementation work that never happened.
 - The final merge to `main` MUST happen through a pull request like any other change; once
   merged, the integration branch and any of its now-obsolete sub-branches MUST be deleted
   to avoid stale, confusing branch state.
