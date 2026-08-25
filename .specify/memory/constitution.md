@@ -405,10 +405,14 @@ into one PR or merged to `main` in a partially-built state.
   distinct PR-review ruleset whose bypass is scoped only to the repository owner) before
   its first sub-PR is opened, so this gate is actually enforced and not merely documented.
   These MUST remain two separate rulesets, not combined into one: combining them would let
-  the owner's review bypass also bypass required status checks. An additional explicit
-  CodeQL workflow trigger covering the integration branch MAY supplement this if default-
-  setup scanning does not already cover it, but MUST NOT be used as a substitute for either
-  ruleset.
+  the owner's review bypass also bypass required status checks. If CodeQL default setup
+  does not scan the integration branch, an explicit CodeQL advanced-setup workflow covering
+  it MUST be added (not merely may be) to satisfy the identical-gates requirement above —
+  but because CodeQL default and advanced setup cannot both run for the same language at
+  once (enabling advanced setup replaces default setup entirely, repo-wide), that workflow
+  MUST trigger on both `main` and the integration branch so introducing it cannot silently
+  drop `main`'s existing CodeQL coverage; it MUST NOT be used as a substitute for either
+  ruleset above.
 - The integration branch MUST be reconciled with `main` (merging `main` into the integration
   branch, or rebasing the integration branch onto `main`) before each new sub-PR is opened
   against it, and again immediately before the final merge to `main`, so divergence is
