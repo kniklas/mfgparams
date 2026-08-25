@@ -1,6 +1,28 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 1.9.1 → 1.10.0
+Modified principles: none (all existing principles unchanged)
+Added sections:
+  - Principle XII (Long-Lived Feature Branches for Multi-PR Work) — new principle defining
+    how to develop a feature too large/risky for one pull request: use a long-lived
+    integration branch (the standard numbered feature branch from `/speckit-specify`)
+    rather than `main`, target sub-PRs at that branch, apply identical CI/review gates to
+    every intermediate PR, reconcile with `main` incrementally, and only merge to `main`
+    once the full feature's tasks/tests/analysis are complete, followed by branch cleanup.
+Expanded sections: none
+Removed sections: none
+Templates requiring updates:
+  ✅ .specify/templates/plan-template.md (no changes needed)
+  ✅ .specify/templates/tasks-template.md (no changes needed)
+  ✅ .specify/templates/spec-template.md (no changes needed)
+  ✅ .github/copilot-instructions.md (no changes needed)
+Follow-up TODOs: none
+-->
+
+<!--
+Sync Impact Report (previous amendment)
+==================
 Version change: 1.9.0 → 1.9.1
 Modified principles: Principle XI (Multi-Agent Coding-Tool Consistency) — wording-only
   clarification within the v1.9.0 "genuinely shared, hand-authored skills" exception
@@ -343,6 +365,38 @@ hand-duplicated, independently-diverging instruction sets per agent.
   directory can — the drift this principle exists to prevent is structurally impossible
   for it.
 
+### XII. Long-Lived Feature Branches for Multi-PR Work
+A feature whose spec/plan/tasks are too large or risky to implement, test, and review in a
+single pull request MUST use a long-lived integration branch rather than being force-fit
+into one PR or merged to `main` in a partially-built state.
+- The feature MUST still be created via the standard `/speckit-specify` flow, producing one
+  numbered feature branch (e.g., `NNN-short-name`) off `main`; this branch, not `main`,
+  becomes the integration branch for the feature's full lifetime.
+- Sub-units of work MUST be delivered as separate pull requests targeting the integration
+  branch, not `main`, until the feature is complete; `main` MUST NOT receive a pull request
+  for a partially-built slice of the feature.
+- Every pull request into the integration branch MUST pass the identical CI gates required
+  for a pull request into `main` (Principles II, III, and IX: tests, type-checking,
+  linting, complexity/security/dependency scanning) and MUST receive review per
+  Development Workflow — the quality bar for an intermediate PR is not lower merely
+  because its target is not `main`.
+- The integration branch MUST be reconciled with `main` (merge or rebase `main` into it)
+  before each new sub-PR is opened against it, and again immediately before the final
+  merge to `main`, so divergence is resolved incrementally rather than compounding into an
+  unreviewable final diff.
+- The feature MUST NOT be merged into `main` until: all of its `tasks.md` items are
+  complete, the full test suite passes on the integration branch with `main`'s latest
+  changes reconciled in, and `/speckit-analyze` (or an equivalent cross-artifact
+  consistency check) has been run against the final state.
+- The final merge to `main` MUST happen through a pull request like any other change; once
+  merged, the integration branch and any of its now-obsolete sub-branches MUST be deleted
+  to avoid stale, confusing branch state.
+- Rationale: forcing a large feature into one pull request either blocks review until an
+  unreviewably large diff is ready, or pressures merging partially-built/untested work into
+  `main`, violating Principles II and III; a long-lived integration branch lets the same
+  PR-sized review and CI discipline apply throughout, while keeping `main` always
+  releasable per the Principle VII/Additional Constraints continuous-publish requirement.
+
 ## Additional Constraints (Quality Gates)
 
 - CI MUST run linting, the full automated test suite, and a package build check on every
@@ -409,4 +463,4 @@ recurring pattern, MUST trigger a proposed constitution amendment rather than re
 ad-hoc exceptions. Use `.specify/memory/constitution.md` as the authoritative source for
 runtime development guidance until a dedicated guidance file is introduced.
 
-**Version**: 1.9.1 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-22
+**Version**: 1.10.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-25
