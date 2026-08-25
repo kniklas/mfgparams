@@ -1,6 +1,43 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 1.9.1 → 1.10.0
+Modified principles: none (all existing principles unchanged)
+Added sections:
+  - Principle XII (Long-Lived Feature Branches for Multi-PR Work) — new principle defining
+    how to develop a feature too large/risky for one pull request: use a long-lived
+    integration branch (a numbered feature branch, explicitly created — since
+    `/speckit-specify`'s branch-creation hook is optional and not guaranteed to run) rather
+    than `main`, target sub-PRs at that branch under the same two separate branch-protection
+    rulesets `main` uses (status-checks, no-bypass; PR-review, owner-only bypass) and
+    identical CI/review gates, reconcile with `main` incrementally (merge `main` in, or
+    rebase the integration branch onto `main` — never the reverse), and only merge to
+    `main` once the full feature's tasks are complete, tests pass, and `/speckit-converge`
+    confirms the implementation matches spec/plan/tasks, followed by branch cleanup.
+Expanded sections: none
+Removed sections: none
+Templates requiring updates:
+  ✅ .specify/templates/plan-template.md (no changes needed)
+  ✅ .specify/templates/tasks-template.md (no changes needed)
+  ✅ .specify/templates/spec-template.md (no changes needed)
+  ⚠️ .github/copilot-instructions.md (needs reconciliation — its "Spec Kit workflow"
+     section currently describes `speckit.specify` as creating feature branches
+     automatically; Principle XII now states branch creation is optional/hook-gated and
+     MUST be done explicitly. Per Principle XI this file is a generated integration
+     artifact and MUST NOT be hand-patched here; regenerate/reconcile it via the normal
+     Spec Kit integration mechanism as a follow-up, not within this constitution-only PR.)
+Follow-up TODOs:
+  - Reconcile `.github/copilot-instructions.md`'s branch-creation description with
+    Principle XII (see ⚠️ row above).
+  - Run `/speckit-analyze` (or an equivalent cross-artifact consistency check) against a
+    representative in-flight spec per the Governance section's amendment-propagation
+    requirement; not run as part of this amendment since it introduces a new governance
+    principle with no directly affected feature spec/plan/tasks of its own.
+-->
+
+<!--
+Sync Impact Report (previous amendment)
+==================
 Version change: 1.9.0 → 1.9.1
 Modified principles: Principle XI (Multi-Agent Coding-Tool Consistency) — wording-only
   clarification within the v1.9.0 "genuinely shared, hand-authored skills" exception
@@ -343,6 +380,63 @@ hand-duplicated, independently-diverging instruction sets per agent.
   directory can — the drift this principle exists to prevent is structurally impossible
   for it.
 
+### XII. Long-Lived Feature Branches for Multi-PR Work
+A feature whose spec/plan/tasks are too large or risky to implement, test, and review in a
+single pull request MUST use a long-lived integration branch rather than being force-fit
+into one PR or merged to `main` in a partially-built state.
+- The feature MUST still be created via the standard `/speckit-specify` flow, and a numbered
+  feature branch (e.g., `NNN-short-name`) off `main` MUST be explicitly created for it —
+  either via that flow's `before_specify` branch-creation hook where one is configured, or
+  manually using the same naming convention otherwise, since branch creation is optional
+  and independent of the spec directory in the standard flow and MUST NOT be assumed to
+  happen automatically. This branch, not `main`, becomes the integration branch for the
+  feature's full lifetime.
+- Sub-units of work MUST be delivered as separate pull requests targeting the integration
+  branch, not `main`, until the feature is complete; `main` MUST NOT receive a pull request
+  for a partially-built slice of the feature.
+- Every pull request into the integration branch MUST pass the identical CI gates required
+  for a pull request into `main` (Principles II, III, and IX: tests, type-checking,
+  linting, complexity/security/dependency scanning) and MUST receive review per
+  Development Workflow — the quality bar for an intermediate PR is not lower merely
+  because its target is not `main`. Because this repository's required-status-check
+  ruleset and CodeQL default-setup scanning are currently scoped to `main` (see
+  Additional Constraints/README), the integration branch MUST be brought under the same two
+  separate rulesets `main` uses (a status-checks ruleset with no bypass for anyone, and a
+  distinct PR-review ruleset whose bypass is scoped only to the repository owner) before
+  its first sub-PR is opened, so this gate is actually enforced and not merely documented.
+  These MUST remain two separate rulesets, not combined into one: combining them would let
+  the owner's review bypass also bypass required status checks. If CodeQL default setup
+  does not scan the integration branch, an explicit CodeQL advanced-setup workflow covering
+  it MUST be added (not merely may be) to satisfy the identical-gates requirement above —
+  but because CodeQL default and advanced setup cannot both run for the same language at
+  once (enabling advanced setup replaces default setup entirely, repo-wide), that workflow
+  MUST trigger on both `main` and the integration branch so introducing it cannot silently
+  drop `main`'s existing CodeQL coverage; it MUST NOT be used as a substitute for either
+  ruleset above.
+- The integration branch MUST be reconciled with `main` (merging `main` into the integration
+  branch, or rebasing the integration branch onto `main`) before each new sub-PR is opened
+  against it, and again immediately before the final merge to `main`, so divergence is
+  resolved incrementally rather than compounding into an unreviewable final diff. Rebasing
+  `main` onto the integration branch MUST NOT be done, since that would rewrite `main`.
+- The feature MUST NOT be merged into `main` until: all of its `tasks.md` items other than
+  ones explicitly designated as post-merge validation/cleanup are complete (a post-merge
+  item, e.g. confirming a scheduled workflow trigger fires, MAY remain open at merge time
+  but MUST be tracked to completion afterward rather than dropped), the full test suite
+  passes on the integration branch with `main`'s latest changes reconciled in, and
+  `/speckit-converge` (or an equivalent implementation-vs-artifact completeness check) has
+  been run against the final state, with any tasks it appends completed —
+  `/speckit-analyze` alone is insufficient here since it only cross-checks `spec.md`,
+  `plan.md`, and `tasks.md` against each other pre-implementation and cannot detect
+  implementation work that never happened.
+- The final merge to `main` MUST happen through a pull request like any other change; once
+  merged, the integration branch and any of its now-obsolete sub-branches MUST be deleted
+  to avoid stale, confusing branch state.
+- Rationale: forcing a large feature into one pull request either blocks review until an
+  unreviewably large diff is ready, or pressures merging partially-built/untested work into
+  `main`, violating Principles II and III; a long-lived integration branch lets the same
+  PR-sized review and CI discipline apply throughout, while keeping `main` always
+  releasable per the Principle VII/Additional Constraints continuous-publish requirement.
+
 ## Additional Constraints (Quality Gates)
 
 - CI MUST run linting, the full automated test suite, and a package build check on every
@@ -409,4 +503,4 @@ recurring pattern, MUST trigger a proposed constitution amendment rather than re
 ad-hoc exceptions. Use `.specify/memory/constitution.md` as the authoritative source for
 runtime development guidance until a dedicated guidance file is introduced.
 
-**Version**: 1.9.1 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-22
+**Version**: 1.10.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-25
