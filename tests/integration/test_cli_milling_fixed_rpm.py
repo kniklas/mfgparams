@@ -10,7 +10,7 @@ sessions.
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 
 def test_end_milling_fixed_rpm_mode_prompts_for_target_rpm_and_labels_result(monkeypatch, capsys):

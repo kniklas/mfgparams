@@ -1,4 +1,4 @@
-"""Sphinx configuration for machine-calc documentation.
+"""Sphinx configuration for mfgparams documentation.
 
 Minimal scaffold added alongside the CI `docs` job
 (specs/003-ci-quality-security-gates) so that job has a real Sphinx project
@@ -9,7 +9,7 @@ T035/T036 for the original documentation-content tasks).
 
 from __future__ import annotations
 
-project = "machine-calc"
+project = "mfgparams"
 copyright = "2026, kniklas"
 author = "kniklas"
 

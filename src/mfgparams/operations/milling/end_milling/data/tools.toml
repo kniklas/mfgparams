@@ -1,0 +1,40 @@
+# Bundled default end-mill tools (specs/009-milling-calculations FR-004,
+# FR-015).
+#
+# Factors are relative to the HSS baseline (factor 1.0) stored in
+# `mfgparams.registry`'s material reference values, exactly as
+# `operations/drilling/data/tools.toml` does; see
+# specs/009-milling-calculations/research.md #3. Typical multiplier ranges
+# are drawn from general-purpose machining references (Machinery's Handbook
+# / Sandvik Coromant): solid-carbide end mills tolerate substantially higher
+# cutting speeds than HSS, cobalt moderately higher, and a coating adds a
+# further increment over uncoated carbide.
+#
+# There is deliberately no `feed_factor` key: for milling the feed per tooth
+# is a direct per-calculation user input, not a registry-derived multiplier
+# (research.md #4).
+#
+# The table key is `end_mill_tools`, NOT drilling's `tools`: each tool kind
+# owns its own independently addressable section so a user config file can
+# add an end mill without touching the drilling registry
+# (contracts/milling-tools-config-schema.md).
+
+[[end_mill_tools]]
+name = "HSS"
+cutting_speed_factor = 1.0
+unit_system = "metric"
+
+[[end_mill_tools]]
+name = "Cobalt"
+cutting_speed_factor = 1.15
+unit_system = "metric"
+
+[[end_mill_tools]]
+name = "Carbide"
+cutting_speed_factor = 2.5
+unit_system = "metric"
+
+[[end_mill_tools]]
+name = "Coated Carbide"
+cutting_speed_factor = 3.0
+unit_system = "metric"

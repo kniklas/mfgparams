@@ -18,7 +18,7 @@ contracts/performance-suite-contract.md) requires the default/blocking
 suite to never execute measurement logic from ``tests/performance/`` or
 have its own duration affected by it. Run explicitly via::
 
-    MACHINE_CALC_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ \\
+    MFGPARAMS_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ \\
         -m performance -p no:cacheprovider --no-cov -v -s
 """
 

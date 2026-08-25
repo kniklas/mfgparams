@@ -10,9 +10,9 @@ import math
 
 import pytest
 
-from machine_calc import calculate_face_milling
-from machine_calc.models import CalculationMode, UnitSystem
-from machine_calc.registry_config import clear_cache
+from mfgparams import calculate_face_milling
+from mfgparams.models import CalculationMode, UnitSystem
+from mfgparams.registry_config import clear_cache
 
 _NUMERIC_FIELDS = (
     "spindle_speed_rpm",

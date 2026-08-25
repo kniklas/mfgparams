@@ -13,8 +13,8 @@ import dataclasses
 
 import pytest
 
-from machine_calc import calculate
-from machine_calc.models import CalculationResult, UnitSystem
+from mfgparams import calculate
+from mfgparams.models import CalculationResult, UnitSystem
 
 #: Every field drilling relied on before 009, in its original order.
 _PRE_EXISTING_FIELDS = [

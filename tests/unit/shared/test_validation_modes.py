@@ -7,8 +7,8 @@ follow-up).
 
 import pytest
 
-from machine_calc.models import CalculationMode
-from machine_calc.validation import validate_mode_arguments, validate_target_rpm
+from mfgparams.models import CalculationMode
+from mfgparams.validation import validate_mode_arguments, validate_target_rpm
 
 
 @pytest.mark.parametrize("bad_rpm", [0, -1, -100.5, float("nan"), float("inf"), float("-inf")])

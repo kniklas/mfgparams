@@ -7,8 +7,8 @@ drilling check.
 
 import pytest
 
-from machine_calc.config import Configuration
-from machine_calc.validation import (
+from mfgparams.config import Configuration
+from mfgparams.validation import (
     validate_depth_of_cut_mm,
     validate_engagement_mm,
     validate_feed_per_tooth_mm,

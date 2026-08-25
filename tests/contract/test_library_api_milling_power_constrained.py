@@ -7,7 +7,7 @@ milling sub-operations.
 
 import math
 
-from machine_calc import (
+from mfgparams import (
     CalculationMode,
     UnitSystem,
     calculate_end_milling,

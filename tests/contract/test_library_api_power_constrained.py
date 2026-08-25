@@ -5,7 +5,7 @@ Per contracts/library-api-delta.md.
 
 import math
 
-from machine_calc import CalculationMode, UnitSystem, calculate
+from mfgparams import CalculationMode, UnitSystem, calculate
 
 
 def test_power_constrained_success_response_shape():

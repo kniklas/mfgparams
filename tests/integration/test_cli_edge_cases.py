@@ -6,7 +6,7 @@ feasibility-warning display, invalid optional power input, and the
 import builtins
 import sys
 
-from machine_calc.cli import main, run
+from mfgparams.cli import main, run
 
 
 def test_invalid_unit_system_is_reprompted(monkeypatch, capsys):
@@ -109,7 +109,7 @@ def test_main_runs_repl_to_completion(monkeypatch, capsys):
         ["drilling", "metric", "standard", "Metal", "Mild Steel", "Carbide", "10", "25", "", "n"]
     )
     monkeypatch.setattr(builtins, "input", lambda _prompt="": next(inputs))
-    monkeypatch.setattr(sys, "argv", ["machine-calc"])
+    monkeypatch.setattr(sys, "argv", ["mfgparams"])
 
     main()
 
@@ -122,7 +122,7 @@ def test_main_handles_keyboard_interrupt(monkeypatch, capsys):
         raise KeyboardInterrupt
 
     monkeypatch.setattr(builtins, "input", _raise_interrupt)
-    monkeypatch.setattr(sys, "argv", ["machine-calc"])
+    monkeypatch.setattr(sys, "argv", ["mfgparams"])
 
     main()  # must not propagate the interrupt
 

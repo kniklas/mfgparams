@@ -9,8 +9,8 @@ import builtins
 
 import pytest
 
-from machine_calc import cli
-from machine_calc.cli import run
+from mfgparams import cli
+from mfgparams.cli import run
 
 _DRILLING_ANSWERS = [
     "metric",

@@ -1,4 +1,4 @@
-# machine-calc
+# mfgparams
 
 [![CI](https://github.com/kniklas/machine-calc/actions/workflows/ci.yml/badge.svg)](https://github.com/kniklas/machine-calc/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/kniklas/machine-calc/branch/main/graph/badge.svg)](https://codecov.io/gh/kniklas/machine-calc)
@@ -19,7 +19,7 @@ published automatically to GitHub Pages on every merge to `main`.
 
 ## License
 
-`machine-calc` is **free for noncommercial use** (personal, hobby, research,
+`mfgparams` is **free for noncommercial use** (personal, hobby, research,
 education, evaluation, etc.) under the
 [PolyForm Noncommercial License 1.0.0](LICENSE.md). Any commercial use —
 using the software inside a for-profit business, in a paid product or
@@ -40,7 +40,7 @@ pip install -e ".[dev]"
 ## Use as a library
 
 ```python
-from machine_calc import calculate, UnitSystem, CalculationMode
+from mfgparams import calculate, UnitSystem, CalculationMode
 
 result = calculate(
     diameter=10,
@@ -58,7 +58,7 @@ End milling and face milling have their own entry points, since their inputs
 differ from drilling's:
 
 ```python
-from machine_calc import calculate_end_milling, calculate_face_milling
+from mfgparams import calculate_end_milling, calculate_face_milling
 
 # End milling: a slot/profile cut, described by axial and radial depth of cut.
 result = calculate_end_milling(
@@ -125,7 +125,7 @@ scenarios, including error handling (`INFEASIBLE_POWER_BUDGET`,
 ## Use the interactive CLI
 
 ```bash
-python -m machine_calc
+python -m mfgparams
 ```
 
 The REPL first asks which **machining operation** to calculate, and — when
@@ -176,16 +176,16 @@ used automatically with no configuration required.
 
 To add your own materials/tools, or override a built-in tool's factors,
 pass an optional user TOML file via `--materials-config`, either through the
-`machine-calc` console script or `python -m machine_calc` (both parse the
+`mfgparams` console script or `python -m mfgparams` (both parse the
 same CLI flag):
 
 ```bash
-machine-calc --materials-config my-machine-calc.toml
-# or: python -m machine_calc --materials-config my-machine-calc.toml
+mfgparams --materials-config my-mfgparams.toml
+# or: python -m mfgparams --materials-config my-mfgparams.toml
 ```
 
 ```toml
-# my-machine-calc.toml
+# my-mfgparams.toml
 [[materials]]
 name = "Bronze"
 material_type = "metal"           # groups it under the "Metal" type prompt
@@ -225,7 +225,7 @@ feed_factor = 1.1
   automatically and produce identical results to an equivalent metric entry.
 - An optional `[materials.translations]` (or `[tools.translations]`) table
   maps a locale code (e.g. `fr`) to a translated display name, shown when
-  `MACHINE_CALC_LOCALE` is set accordingly; unset/unsupported locales and
+  `MFGPARAMS_LOCALE` is set accordingly; unset/unsupported locales and
   entries without a translation fall back to the English `name`.
 - A missing/unreadable `--materials-config` file is a non-fatal notice — the
   CLI falls back to the bundled defaults. A malformed TOML file or a
@@ -264,7 +264,7 @@ by the `pytest` command above and does not affect its duration, outcome, or
 coverage. Run it explicitly with:
 
 ```bash
-MACHINE_CALC_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ -m performance -p no:cacheprovider --no-cov -v -s
+MFGPARAMS_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ -m performance -p no:cacheprovider --no-cov -v -s
 ```
 
 See `specs/006-legacy-hardware-performance-tests/quickstart.md` for the full

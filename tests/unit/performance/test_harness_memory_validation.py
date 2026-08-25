@@ -6,7 +6,7 @@ they run as part of the normal (non-opt-in) test suite — unlike
 ``tests/performance/test_calculation_budgets.py``, which lives under the
 auto-skipped ``tests/performance/`` directory (see
 ``tests/performance/conftest.py``) and only runs when
-``MACHINE_CALC_RUN_PERFORMANCE_TESTS=1`` is set. No subprocess is spawned
+``MFGPARAMS_RUN_PERFORMANCE_TESTS=1`` is set. No subprocess is spawned
 here; :func:`tests.performance.harness._build_report` is deterministic given
 a result dict, which is exactly what makes it unit-testable without paying
 for/depending on real process isolation.

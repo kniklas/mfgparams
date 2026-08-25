@@ -9,7 +9,7 @@ tests/integration/test_cli_power_constrained.py (drilling) for both
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 
 def test_end_milling_power_constrained_mode_prompts_for_power_and_labels_result(

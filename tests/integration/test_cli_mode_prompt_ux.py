@@ -15,7 +15,7 @@ deliberately unlike milling's mode prompt (spec 010, Clarifications
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 
 def test_invalid_mode_choice_is_reprompted(monkeypatch, capsys):

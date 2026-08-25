@@ -10,8 +10,8 @@ import math
 
 import pytest
 
-from machine_calc.operations.drilling.tools import TOOL_REGISTRY, DrillingTool, get_tool, list_tools
-from machine_calc.registry_config import RegistryConfigError
+from mfgparams.operations.drilling.tools import TOOL_REGISTRY, DrillingTool, get_tool, list_tools
+from mfgparams.registry_config import RegistryConfigError
 
 _EXPECTED_BUNDLED_TOOLS = {
     "HSS": (1.0, 1.0),

@@ -1,7 +1,7 @@
 """Unit/integration tests for scripts/sync_agent_integrations.py
 (specs/011-multi-agent-skill-sync tasks.md T007, T012, T015).
 
-`scripts/` is not part of the installed `machine_calc` package (it is
+`scripts/` is not part of the installed `mfgparams` package (it is
 CI-only tooling, research.md #5), so the module under test is imported
 directly by path rather than via a package import.
 """

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import inspect
 
-from machine_calc import calculate
-from machine_calc.operations.drilling.tools import get_tool, list_tools
-from machine_calc.registry import get_material, list_materials
+from mfgparams import calculate
+from mfgparams.operations.drilling.tools import get_tool, list_tools
+from mfgparams.registry import get_material, list_materials
 
 
 def test_calculate_gains_materials_config_path_kwarg():

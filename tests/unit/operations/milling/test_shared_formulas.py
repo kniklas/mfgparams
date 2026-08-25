@@ -10,13 +10,13 @@ import math
 
 import pytest
 
-from machine_calc.operations.milling._shared import (
+from mfgparams.operations.milling._shared import (
     MM3_PER_CM3,
     POWER_SCALE,
     TORQUE_POWER_CONSTANT,
     calculate_milling_metrics,
 )
-from machine_calc.registry import get_material
+from mfgparams.registry import get_material
 
 # Mild Steel bundled reference data: vc_ref = 25 m/min, kc = 1900 N/mm^2.
 _VC_REF = 25.0

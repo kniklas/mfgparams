@@ -10,13 +10,13 @@ import math
 
 import pytest
 
-from machine_calc.operations.milling._shared import calculate_milling_metrics
-from machine_calc.operations.milling.end_milling.formulas import (
+from mfgparams.operations.milling._shared import calculate_milling_metrics
+from mfgparams.operations.milling.end_milling.formulas import (
     EndMillingMetrics,
     calculate_end_milling_metrics,
 )
-from machine_calc.operations.milling.end_milling.tools import get_end_mill_tool
-from machine_calc.registry import get_material
+from mfgparams.operations.milling.end_milling.tools import get_end_mill_tool
+from mfgparams.registry import get_material
 
 _MATERIAL = "Mild Steel"
 _TOOL = "Carbide"

@@ -3,7 +3,7 @@
 Covers key lookup, ``str.format()`` placeholder substitution (including a
 missing-placeholder-value case that MUST NOT raise), missing-key fallback to
 English, and missing-locale fallback to English (unset/empty/unrecognized
-``MACHINE_CALC_LOCALE``).
+``MFGPARAMS_LOCALE``).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import logging
 
 import pytest
 
-from machine_calc import i18n
+from mfgparams import i18n
 
 
 @pytest.fixture(autouse=True)
@@ -23,22 +23,22 @@ def _clear_catalog_cache():
 
 
 def test_get_locale_defaults_to_english_when_unset(monkeypatch):
-    monkeypatch.delenv("MACHINE_CALC_LOCALE", raising=False)
+    monkeypatch.delenv("MFGPARAMS_LOCALE", raising=False)
     assert i18n.get_locale() == "en"
 
 
 def test_get_locale_defaults_to_english_when_empty(monkeypatch):
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "")
     assert i18n.get_locale() == "en"
 
 
 def test_get_locale_defaults_to_english_when_unrecognized(monkeypatch):
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "xx-not-a-real-locale")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "xx-not-a-real-locale")
     assert i18n.get_locale() == "en"
 
 
 def test_get_locale_returns_recognized_bundled_locale(monkeypatch):
-    monkeypatch.setenv("MACHINE_CALC_LOCALE", "en")
+    monkeypatch.setenv("MFGPARAMS_LOCALE", "en")
     assert i18n.get_locale() == "en"
 
 
@@ -98,7 +98,7 @@ class TestHasMessage:
         `translate()` would format the fallback template (the key itself),
         raise `KeyError`, and log a warning; `has_message` must not.
         """
-        with caplog.at_level(logging.WARNING, logger="machine_calc.i18n"):
+        with caplog.at_level(logging.WARNING, logger="mfgparams.i18n"):
             assert i18n.has_message("en", "material_type.al{o}y") is False
 
         assert [record.getMessage() for record in caplog.records] == []

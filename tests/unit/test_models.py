@@ -1,7 +1,7 @@
 """Tests pinning the shared machining-operation enums (T055).
 
 ``MachiningOperation`` and ``MillingSubOperation`` are public API (exported
-in ``machine_calc.__all__``) and their string values are load-bearing:
+in ``mfgparams.__all__``) and their string values are load-bearing:
 ``data-model.md`` pins the exact values, the CLI REPL prompts dispatch on
 them, and (per FR-013/imperial round-trip contracts) they are stable
 identifiers a caller could persist. Before this test existed (found in the
@@ -10,7 +10,7 @@ enum directly, so a silent rename of a member or its value would break API
 consumers with an otherwise-green test suite.
 """
 
-from machine_calc.models import MachiningOperation, MillingSubOperation
+from mfgparams.models import MachiningOperation, MillingSubOperation
 
 
 def test_machining_operation_values_are_pinned():

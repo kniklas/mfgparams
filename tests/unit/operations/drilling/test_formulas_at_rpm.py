@@ -11,13 +11,13 @@ import math
 
 import pytest
 
-from machine_calc.operations.drilling.formulas import (
+from mfgparams.operations.drilling.formulas import (
     calculate_drilling_metrics,
     calculate_drilling_metrics_at_rpm,
     calculate_power_constrained_metrics,
 )
-from machine_calc.operations.drilling.tools import get_tool
-from machine_calc.registry import get_material
+from mfgparams.operations.drilling.tools import get_tool
+from mfgparams.registry import get_material
 
 
 def test_at_rpm_matches_standard_when_given_the_nominal_rpm():

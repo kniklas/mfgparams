@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the package is renamed from `machine-calc`/`machine_calc` to
+  `mfgparams` (issue #62) — a shorter, more generic name that better reflects
+  the library's multi-material (metal and wood) manufacturing-calculation
+  scope, rather than one that reads as metal-machine-specific. This is a
+  straight rename with no backward-compatibility alias: `pip install
+  mfgparams` replaces `pip install machine-calc`, `import mfgparams` replaces
+  `import machine_calc`, and the `mfgparams` console script (and `python -m
+  mfgparams`) replaces `machine-calc`/`python -m machine_calc`. The
+  `MACHINE_CALC_LOCALE` and `MACHINE_CALC_RUN_PERFORMANCE_TESTS` environment
+  variables are renamed to `MFGPARAMS_LOCALE` and
+  `MFGPARAMS_RUN_PERFORMANCE_TESTS` accordingly. No calculation logic, CLI
+  behavior, or public API signature changed — only identifiers and text tied
+  to the package's name. Previously published `machine-calc` releases on
+  PyPI are unaffected; only this and future releases use the new name. The
+  GitHub repository itself keeps its current name for now (see
+  specs/012-rename-package-mfgparams/spec.md's Clarifications).
+
 ### Fixed
 
 - `validate_diameter_mm()`/`validate_depth_mm()` no longer let a `NaN`

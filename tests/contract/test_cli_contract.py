@@ -1,12 +1,12 @@
 """Contract test: cli.py must delegate all calculation logic to
-machine_calc.calculate() and must not reimplement any drilling formulas
+mfgparams.calculate() and must not reimplement any drilling formulas
 (T019).
 """
 
 import ast
 from pathlib import Path
 
-CLI_PATH = Path(__file__).resolve().parents[2] / "src" / "machine_calc" / "cli.py"
+CLI_PATH = Path(__file__).resolve().parents[2] / "src" / "mfgparams" / "cli.py"
 
 # Formula-bearing operators/functions that would indicate the CLI is
 # performing its own calculation instead of delegating to calculate().
@@ -20,7 +20,7 @@ def test_cli_imports_calculate_from_public_api():
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
                 imported_names.add(alias.name)
-    assert "calculate" in imported_names, "cli.py must import calculate() from machine_calc"
+    assert "calculate" in imported_names, "cli.py must import calculate() from mfgparams"
 
 
 def test_cli_does_not_import_formulas_module():

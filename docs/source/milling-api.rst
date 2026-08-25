@@ -2,13 +2,13 @@ Milling API reference (developers)
 ==================================
 
 This page documents the milling public API and the internal structure of
-``machine_calc.operations.milling`` for contributors adding or extending
+``mfgparams.operations.milling`` for contributors adding or extending
 milling behaviour. For end-user CLI guidance see :doc:`milling`.
 
 Public entry points
 -------------------
 
-All four names are importable directly from ``machine_calc``.
+All four names are importable directly from ``mfgparams``.
 
 ``calculate_end_milling(...)``
     .. code-block:: python
@@ -49,11 +49,11 @@ the equivalent imperial call describe the same physical cut.
 Results and errors
 ------------------
 
-Both functions return a :class:`~machine_calc.models.CalculationResult` and
+Both functions return a :class:`~mfgparams.models.CalculationResult` and
 never raise for an expected validation failure. On success every numeric
 field is populated, including ``material_removal_rate`` (cm³/min under
 metric, in³/min under imperial). On failure ``error`` is an
-:class:`~machine_calc.models.ErrorInfo` with a stable ``code`` and a
+:class:`~mfgparams.models.ErrorInfo` with a stable ``code`` and a
 translated ``message``, and every numeric field — including
 ``material_removal_rate`` — is ``None``.
 
@@ -81,7 +81,7 @@ Calculation modes
 ------------------
 
 Both entry points accept the same ``mode``/``target_rpm``/``available_power``
-arguments as :func:`machine_calc.calculate` (drilling), added by
+arguments as :func:`mfgparams.calculate` (drilling), added by
 ``010-milling-calculation-modes``:
 
 ``CalculationMode.STANDARD`` (default)
@@ -125,7 +125,7 @@ Package layout
 
 .. code-block:: text
 
-    machine_calc/operations/milling/
+    mfgparams/operations/milling/
         _shared.py          formulas common to both sub-operations
         _tool_registry.py   MillingTool base + build_registry()
         _calculate.py       shared validate/convert/assemble orchestration
@@ -188,7 +188,7 @@ Adding a milling sub-operation
    with your ``resolve_tool``, ``compute`` and ``engagement_label_key``.
 6. Add the sub-operation to ``MillingSubOperation``, add its prompts to the
    message catalog, and wire a session function into ``cli.py``.
-7. Re-export the entry point from ``machine_calc/__init__.py``.
+7. Re-export the entry point from ``mfgparams/__init__.py``.
 
 Every user-facing string must be a catalog key, and every formula must cite
 its source in a docstring.

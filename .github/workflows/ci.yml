@@ -96,7 +96,7 @@ jobs:
       # scripts/sync_agent_integrations.py and scripts/setup_skill_symlinks.py
       # are named explicitly, same rationale as the `lint` job above
       # (specs/011-multi-agent-skill-sync T002).
-      - run: mypy src/machine_calc scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+      - run: mypy src/mfgparams scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
 
   security:
     name: security
@@ -196,7 +196,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=machine_calc --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+      - run: pytest --cov=mfgparams --cov-report=term-missing --cov-report=xml --cov-fail-under=90
       # Publishes coverage.xml to Codecov so README.md's coverage badge stays
       # auto-updating (Constitution Principle VII; specs/003-ci-quality-security-gates).
       # Requires a CODECOV_TOKEN repository secret from https://codecov.io.
@@ -227,7 +227,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     env:
-      MACHINE_CALC_PERFORMANCE_SUMMARY_PATH: /tmp/machine_calc_perf_summary.json
+      MFGPARAMS_PERFORMANCE_SUMMARY_PATH: /tmp/mfgparams_perf_summary.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -235,7 +235,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
       - id: run_performance_tests
-        run: MACHINE_CALC_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ -m performance -p no:cacheprovider --no-cov -s
+        run: MFGPARAMS_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ -m performance -p no:cacheprovider --no-cov -s
         continue-on-error: true
       # Computes the Suite Run Summary (data-model.md) from the JSON file
       # the test step above wrote (tests/performance/conftest.py's
@@ -262,7 +262,7 @@ jobs:
           import json
           import os
 
-          path = os.environ["MACHINE_CALC_PERFORMANCE_SUMMARY_PATH"]
+          path = os.environ["MFGPARAMS_PERFORMANCE_SUMMARY_PATH"]
           summary_load_error = False
           try:
               with open(path, encoding="utf-8") as handle:

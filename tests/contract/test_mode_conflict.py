@@ -5,7 +5,7 @@ Per quickstart.md Scenario 6:
 - ``FIXED_RPM`` mode with ``target_rpm`` omitted is rejected.
 """
 
-from machine_calc import CalculationMode, calculate
+from mfgparams import CalculationMode, calculate
 
 
 def test_power_constrained_with_target_rpm_is_mode_conflict():

@@ -7,7 +7,7 @@ milling sub-operations.
 
 import math
 
-from machine_calc import CalculationMode, calculate_end_milling, calculate_face_milling
+from mfgparams import CalculationMode, calculate_end_milling, calculate_face_milling
 
 _END_MILLING_ARGS = dict(
     diameter=10,

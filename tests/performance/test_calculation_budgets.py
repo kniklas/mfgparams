@@ -2,7 +2,7 @@
 
 One :class:`~tests.performance.harness.PerformanceTestCase` per currently
 existing public calculation function (FR-001, SC-002: 100% coverage of
-``machine_calc.calculate``, ``calculate_drilling_metrics``,
+``mfgparams.calculate``, ``calculate_drilling_metrics``,
 ``calculate_drilling_metrics_at_rpm``, ``calculate_power_constrained_metrics``,
 and — since specs/009-milling-calculations — ``calculate_end_milling`` and
 ``calculate_face_milling``), each invoked with a representative, realistic,
@@ -12,7 +12,7 @@ the target's own input-validation error path).
 Skipped by default (see ``tests/performance/conftest.py``); run explicitly
 via::
 
-    MACHINE_CALC_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ \\
+    MFGPARAMS_RUN_PERFORMANCE_TESTS=1 pytest tests/performance/ \\
         -m performance -p no:cacheprovider --no-cov -v -s
 """
 
@@ -20,14 +20,14 @@ from __future__ import annotations
 
 import pytest
 
-from machine_calc import calculate, calculate_end_milling, calculate_face_milling
-from machine_calc.operations.drilling.formulas import (
+from mfgparams import calculate, calculate_end_milling, calculate_face_milling
+from mfgparams.operations.drilling.formulas import (
     calculate_drilling_metrics,
     calculate_drilling_metrics_at_rpm,
     calculate_power_constrained_metrics,
 )
-from machine_calc.operations.drilling.tools import get_tool
-from machine_calc.registry import get_material
+from mfgparams.operations.drilling.tools import get_tool
+from mfgparams.registry import get_material
 
 from . import budgets, harness, results
 

@@ -5,8 +5,8 @@ the CLI for both new modes (T023a; FR-010/FR-016 extension;
 
 import builtins
 
-from machine_calc import CalculationMode, calculate
-from machine_calc.cli import run
+from mfgparams import CalculationMode, calculate
+from mfgparams.cli import run
 
 
 def test_power_constrained_cli_matches_direct_calculate(monkeypatch, capsys):

@@ -4,7 +4,7 @@ restarting the process (T022; FR-014, spec Acceptance Scenario 4).
 
 import builtins
 
-from machine_calc.cli import run
+from mfgparams.cli import run
 
 
 def test_loop_allows_changing_tool_and_recalculating(monkeypatch, capsys):

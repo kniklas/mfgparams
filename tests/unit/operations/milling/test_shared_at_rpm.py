@@ -12,13 +12,13 @@ tests/unit/operations/drilling/test_formulas_at_rpm.py).
 
 import math
 
-from machine_calc.operations.milling._shared import (
+from mfgparams.operations.milling._shared import (
     calculate_milling_metrics,
     calculate_milling_metrics_at_rpm,
     calculate_power_constrained_milling_metrics,
 )
-from machine_calc.operations.milling.end_milling.tools import get_end_mill_tool
-from machine_calc.registry import get_material
+from mfgparams.operations.milling.end_milling.tools import get_end_mill_tool
+from mfgparams.registry import get_material
 
 _GEOMETRY = dict(
     diameter_mm=10,
