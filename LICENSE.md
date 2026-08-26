@@ -2,7 +2,7 @@
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>
 
-Required Notice: Copyright kniklas (https://github.com/kniklas/machine-calc)
+Required Notice: Copyright kniklas (https://github.com/kniklas/mfgparams)
 
 ## Acceptance
 
@@ -83,7 +83,7 @@ Any use of this software that is not a "Noncommercial Purpose" as defined above
 service, or any other revenue-generating use) is **not** licensed under the terms
 above and requires a separate, paid commercial license from the copyright holder
 (kniklas). To request a commercial license, open an issue on this repository:
-<https://github.com/kniklas/machine-calc/issues/new>.
+<https://github.com/kniklas/mfgparams/issues/new>.
 
 All rights not expressly granted above — including all commercial rights — are
 reserved by the copyright holder.

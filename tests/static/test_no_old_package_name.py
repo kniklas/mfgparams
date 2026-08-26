@@ -4,30 +4,31 @@
 Walks every git-tracked file — both its content and its own tracked path —
 and asserts none contain ``machine_calc`` or ``machine-calc``
 (case-insensitively, so this also catches the old ``MACHINE_CALC_*``
-environment-variable prefix), except for the documented exclusions in
-specs/012-rename-package-mfgparams/data-model.md's Exclusion rule. Checking
+environment-variable prefix), except for three kinds of exclusion. Checking
 the path itself (not just file contents) means a forbidden compatibility
 shim such as a re-added ``src/machine_calc/__init__.py`` re-exporting
 ``mfgparams`` would still be caught, even though its content alone would
 contain no stray reference to scan for.
 
-1. An actual ``http(s)://`` URL pointing at the (unrenamed) GitHub
-   repository slug ``kniklas/machine-calc`` — badges, issue links, the
-   ``LICENSE.md`` notice — or its GitHub Pages URL shape,
-   ``kniklas.github.io/machine-calc``. Only a genuine URL is excused; a
-   bare-text mention of the slug (e.g. a stale ``project = "kniklas/
-   machine-calc"`` value) is not, and still fails the check.
-2. Historical record: prior feature specs (``specs/001-*`` through
+1. Historical record: prior feature specs (``specs/001-*`` through
    ``specs/011-*``), this feature's own planning docs
-   (``specs/012-rename-package-mfgparams/**``), ``CHANGELOG.md`` (both its
-   pre-existing entries and the new entry documenting this rename), and
+   (``specs/012-rename-package-mfgparams/**`` — written before the GitHub
+   repository itself was renamed from ``kniklas/machine-calc`` to
+   ``kniklas/mfgparams`` (issue #69), so they still describe that rename as
+   future/out-of-scope work), ``CHANGELOG.md`` (both its pre-existing
+   entries and the new entry documenting the package rename), and
    ``tests/contract/data/README.md``'s fixture-provenance note.
-3. The constitution (``.specify/memory/constitution.md``), which has its
+2. The constitution (``.specify/memory/constitution.md``), which has its
    own amendment procedure (documented rationale + version bump) and is
    updated via ``/speckit-constitution``, not as a side effect of this
    feature's tasks (specs/012-rename-package-mfgparams/tasks.md T024).
-4. This test file itself, which necessarily names the old value to define
+3. This test file itself, which necessarily names the old value to define
    the check.
+
+The GitHub repository has since been renamed to ``kniklas/mfgparams``, so
+unlike when this check was first written, a ``kniklas/machine-calc`` URL in
+a live (non-excluded) file — e.g. a stale README badge — is no longer
+excused; it is a stray reference like any other and fails the check.
 """
 
 from __future__ import annotations
@@ -38,14 +39,6 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _OLD_NAME_PATTERN = re.compile(r"machine[_-]calc", re.IGNORECASE)
-# Matches only an actual http(s) URL for the (unrenamed) repository — on any
-# host (github.com, codecov.io, kniklas.github.io, ...) — never a bare
-# mention of the slug as plain text, so e.g. `project = "kniklas/machine-calc"`
-# still gets caught rather than silently excused (Copilot review, PR #68).
-_ALLOWED_REPO_URL_PATTERN = re.compile(
-    r"https?://\S*(?:kniklas/machine-calc|kniklas\.github\.io/machine-calc)\S*",
-    re.IGNORECASE,
-)
 
 _EXCLUDED_FILES = {
     "CHANGELOG.md",
@@ -96,8 +89,7 @@ def _stray_matches(relative_path: str) -> list[str]:
 
     findings = []
     for lineno, line in enumerate(text.splitlines(), start=1):
-        checked_line = _ALLOWED_REPO_URL_PATTERN.sub("", line)
-        if _OLD_NAME_PATTERN.search(checked_line):
+        if _OLD_NAME_PATTERN.search(line):
             findings.append(f"{relative_path}:{lineno}: {line.strip()}")
     return findings
 
@@ -113,6 +105,5 @@ def test_no_stray_references_to_old_package_name():
 
     assert not stray, (
         "found stray reference(s) to the old package name outside the "
-        "documented exclusions (specs/012-rename-package-mfgparams/"
-        "data-model.md's Exclusion rule):\n" + "\n".join(stray)
+        "exclusions documented in this file's module docstring:\n" + "\n".join(stray)
     )

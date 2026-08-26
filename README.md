@@ -1,14 +1,14 @@
 # mfgparams
 
-[![CI](https://github.com/kniklas/machine-calc/actions/workflows/ci.yml/badge.svg)](https://github.com/kniklas/machine-calc/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/kniklas/machine-calc/branch/main/graph/badge.svg)](https://codecov.io/gh/kniklas/machine-calc)
+[![CI](https://github.com/kniklas/mfgparams/actions/workflows/ci.yml/badge.svg)](https://github.com/kniklas/mfgparams/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/kniklas/mfgparams/branch/main/graph/badge.svg)](https://codecov.io/gh/kniklas/mfgparams)
 
 A Python library and interactive command-line tool for metal machining
 calculations. It covers **drilling** (twist drills) and **milling** (end
 milling and face milling), reporting spindle speed, feed rate, machining
 time, torque and required power — plus material removal rate for milling.
 
-📖 **[Full generated documentation (Sphinx)](https://kniklas.github.io/machine-calc/)** —
+📖 **[Full generated documentation (Sphinx)](https://kniklas.github.io/mfgparams/)** —
 published automatically to GitHub Pages on every merge to `main`.
 
 > **Status**: Early implementation (drilling + milling calculation engines
@@ -25,7 +25,7 @@ education, evaluation, etc.) under the
 using the software inside a for-profit business, in a paid product or
 service, or any other revenue-generating context — requires a separate,
 paid commercial license from the copyright holder. To request one, open an
-issue: <https://github.com/kniklas/machine-calc/issues/new>. See
+issue: <https://github.com/kniklas/mfgparams/issues/new>. See
 [`LICENSE.md`](LICENSE.md) for the full terms; all rights not expressly
 granted there, including all commercial rights, are reserved.
 
