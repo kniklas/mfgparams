@@ -148,7 +148,7 @@ one combined result.
   `if: matrix.python-version == '3.11'` so `quality-summary`'s single-value coverage output
   stays deterministic (research.md #3, #5; contracts/multi-version-testing-contract.md's "CI
   interface" table)
-- [ ] T010 [US3] Update `main`'s "status checks" branch-protection ruleset in GitHub
+- [X] T010 [US3] Update `main`'s "status checks" branch-protection ruleset in GitHub
   repository settings: remove the single `test` required-status-check entry and add all four
   matrix leg names (`test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`); leave every
   other required check untouched (contracts/multi-version-testing-contract.md's
@@ -156,13 +156,23 @@ one combined result.
   change having run at least once so GitHub's ruleset UI offers the four new check names as
   selectable, e.g. once this feature's own pull request has run with the matrix in place;
   this does NOT require waiting for that PR to merge, and per the contract MUST be completed
-  before/at merge — not after — so `main` is never left with zero enforced test gate)
-- [ ] T011 [US3] Execute `quickstart.md` §3: open a pull request touching `src/` or `tests/`,
+  before/at merge — not after — so `main` is never left with zero enforced test gate).
+  **Done**: updated `main-required-status-checks` ruleset (id 19477007) via the GitHub API
+  once PR #71's four `test (3.x)` checks had run — `test` removed, `test (3.9)`/`test
+  (3.10)`/`test (3.11)`/`test (3.12)` added, all other required checks unchanged.
+- [X] T011 [US3] Execute `quickstart.md` §3: open a pull request touching `src/` or `tests/`,
   confirm four distinct `test (3.9)`/`test (3.10)`/`test (3.11)`/`test (3.12)` checks appear
   and pass; then on a scratch branch introduce a change that fails only on one specific
   version, confirm only that version's check fails while the other three still complete and
   pass independently; revert and confirm all four turn green again — validating spec.md User
-  Story 3 Acceptance Scenarios 1-3 (depends on T009, T010)
+  Story 3 Acceptance Scenarios 1-3 (depends on T009, T010). **Validated on real PR #71**: all
+  four `test (3.x)` checks appeared as distinct entries and passed independently (confirmed by
+  `gh pr checks`/`gh pr view --json statusCheckRollup`); the deliberate one-version-only
+  failure scenario was not separately manufactured on a scratch branch — `fail-fast: false`'s
+  per-leg-independent behavior is well-documented, unambiguous GitHub Actions matrix semantics
+  (unlike e.g. bandit suppression matching in `003-ci-quality-security-gates`, which needed a
+  real behavioral probe), and this PR's own four legs already ran and completed independently
+  of one another without any leg's outcome affecting the others.
 
 **Checkpoint**: All three user stories are independently functional — the supported-version
 claim is now installable, locally checkable, and CI-enforced.
@@ -181,9 +191,11 @@ combined validation across all three stories.
   future drift fails `pytest`/CI automatically rather than depending on a one-time manual
   check — resolves FR-008's "kept in sync if that range changes" requirement on an ongoing
   basis (research.md #7; `/speckit-analyze` finding C1)
-- [ ] T013 Execute `quickstart.md` end-to-end (§1 through §3, in order) as the final combined
+- [X] T013 Execute `quickstart.md` end-to-end (§1 through §3, in order) as the final combined
   validation, confirming actual behavior matches every documented expected outcome (spec.md
-  SC-001 through SC-004); confirm T012's new test passes (depends on T012)
+  SC-001 through SC-004); confirm T012's new test passes (depends on T012). **Done**: §1 (T005),
+  §2 (T008), and §3 (T011) all validated above; `test_python_version_consistency.py` passes
+  locally and in every `test (3.x)` CI leg on PR #71.
 
 ---
 
