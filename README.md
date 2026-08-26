@@ -34,6 +34,8 @@ granted there, including all commercial rights, are reserved.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.3),
+                                       # which predates PEP 660 editable-install support
 pip install -e ".[dev]"
 ```
 
@@ -249,7 +251,24 @@ pytest
 
 This project targets Python 3.9+ for compatibility with older/stable Linux
 distributions (see `.specify/memory/constitution.md` Principle V), and aims
-for ≥90% test coverage on calculation modules (Principle II).
+for ≥90% test coverage on calculation modules (Principle II). The command
+above runs against whichever Python interpreter is active in your virtual
+environment.
+
+### Checking every supported Python version locally
+
+To verify a change against every officially supported Python version
+(3.9-3.12) without hand-building a separate environment per version,
+use [`tox`](https://tox.wiki/) (installed as part of the `dev` extra):
+
+```bash
+tox            # runs the full suite + coverage gate once per supported version
+tox -e py39    # or just one version, for a faster inner loop
+```
+
+Any supported interpreter not installed on your machine (e.g., no `python3.9`
+on `PATH`) is reported `SKIPPED` rather than failing the run — install it
+(e.g., via `pyenv install 3.9`) to include it.
 
 See `specs/001-metal-drilling-calc/` for the full spec, plan, and task
 breakdown driving this implementation.

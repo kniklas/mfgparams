@@ -19,6 +19,7 @@ htmlcov/
 # Tooling caches
 .ruff_cache/
 .mypy_cache/
+.tox/
 
 # Specify
 my-project/
