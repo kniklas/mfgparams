@@ -39,6 +39,12 @@ python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.
 pip install -e ".[dev]"
 ```
 
+> **Note:** `source .venv/bin/activate` only applies to your *current* shell — a new
+> terminal session needs to re-run it. If a bare `pytest` reports collection errors like
+> `ModuleNotFoundError: No module named 'mfgparams'`, your shell is picking up a different
+> `pytest` from `PATH` instead of `.venv/bin/pytest` — re-activate the venv (or run
+> `.venv/bin/pytest` directly) and try again.
+
 ## Use as a library
 
 ```python
