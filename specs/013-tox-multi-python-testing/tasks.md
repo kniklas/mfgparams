@@ -144,10 +144,21 @@ one combined result.
 - [X] T009 [US3] Update `.github/workflows/ci.yml`'s `test` job: add
   `strategy: {fail-fast: false, matrix: {python-version: ["3.9", "3.10", "3.11", "3.12"]}}`,
   set the `actions/setup-python` step's `python-version` to `${{ matrix.python-version }}`,
-  and gate the existing Codecov-upload step and the `coverage_pct` output step behind
-  `if: matrix.python-version == '3.11'` so `quality-summary`'s single-value coverage output
-  stays deterministic (research.md #3, #5; contracts/multi-version-testing-contract.md's "CI
-  interface" table)
+  and gate the existing Codecov-upload step behind
+  `if: matrix.python-version == '3.11'` so redundant uploads are avoided
+  (research.md #3, #5; contracts/multi-version-testing-contract.md's "CI
+  interface" table). **Corrected twice after code review, post-merge of this task**: (1) the
+  `coverage_pct` output step was *also* originally gated the same way, which made
+  `quality-summary`'s single-value output non-deterministic rather than fixing that — a
+  matrix job's output is published from whichever leg finishes last, not whichever leg set a
+  non-empty value, so gating three of four legs out of setting it could leave the output
+  empty. Fixed by running `coverage_pct` unconditionally on every leg (all legs compute the
+  same value, so it no longer matters which one "wins"), and the Codecov gate's literal
+  `'3.11'` was changed to `env.PYTHON_VERSION` so it can't independently drift from the one
+  declared canonical version (research.md #5's remediation). (2) The `coverage_pct` step still
+  lacked `if: always()`, so it was skipped by GitHub Actions' default `success()`-only step
+  condition whenever a leg's `pytest` step itself failed, reopening the same race for that
+  leg — fixed by adding `if: always()`.
 - [X] T010 [US3] Update `main`'s "status checks" branch-protection ruleset in GitHub
   repository settings: remove the single `test` required-status-check entry and add all four
   matrix leg names (`test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`); leave every

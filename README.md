@@ -308,7 +308,7 @@ per `.specify/memory/constitution.md` Principle IX:
 | `typecheck` | `mypy` | Static type errors (FR-003) |
 | `security` | `bandit` | High/medium-severity security findings (FR-004) |
 | `dependency-scan` | `pip-audit` | Known CVEs in resolved dependencies (FR-005); also runs weekly, independent of PRs |
-| `test` | `pytest --cov` | Test failures / coverage below 90% |
+| `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
 | `build` | `python -m build` | Package build failures |
 | `docs` | Sphinx | Docs build failures |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |
