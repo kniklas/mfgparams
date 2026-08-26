@@ -137,27 +137,46 @@ simply invoke `pytest`.
 `addopts` is already the documented, single source of truth for the test invocation (README's
 existing "Run the tests" section relies on the same mechanism today).
 
-## #5: Keeping `quality-summary`'s single-value coverage output deterministic
+## #5: Keeping `quality-summary`'s single-value coverage output correct, and restricting the Codecov upload
 
-**Decision**: Gate the Codecov-upload step and the `coverage_pct` job-output step (both
-currently unconditional in `test`) behind `if: matrix.python-version == '3.11'` — the version
-every other CI job already pins via `env.PYTHON_VERSION`.
+**Decision** (as first implemented, corrected after a `/code-review` finding — see below): gate
+only the Codecov-upload step behind `if: matrix.python-version == env.PYTHON_VERSION` (the
+version every other CI job already pins). The `coverage_pct` job-output step runs
+**unconditionally on every leg**.
 
-**Rationale**: GitHub Actions matrix jobs only guarantee that a job `output` reflects
-*some* completed leg's value when multiple legs set the same output key, not a specific one —
-undefined-in-practice once there are 4 legs. Since coverage percentage is a property of the
-code under test, not the interpreter running it, all four legs would report the same number
-in the overwhelming common case, but leaving the source ambiguous is unnecessary risk for a
-value `quality-summary` (and the README's coverage badge, via Codecov) depend on. Pinning both
-to the one version already treated as canonical elsewhere in this workflow keeps the change
-minimal and the behavior fully deterministic. Restricting the Codecov upload the same way also
-avoids four redundant uploads of what should be near-identical coverage data per push/PR.
+**Original (incorrect) decision**: the first implementation gated *both* the Codecov upload and
+the `coverage_pct` step behind `if: matrix.python-version == '3.11'`, reasoning that pinning the
+job output's source to one leg would keep it deterministic.
 
-**Alternatives considered**: Uploading/outputting from every leg — rejected as needless
-duplication with an unspecified "winner" for the job output; aggregating four coverage reports
-into one — rejected as unnecessary complexity when the underlying numbers are expected to be
-identical across interpreters (this suite has no version-conditional test skips that would
-change line coverage counts).
+**Why that was wrong**: a GitHub Actions matrix job's `output` is published from whichever leg's
+job instance *completes last*, not from whichever leg actually set a non-empty value. Gating the
+`coverage` step meant three of the four legs never ran it at all, so
+`steps.coverage.outputs.coverage_pct` was empty in their context — if one of those legs happened
+to finish last (a real possibility with `fail-fast: false` and four independently-racing legs),
+`needs.test.outputs.coverage_pct` resolved to an empty string, and `quality-summary`'s
+`TEST_METRIC` would intermittently go missing with no job failing to flag it. This was caught by
+a `/code-review` pass on the open PR (specs/013-tox-multi-python-testing), not before merge.
+
+**Corrected rationale**: removing the `if:` gate from the `coverage` step means every leg
+computes and sets `coverage_pct` from its own `.coverage` data. Coverage percentage is a
+property of the code under test, not the interpreter running it (this suite has no
+version-conditional test skips that would change line-coverage counts), so every leg's value is
+expected to be numerically identical — meaning it no longer matters which leg "wins" the
+race, because every candidate value is correct. The Codecov-upload step stays restricted to the
+canonical leg, since that's a real per-leg side effect (an HTTP upload) where redundancy is
+worth avoiding, unlike a job output. The canonical-leg comparison itself was also changed from
+the literal `'3.11'` to `env.PYTHON_VERSION`, so it can never independently drift from the one
+declared canonical version (a second `/code-review` finding on the same PR) — and
+`tests/static/test_python_version_consistency.py` gained a third check asserting
+`env.PYTHON_VERSION` is always a member of the supported-version set, so dropping it from the
+matrix without updating `PYTHON_VERSION` (or vice versa) now fails a test instead of silently
+leaving the Codecov-upload `if:` permanently false.
+
+**Alternatives considered**: Aggregating four coverage reports into one — rejected as
+unnecessary complexity when the underlying numbers are expected to be identical across
+interpreters. A separate, non-matrixed job that downloads the canonical leg's coverage artifact
+and republishes it as a single output — rejected as needless indirection once the simpler fix
+(just let every leg compute the same value) closes the actual race condition.
 
 ## #6: Documenting the pip-upgrade prerequisite
 

@@ -210,9 +210,12 @@ jobs:
       # auto-updating (Constitution Principle VII; specs/003-ci-quality-security-gates).
       # Requires a CODECOV_TOKEN repository secret from https://codecov.io.
       # Restricted to the canonical leg (research.md #5) so this doesn't
-      # upload four near-identical reports per push/PR.
+      # upload four near-identical reports per push/PR. Compared against
+      # `env.PYTHON_VERSION` (the single declared canonical version) rather
+      # than a separate hardcoded literal, so this can't silently drift from
+      # it (specs/013-tox-multi-python-testing research.md #5 remediation).
       - uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == env.PYTHON_VERSION
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -220,13 +223,16 @@ jobs:
       # Surfaces the coverage percentage to the `quality-summary` job
       # (specs/004-pr-quality-check-summary research.md #3); reuses the
       # `.coverage` data file the `pytest --cov=...` step above already left
-      # in place, rather than a second coverage computation. Restricted to
-      # the canonical leg (matches env.PYTHON_VERSION, used by every other
-      # job) so this matrix job's single-value output stays deterministic
-      # rather than depending on whichever leg happens to finish last
-      # (specs/013-tox-multi-python-testing research.md #5).
+      # in place, rather than a second coverage computation. Runs on every
+      # leg (not gated) because a matrix job's output is published from
+      # whichever leg happens to finish last, not from whichever leg set a
+      # non-empty value — gating this to one leg would make the job output
+      # empty whenever a different leg finished last. Coverage is expected
+      # to be numerically identical across interpreters (no
+      # version-conditional test skips affect line coverage), so any leg's
+      # value is correct regardless of which one "wins" the race
+      # (specs/013-tox-multi-python-testing research.md #5 remediation).
       - id: coverage
-        if: matrix.python-version == '3.11'
         run: echo "coverage_pct=$(coverage report --format=total)" >> "$GITHUB_OUTPUT"
     outputs:
       coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}

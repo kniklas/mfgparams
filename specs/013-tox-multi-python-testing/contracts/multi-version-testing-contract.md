@@ -23,7 +23,7 @@ the other Principle IX gates.
 |---|---|---|---|
 | `test (3.9)` | Full suite + coverage on the oldest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.9 |
 | `test (3.10)` | Same, on 3.10 | push, pull_request | Test failure or coverage below 90% on 3.10 |
-| `test (3.11)` | Same, on 3.11 (also the canonical leg: uploads `coverage.xml` to Codecov and sets the `coverage_pct` output `quality-summary` consumes — research.md #5) | push, pull_request | Test failure or coverage below 90% on 3.11 |
+| `test (3.11)` | Same, on 3.11 (also the canonical leg — `env.PYTHON_VERSION` — that uploads `coverage.xml` to Codecov; every leg, not just this one, sets the `coverage_pct` output `quality-summary` consumes, since a matrix job's output is published from whichever leg finishes last, not whichever leg set it — research.md #5) | push, pull_request | Test failure or coverage below 90% on 3.11 |
 | `test (3.12)` | Same, on the newest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.12 |
 
 **Note**: `needs.test.result` (consumed by the `quality-summary` job) reflects the matrix

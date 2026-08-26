@@ -63,6 +63,13 @@ def _ci_matrix_versions() -> set[str]:
     return {v.strip().strip("\"'") for v in match.group(1).split(",")}
 
 
+def _ci_canonical_version() -> str:
+    text = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    match = re.search(r'^\s*PYTHON_VERSION:\s*"(3\.\d+)"', text, re.MULTILINE)
+    assert match, "expected an 'env.PYTHON_VERSION: \"3.X\"' declaration in ci.yml"
+    return match.group(1)
+
+
 def test_supported_python_versions_are_consistent_everywhere():
     classifiers = _classifier_versions()
     tox_envlist = _tox_envlist_versions()
@@ -84,4 +91,19 @@ def test_requires_python_floor_matches_the_oldest_classifier():
     assert floor == oldest_classifier, (
         f"requires-python floor {floor!r} does not match the oldest declared "
         f"classifier {oldest_classifier!r}"
+    )
+
+
+def test_ci_canonical_version_is_a_supported_version():
+    # ci.yml's env.PYTHON_VERSION is the canonical leg several `if:` conditions
+    # (e.g. the test job's Codecov upload) compare `matrix.python-version`
+    # against, so it must always be one of the actually-supported versions —
+    # otherwise those conditions silently become permanently false the moment
+    # this version is dropped from the supported range (code review finding,
+    # specs/013-tox-multi-python-testing).
+    canonical = _ci_canonical_version()
+    classifiers = _classifier_versions()
+    assert canonical in classifiers, (
+        f"ci.yml's env.PYTHON_VERSION {canonical!r} is not one of the supported "
+        f"versions {sorted(classifiers)}"
     )
