@@ -30,9 +30,7 @@ _CLASSIFIER_PATTERN = re.compile(r"Programming Language :: Python :: (3\.\d+)")
 def _classifier_versions() -> set[str]:
     data = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     classifiers = data["project"]["classifiers"]
-    versions = {
-        match.group(1) for c in classifiers if (match := _CLASSIFIER_PATTERN.match(c))
-    }
+    versions = {match.group(1) for c in classifiers if (match := _CLASSIFIER_PATTERN.match(c))}
     assert versions, "expected at least one 'Programming Language :: Python :: 3.X' classifier"
     return versions
 
