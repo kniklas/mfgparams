@@ -232,7 +232,13 @@ jobs:
       # version-conditional test skips affect line coverage), so any leg's
       # value is correct regardless of which one "wins" the race
       # (specs/013-tox-multi-python-testing research.md #5 remediation).
+      # `if: always()` because a step only runs on implicit success() by
+      # default: without it, a leg whose `pytest` step fails would skip this
+      # step too, leaving that leg's output empty and reopening the same
+      # race whenever the failing leg happens to finish last (code review
+      # finding on the same PR).
       - id: coverage
+        if: always()
         run: echo "coverage_pct=$(coverage report --format=total)" >> "$GITHUB_OUTPUT"
     outputs:
       coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}
