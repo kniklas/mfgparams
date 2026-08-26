@@ -22,6 +22,8 @@ no ``__main__`` submodule, so importing that specifically still raises
 from __future__ import annotations
 
 import glob
+import importlib.machinery
+import inspect
 import subprocess
 import sys
 import zipfile
@@ -79,3 +81,53 @@ def test_packaged_materials_include_hardwood_softwood_and_engineered(tmp_path):
     names = [entry["name"] for entry in data["materials"]]
     for required in ("Oak", "Maple", "Pine", "Spruce", "Fir", "Plywood", "MDF"):
         assert required in names
+
+
+def test_stray_build_scratch_directory_does_not_fool_the_skip_guard(tmp_path):
+    """Regression test for the shadowing bug fixed in
+    specs/013-tox-multi-python-testing: a `build/` directory with no
+    `__init__.py` (exactly what `python -m build` leaves behind at the repo
+    root) is resolved by Python as an implicit namespace package. Confirms
+    that shape of "fake" `build` package satisfies a bare `import build` but
+    not `import build.__main__` -- the actual property the two tests above
+    rely on `pytest.importorskip("build.__main__")` to detect.
+
+    Uses `importlib.machinery.PathFinder.find_spec` scoped to a `path=[...]`
+    containing only the fake directory, rather than mutating `sys.path`/
+    `sys.modules` on the real interpreter: this test's own process may have
+    the genuine `build` package installed (dev-only tooling, present when
+    running the full local suite), and per PEP 420 a regular package found
+    anywhere on `sys.path` always wins over an earlier namespace-package
+    candidate -- so a `sys.path`-based simulation wouldn't actually
+    reproduce the bug on such an interpreter.
+    """
+    (tmp_path / "build").mkdir()
+
+    spec = importlib.machinery.PathFinder.find_spec("build", path=[str(tmp_path)])
+    assert spec is not None, "expected an implicit namespace package to be found"
+    assert spec.origin is None, "expected a namespace package (no __init__.py, no origin file)"
+
+    main_spec = importlib.machinery.PathFinder.find_spec(
+        "build.__main__", path=spec.submodule_search_locations
+    )
+    assert main_spec is None, "a namespace package must not resolve build.__main__"
+
+
+def test_packaging_tests_guard_against_build_dunder_main_not_bare_build():
+    """Source-level guard: confirms the two tests above still call
+    `pytest.importorskip("build.__main__")`, not the bare `"build"` this
+    file used before specs/013-tox-multi-python-testing -- a plain
+    string-literal revert wouldn't be caught by
+    `test_stray_build_scratch_directory_does_not_fool_the_skip_guard` alone,
+    since that test only proves the general mechanism, not that these two
+    call sites actually use it.
+    """
+    for test_func in (
+        test_wheel_contains_bundled_materials_and_tools_toml,
+        test_packaged_materials_include_hardwood_softwood_and_engineered,
+    ):
+        source = inspect.getsource(test_func)
+        assert 'importorskip("build.__main__")' in source, (
+            f"{test_func.__name__} must guard with "
+            'pytest.importorskip("build.__main__"), not the bare "build"'
+        )
