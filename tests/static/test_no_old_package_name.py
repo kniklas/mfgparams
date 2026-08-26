@@ -4,7 +4,7 @@
 Walks every git-tracked file — both its content and its own tracked path —
 and asserts none contain ``machine_calc`` or ``machine-calc``
 (case-insensitively, so this also catches the old ``MACHINE_CALC_*``
-environment-variable prefix), except for two kinds of exclusion. Checking
+environment-variable prefix), except for three kinds of exclusion. Checking
 the path itself (not just file contents) means a forbidden compatibility
 shim such as a re-added ``src/machine_calc/__init__.py`` re-exporting
 ``mfgparams`` would still be caught, even though its content alone would
