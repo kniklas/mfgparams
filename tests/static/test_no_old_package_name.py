@@ -105,6 +105,5 @@ def test_no_stray_references_to_old_package_name():
 
     assert not stray, (
         "found stray reference(s) to the old package name outside the "
-        "exclusions documented in this file's module docstring:\n"
-        + "\n".join(stray)
+        "exclusions documented in this file's module docstring:\n" + "\n".join(stray)
     )
