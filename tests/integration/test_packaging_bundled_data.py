@@ -4,28 +4,36 @@ quickstart.md Scenario 2).
 Invokes ``python -m build`` and inspects the resulting wheel's namelist.
 Skipped if the ``build`` package is not installed (dev-only tooling).
 
-The skip check imports ``build.__main__`` specifically, not just ``build``:
-running ``python -m build`` locally leaves a ``build/`` scratch directory at
-the repo root (gitignored, but not cleaned up afterward) as a side effect,
-regardless of ``--outdir``. On an interpreter where the real ``build``
-package isn't installed (e.g. a `tox` environment, since it's dev-only
-tooling not part of the ``dev`` extra), Python's implicit namespace-package
-mechanism resolves ``import build`` to that stray directory instead of
-raising ``ImportError`` — which used to make ``pytest.importorskip("build")``
-wrongly not skip, and the test would then fail instead of being skipped
-(specs/013-tox-multi-python-testing; found via `tox` erroring on every
-Python version after a local `python -m build` run). A namespace package has
-no ``__main__`` submodule, so importing that specifically still raises
-``ImportError`` and skips correctly either way.
+``build`` is part of the ``test`` extra (which ``dev`` includes via
+``mfgparams[test]``), so `tox` and CI's `test` job both run these assertions
+for real — they are not skipped in automation. The ``importorskip`` guard is
+for the remaining case: a bare environment with neither extra installed, e.g.
+someone running ``pytest`` against a plain ``pip install -e .`` checkout.
+
+That guard imports ``build.__main__`` specifically, not just ``build``:
+running ``python -m build`` leaves a ``build/`` scratch directory at the repo
+root (gitignored, but not cleaned up afterward) as a side effect, regardless
+of ``--outdir``. On an interpreter where the real ``build`` package isn't
+installed, Python's implicit namespace-package mechanism resolves
+``import build`` to that stray directory instead of raising ``ImportError``
+— which used to make ``pytest.importorskip("build")`` wrongly not skip, and
+the test would then fail instead of being skipped
+(specs/013-tox-multi-python-testing; found via `tox` erroring on every Python
+version after a local `python -m build` run, back when `tox` installed an
+extra that did not carry ``build``). A namespace package has no ``__main__``
+submodule, so importing that specifically still raises ``ImportError`` and
+skips correctly either way.
 """
 
 from __future__ import annotations
 
+import ast
 import glob
 import importlib.machinery
 import inspect
 import subprocess
 import sys
+import textwrap
 import zipfile
 from pathlib import Path
 
@@ -113,11 +121,39 @@ def test_stray_build_scratch_directory_does_not_fool_the_skip_guard(tmp_path):
     assert main_spec is None, "a namespace package must not resolve build.__main__"
 
 
+def _importorskip_arguments(func) -> list[str]:
+    """Every constant argument passed to an ``importorskip(...)`` call inside
+    ``func``, found by parsing the function rather than by matching source
+    text.
+
+    A substring check over `inspect.getsource` was the original
+    implementation and is not semantic: it fails on a pure restyle (single
+    quotes, a line break inside the call) while a mere *comment* containing
+    the literal would satisfy it even if the real call had been reverted to
+    the bare `"build"`. This mirrors the ast-based approach
+    `tests/static/test_no_hardcoded_strings.py` already uses for the same
+    shape of source-level guard (code review finding,
+    specs/013-tox-multi-python-testing).
+    """
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return [
+        arg.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and (
+            (isinstance(node.func, ast.Attribute) and node.func.attr == "importorskip")
+            or (isinstance(node.func, ast.Name) and node.func.id == "importorskip")
+        )
+        for arg in node.args
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
+    ]
+
+
 def test_packaging_tests_guard_against_build_dunder_main_not_bare_build():
-    """Source-level guard: confirms the two tests above still call
-    `pytest.importorskip("build.__main__")`, not the bare `"build"` this
-    file used before specs/013-tox-multi-python-testing -- a plain
-    string-literal revert wouldn't be caught by
+    """Source-level guard: confirms the two tests above still skip on
+    `"build.__main__"`, not the bare `"build"` this file used before
+    specs/013-tox-multi-python-testing -- a plain string-literal revert
+    wouldn't be caught by
     `test_stray_build_scratch_directory_does_not_fool_the_skip_guard` alone,
     since that test only proves the general mechanism, not that these two
     call sites actually use it.
@@ -126,8 +162,9 @@ def test_packaging_tests_guard_against_build_dunder_main_not_bare_build():
         test_wheel_contains_bundled_materials_and_tools_toml,
         test_packaged_materials_include_hardwood_softwood_and_engineered,
     ):
-        source = inspect.getsource(test_func)
-        assert 'importorskip("build.__main__")' in source, (
+        arguments = _importorskip_arguments(test_func)
+        assert arguments == ["build.__main__"], (
             f"{test_func.__name__} must guard with "
-            'pytest.importorskip("build.__main__"), not the bare "build"'
+            f'pytest.importorskip("build.__main__"), not the bare "build" -- '
+            f"found {arguments!r}"
         )
