@@ -9,7 +9,7 @@ contract extends rather than replaces.
 
 | Command | Behavior |
 |---|---|
-| `tox` | Runs `pytest --cov=mfgparams --cov-report=term-missing --cov-fail-under=90` once per env in `envlist` (`py39`, `py310`, `py311`, `py312`), each in its own isolated environment with the `dev` extra installed. Exits non-zero if any *available* interpreter's env fails; prints a per-env summary. |
+| `tox` | Runs a bare `pytest` once per env in `envlist` (`py39`, `py310`, `py311`, `py312`), each in its own isolated environment with the narrow `test` extra installed. The coverage flags (`--cov=mfgparams --cov-report=term-missing --cov-fail-under=90`) come from `[tool.pytest.ini_options].addopts`, the single source of truth CI's `test` job also inherits (research.md #4). Exits non-zero if any *available* interpreter's env fails; prints a per-env summary. |
 | `tox -e py39` (etc.) | Runs the same suite against a single named version, for a faster inner loop when iterating on one version's failure. |
 | Missing interpreter (e.g. no `python3.9` on `PATH`) | That env is reported `SKIPPED` (not `FAILED`, not silently omitted) in the summary; other available envs still run and report their own result; overall exit status reflects only the envs that actually ran (spec.md FR-004). |
 

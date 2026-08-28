@@ -109,14 +109,20 @@ pyproject.toml                     # MODIFY: split the dev extra's `setuptools` 
                                     #   by python_version (mirroring the existing `black`
                                     #   split in the same extra, research.md #2); add
                                     #   `tox>=4` to `[project.optional-dependencies].dev`
-                                    #   (research.md #1)
+                                    #   (research.md #1); add a narrow `test` extra
+                                    #   (pytest, pytest-cov, pyyaml, build) that `dev`
+                                    #   depends on via `mfgparams[test]`, so the
+                                    #   version-gate environments never install unrelated
+                                    #   tooling that could pin their Python floor
+                                    #   (research.md #4)
 
 tox.ini                            # CREATE: envlist = py39, py310, py311, py312;
                                     #   skip_missing_interpreters = true (spec.md FR-004);
-                                    #   each env installs the `dev` extra and runs the same
-                                    #   `pytest --cov=mfgparams --cov-report=term-missing
-                                    #   --cov-fail-under=90` command CI uses (research.md #1,
-                                    #   #4)
+                                    #   each env installs the `test` extra and runs a bare
+                                    #   `pytest`, inheriting the coverage flags from
+                                    #   `[tool.pytest.ini_options].addopts` — the single
+                                    #   source of truth CI's `test` job also inherits
+                                    #   (research.md #1, #4)
 
 tests/static/
 └── test_python_version_consistency.py  # CREATE: asserts pyproject.toml's

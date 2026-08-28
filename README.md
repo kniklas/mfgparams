@@ -261,11 +261,15 @@ for ≥90% test coverage on calculation modules (Principle II). The command
 above runs against whichever Python interpreter is active in your virtual
 environment.
 
+See `specs/001-metal-drilling-calc/` for the full spec, plan, and task
+breakdown driving this implementation.
+
 ### Checking every supported Python version locally
 
 To verify a change against every officially supported Python version
 (3.9-3.12) without hand-building a separate environment per version,
-use [`tox`](https://tox.wiki/) (installed as part of the `dev` extra):
+use [`tox`](https://tox.wiki/) (installed as part of the `dev` extra; each
+environment it builds installs the narrower `test` extra):
 
 ```bash
 tox            # runs the full suite + coverage gate once per supported version
@@ -275,9 +279,6 @@ tox -e py39    # or just one version, for a faster inner loop
 Any supported interpreter not installed on your machine (e.g., no `python3.9`
 on `PATH`) is reported `SKIPPED` rather than failing the run — install it
 (e.g., via `pyenv install 3.9`) to include it.
-
-See `specs/001-metal-drilling-calc/` for the full spec, plan, and task
-breakdown driving this implementation.
 
 ### Legacy-hardware performance suite (opt-in)
 

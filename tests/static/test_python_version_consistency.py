@@ -16,6 +16,7 @@ into an immediate, obvious test failure instead of a silent drift.
 from __future__ import annotations
 
 import re
+from configparser import ConfigParser
 from pathlib import Path
 
 import yaml
@@ -46,15 +47,24 @@ def _requires_python_floor() -> str:
 
 
 def _tox_envlist_versions() -> set[str]:
-    text = (_REPO_ROOT / "tox.ini").read_text(encoding="utf-8")
-    match = re.search(r"^envlist\s*=\s*(.+)$", text, re.MULTILINE)
-    assert match, "expected an 'envlist = ...' line in tox.ini"
+    # Read with configparser rather than a regex: tox's equally idiomatic
+    # multi-line `envlist` form (one env per continuation line) would leave a
+    # single-line regex capturing only the first entry, failing this check on a
+    # purely cosmetic reformat with a misleading "envlist does not match
+    # classifiers" message (code review finding,
+    # specs/013-tox-multi-python-testing).
+    parser = ConfigParser()
+    parser.read(_REPO_ROOT / "tox.ini", encoding="utf-8")
+    assert parser.has_option("tox", "envlist"), "expected an 'envlist' option under [tox]"
     versions = set()
-    for env in match.group(1).split(","):
-        env = env.strip()
+    for env in re.split(r"[,\s]+", parser.get("tox", "envlist").strip()):
+        # Non-interpreter envs (a `lint` or `docs` env, say) are legitimately
+        # part of an envlist and are simply not version claims — skip them
+        # rather than hard-failing the suite on their presence.
         env_match = re.fullmatch(r"py3(\d+)", env)
-        assert env_match, f"unexpected tox env name {env!r}, expected 'py3<minor>'"
-        versions.add(f"3.{env_match.group(1)}")
+        if env_match:
+            versions.add(f"3.{env_match.group(1)}")
+    assert versions, "expected at least one 'py3<minor>' env in tox.ini's envlist"
     return versions
 
 

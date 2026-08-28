@@ -4,8 +4,9 @@
 
 **Decision**: `tox` (added to `[project.optional-dependencies].dev`), configured via a
 top-level `tox.ini` with `envlist = py39, py310, py311, py312` and
-`skip_missing_interpreters = true`. Each env installs the project's `dev` extra and runs the
-identical command CI uses: `pytest --cov=mfgparams --cov-report=term-missing
+`skip_missing_interpreters = true`. Each env installs the project's narrow `test` extra (see
+#4) and runs a bare `pytest`, inheriting the coverage flags CI inherits too from
+`[tool.pytest.ini_options].addopts`: `--cov=mfgparams --cov-report=term-missing
 --cov-fail-under=90`.
 
 **Rationale**:
@@ -89,8 +90,8 @@ strategy:
 ```
 
 with `python-version: ${{ matrix.python-version }}` in its `actions/setup-python` step. All
-four legs run the unchanged `pip install -e ".[dev]"` + `pytest --cov=mfgparams
---cov-report=term-missing --cov-fail-under=90` commands.
+four legs run the same install + test commands as before, narrowed per #4 to
+`pip install -e ".[test]"` + `pytest --cov-report=xml`.
 
 **Rationale**:
 - `fail-fast: false` is required by spec.md User Story 3 Acceptance Scenario 2: a failure
@@ -99,7 +100,7 @@ four legs run the unchanged `pip install -e ".[dev]"` + `pytest --cov=mfgparams
   the first failure, hiding whether the change would have passed on the others.
 - A native GitHub Actions matrix (rather than routing CI through `tox`) keeps the `test` job
   structurally identical to every other job in this workflow (`lint`, `typecheck`, `security`,
-  etc. — checkout, setup-python, `pip install -e ".[dev]"`, run command) with only the
+  etc. — checkout, setup-python, the project install, run command) with only the
   `python-version` input varying. This is the smallest change that satisfies FR-005/FR-006,
   and keeps `tox` scoped to its actual purpose (the local workflow, #1) rather than becoming
   an indirection layer inside CI that every other job doesn't use.
@@ -118,24 +119,44 @@ four legs run the unchanged `pip install -e ".[dev]"` + `pytest --cov=mfgparams
   verification would still depend on contributor diligence rather than being guaranteed on
   every pull request (spec.md FR-005, SC-003).
 
-## #4: `tox.ini` command parity with CI
+## #4: `tox.ini` command parity with CI, and the dependency set both install
 
-**Decision**: `tox.ini`'s `[testenv]` `commands` runs the byte-identical pytest invocation
-CI's `test` job uses (`pytest --cov=mfgparams --cov-report=term-missing --cov-fail-under=90`),
-sourced from the project's `[tool.pytest.ini_options].addopts` (already set to this exact
-string, so `tox.ini` can invoke plain `pytest` and inherit it, rather than re-stating the
-flags) — with `extras = dev` so each tox-managed environment gets the same dependency set
-`pip install -e ".[dev]"` provides.
+**Decision**: `tox.ini`'s `[testenv]` runs a bare `pytest`, and CI's `test` job runs
+`pytest --cov-report=xml`. Everything else — `--cov=mfgparams`, `--cov-report=term-missing`,
+`--cov-fail-under=90` — comes from `[tool.pytest.ini_options].addopts`, which both inherit.
+Both install `.[test]`, a narrow extra (`pytest`, `pytest-cov`, `pyyaml`, `build`) that `dev`
+in turn depends on via `mfgparams[test]`.
 
-**Rationale**: Avoids two independently-maintained copies of the same test command drifting
-apart over time (e.g., someone updates CI's coverage threshold and forgets `tox.ini`, or vice
-versa) — the single source of truth stays `pyproject.toml`'s `addopts`, and both CI and `tox`
-simply invoke `pytest`.
+**Rationale (invocation)**: The coverage threshold must have exactly one definition. Note that
+pytest's *command-line* `--cov-fail-under` **overrides** `addopts` rather than merging with it,
+so the first implementation — which restated the full flag list in CI's `run:` line "for
+parity" — actually recreated the drift it was meant to prevent: raising the gate to 95 in
+`pyproject.toml` would have raised it for `tox` while CI silently kept enforcing 90. Only the
+one flag CI genuinely needs beyond the shared set (`--cov-report=xml`, consumed by the Codecov
+upload step) is passed explicitly (code review finding).
+
+**Rationale (dependency set)**: `extras = dev` would install the entire toolchain — `sphinx`,
+`mypy`, `bandit`, `radon`, `black`, `pip-audit`, even `tox` itself — into all four
+environments just to run `pytest`. Beyond the cost, that reintroduces the exact failure class
+this feature exists to fix: the day any of those tools drops Python 3.9, `tox -e py39` and
+CI's `test (3.9)` leg fail *at install time* even though mfgparams is perfectly fine on 3.9 —
+identical in shape to the `setuptools>=83` pin that made `pip install -e ".[dev]"` unresolvable
+on 3.9 in the first place (#2). A dedicated `test` extra decouples the version gate from
+unrelated tooling; `dev` lists `mfgparams[test]` so the two cannot drift apart.
+
+`build` is part of that extra deliberately.
+`tests/integration/test_packaging_bundled_data.py` shells out to `python -m build` and asserts
+the bundled `data/*.toml` files really ship inside the wheel, but guards itself with
+`pytest.importorskip("build.__main__")`. With `build` installed nowhere that runs pytest, those
+assertions were skipped in every tox env and every CI matrix leg, so dropping a path from
+`[tool.setuptools.package-data]` would have shipped silently — the guard was hardened by this
+feature but had nothing to guard (code review finding).
 
 **Alternatives considered**: Duplicating the full flag list explicitly in `tox.ini` for
-"clarity" — rejected, since it reintroduces exactly the drift risk this decision avoids, and
-`addopts` is already the documented, single source of truth for the test invocation (README's
-existing "Run the tests" section relies on the same mechanism today).
+"clarity" — rejected, since it reintroduces exactly the drift risk this decision avoids. A bare
+`deps = pytest, pytest-cov, pyyaml, build` list in `tox.ini` instead of an extra — rejected
+because CI's `test` job needs the same set, and a `tox.ini`-only list would be a second place
+to maintain it.
 
 ## #5: Keeping `quality-summary`'s single-value coverage output correct, and restricting the Codecov upload
 
@@ -249,4 +270,4 @@ decision follows the same pattern.
   lookup (and the same for `env.PYTHON_VERSION`), with an assertion that each version is a
   quoted string, since unquoted YAML `3.10` parses as the float `3.1` and would compare
   unequal to the `"3.10"` classifier for a non-obvious reason. `pyyaml` is declared explicitly
-  in the `dev` extra for this rather than relied on as a transitive `bandit` dependency.
+  in the `test` extra for this rather than relied on as a transitive `bandit` dependency.

@@ -29,7 +29,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+# Exactly what running the test suite needs, and nothing else. `tox` and CI's
+# `test` job install this rather than the full `dev` toolchain so that the
+# Python-version gate this feature exists to enforce measures *the library*:
+# with `dev`, the first time `sphinx`/`mypy`/`bandit`/`radon` drops 3.9,
+# `tox -e py39` and CI's `test (3.9)` leg would fail at install time even
+# though mfgparams itself is fine on 3.9 — the same "unrelated tooling pins
+# the floor" failure the `setuptools` split in this extra fixed
+# (specs/013-tox-multi-python-testing research.md #4).
+test = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
     # Used by tests/static/test_python_version_consistency.py to read
@@ -37,6 +45,16 @@ dev = [
     # than by regex. Declared explicitly rather than relied on as a transitive
     # dependency of `bandit` (specs/013-tox-multi-python-testing FR-008).
     "pyyaml>=6.0",
+    # tests/integration/test_packaging_bundled_data.py shells out to
+    # `python -m build` to assert the bundled `data/*.toml` files really ship
+    # inside the wheel. Without `build` installed those assertions were
+    # `importorskip`-ed in every tox env and every CI matrix leg, so dropping a
+    # path from `[tool.setuptools.package-data]` would have shipped silently
+    # (specs/013-tox-multi-python-testing research.md #4).
+    "build>=1.0",
+]
+dev = [
+    "mfgparams[test]",
     "ruff>=0.4",
     "black>=26.3.1; python_version >= '3.10'",
     "black<26; python_version < '3.10'",

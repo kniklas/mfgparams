@@ -105,7 +105,7 @@ failing the whole run.
 ### Implementation for User Story 2
 
 - [X] T006 [US2] Create `tox.ini` at the repo root: `envlist = py39, py310, py311, py312`,
-  `skip_missing_interpreters = true`; `[testenv]` with `extras = dev` and `commands = pytest`,
+  `skip_missing_interpreters = true`; `[testenv]` with `extras = test` and `commands = pytest`,
   relying on `[tool.pytest.ini_options].addopts` in `pyproject.toml` as the single source of
   truth for the coverage flags (research.md #1, #4)
 - [X] T007 [P] [US2] Update `README.md`'s "Run the tests" section to document the `tox` /
@@ -120,10 +120,11 @@ failing the whole run.
   replacing an earlier record that still showed those two failures):
 
   - Full `tox -r` with all four interpreters resolvable: every env passed independently and the
-    run exited green — `py39: OK` (810 passed, 13 skipped, coverage 98.88%), `py310: OK`
+    run exited green — `py39: OK` (812 passed, 11 skipped, coverage 98.88%), `py310: OK`
     (98.89%), `py311: OK` (98.59%), `py312: OK` (98.59%). No failures remain; the two
-    `test_packaging_bundled_data.py` failures recorded before are gone, since `build` is now
-    correctly detected as absent and the tests skip instead of erroring.
+    `test_packaging_bundled_data.py` failures recorded before are gone, and those two tests now
+    genuinely *execute* in every env rather than being skipped, since `build` is part of the
+    `test` extra each env installs (research.md #4).
   - Those four numbers are also the direct evidence behind research.md #5's final design: line
     coverage is **not** interpreter-independent here, so no matrix leg's value can stand in for
     another's and the reported CI metric has to come from one named leg.
@@ -177,6 +178,16 @@ one combined result.
 
   The Codecov gate's literal `'3.11'` was likewise replaced with `env.PYTHON_VERSION` so it
   cannot independently drift from the one declared canonical version.
+
+  **Also corrected in the same round**: CI's `test` job restated
+  `--cov=mfgparams --cov-report=term-missing --cov-fail-under=90` on the `pytest` command line
+  "for parity" with `tox`. A command-line `--cov-fail-under` *overrides* `addopts` rather than
+  merging with it, so raising the threshold in `pyproject.toml` would have raised it for `tox`
+  while CI silently kept enforcing the old value — the exact drift research.md #4 claims to
+  prevent. The step now passes only `--cov-report=xml` (which pytest-cov appends to, rather
+  than replaces, the `addopts` reporters — verified locally) and inherits the rest, and it
+  installs `.[test]` rather than `.[dev]` so unrelated tooling can never pin this job's Python
+  floor (research.md #4).
 - [X] T010 [US3] Update `main`'s "status checks" branch-protection ruleset in GitHub
   repository settings: remove the single `test` required-status-check entry and add all four
   matrix leg names (`test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`); leave every
@@ -224,7 +235,11 @@ combined validation across all three stories.
   first such list anywhere in the file rather than the `test` job's — a second matrixed job
   added above `test` would have silently redirected the guard. Now parsed with `yaml.safe_load`
   and looked up explicitly under `jobs.test.strategy.matrix` (and `env.PYTHON_VERSION`), with
-  `pyyaml` added to the `dev` extra.
+  `pyyaml` added to the `test` extra. A second review round replaced the `envlist` regex with
+  `configparser` as well: the regex only matched tox's single-line `envlist` form, so a
+  cosmetic reformat to the equally idiomatic multi-line form would have captured just the first
+  env and failed with a misleading "does not match classifiers" message. Non-`py3X` envs (a
+  future `lint` or `docs` env) are now skipped rather than hard-failing the suite.
 - [X] T013 Execute `quickstart.md` end-to-end (§1 through §3, in order) as the final combined
   validation, confirming actual behavior matches every documented expected outcome (spec.md
   SC-001 through SC-004); confirm T012's new test passes (depends on T012). **Done**: §1 (T005),
