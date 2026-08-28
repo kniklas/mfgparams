@@ -18,9 +18,14 @@ in each phase below.
 
 **Organization**: Tasks are grouped by user story (US1 = Python 3.9 install works, P1; US2 =
 local multi-version check via `tox`, P2; US3 = CI enforces every version per PR, P3) per
-spec.md priorities, on top of a shared Foundational phase — US2's `tox` environments and
-US3's CI matrix both re-run the same `pip install -e ".[dev]"` step that is currently broken
-on Python 3.9, so the `pyproject.toml` fix has to land before either can pass on that version.
+spec.md priorities, on top of a shared Foundational phase. As originally designed, US2's `tox`
+environments and US3's CI matrix both re-ran the same `pip install -e ".[dev]"` step that is
+broken on Python 3.9, so T002's constraint fix had to land before either could pass on that
+version. **That coupling no longer exists in the final design**: a later code-review round
+moved both onto a narrow `test` extra (research.md #4) that carries no `setuptools` pin at
+all, precisely so unrelated tooling can never gate the version matrix. T002 remains
+Foundational because US1 *is* the broken-`.[dev]`-install-on-3.9 story (spec.md FR-001/FR-002)
+— not because US2/US3 still depend on it.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -43,11 +48,16 @@ on Python 3.9, so the `pyproject.toml` fix has to land before either can pass on
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: The one dependency-metadata fix every later phase relies on: today,
-`pip install -e ".[dev]"` cannot resolve at all on Python 3.9, so neither a `py39` `tox`
-environment (US2) nor a `3.9` CI matrix leg (US3) could pass until this lands.
+**Purpose**: The dependency-metadata fix US1 exists to make: today, `pip install -e ".[dev]"`
+cannot resolve at all on Python 3.9, so the documented contributor setup fails on the oldest
+supported interpreter. When this phase was written it also blocked US2 and US3, since the
+`tox` envs and the CI matrix legs ran that same command; in the final design they install the
+narrow `test` extra instead (research.md #4), which has no `setuptools` pin, so they are no
+longer coupled to this fix.
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete.
+**⚠️ CRITICAL**: US1 cannot begin until this phase is complete, and it is sequenced first
+regardless — shipping a multi-version gate while the documented 3.9 install path is still
+broken would be backwards.
 
 - [X] T002 In `pyproject.toml`'s `[project.optional-dependencies].dev`, split the
   `setuptools>=83.0.0` line by `python_version` — mirroring the existing `black` split in the
@@ -115,7 +125,8 @@ failing the whole run.
 - [X] T008 [US2] Execute `quickstart.md` §2 (`tox` and `tox -e py39`); confirm each available
   interpreter reports its own pass/fail and any interpreter missing from the validation
   machine is reported `SKIPPED` rather than failing the overall run, validating spec.md User
-  Story 2 Acceptance Scenarios 1-3 (depends on T002, T006). **Validated** (re-run after the
+  Story 2 Acceptance Scenarios 1-3 (depends on T006; the `tox` envs install the narrow `test`
+  extra, so no longer on T002 — research.md #4). **Validated** (re-run after the
   `tests/integration/test_packaging_bundled_data.py` skip-detection fix landed on this branch,
   replacing an earlier record that still showed those two failures):
 
@@ -253,23 +264,30 @@ combined validation across all three stories.
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies — can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories (the
-  `pyproject.toml` fix is required for `py39`/`3.9` legs in both US2 and US3, and *is* US1's
-  core fix)
-- **User Stories (Phase 3-5)**: All depend on Foundational phase completion; US2 and US3 do
-  not depend on each other and could proceed in parallel if staffed, but both build on the
-  same Foundational fix US1 also validates
+- **Foundational (Phase 2)**: Depends on Setup completion — *is* US1's core fix, and blocked
+  US2/US3 as originally designed, when their `py39`/`3.9` legs also installed `.[dev]`. In the
+  final design those legs install the narrow `test` extra (research.md #4), so only US1 is
+  still hard-blocked by it
+- **User Stories (Phase 3-5)**: US1 depends on Foundational completion; US2 and US3 depend on
+  neither Foundational nor each other in the final design and could proceed in parallel if
+  staffed. US1 is still sequenced first by priority, not by dependency
 - **Polish (Phase 6)**: Depends on all three user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Depends only on Foundational (T002) — no dependency on US2/US3
-- **User Story 2 (P2)**: Depends only on Foundational (T002) — independently testable without
-  US1's README edit or US3's CI matrix having landed, though in practice this repo's
-  convention is to land P1 before P2
-- **User Story 3 (P3)**: Depends only on Foundational (T002) — independently testable without
-  US1/US2, though T010 (the ruleset update) is only meaningful after T009 has been merged to
-  `main`
+- **User Story 1 (P1)**: Depends on Foundational (T002) — T002 *is* its fix; no dependency on
+  US2/US3
+- **User Story 2 (P2)**: No hard dependency in the final design — the `tox` envs install the
+  narrow `test` extra, not `.[dev]`, so they resolve on 3.9 independently of T002
+  (research.md #4). Independently testable without US1's README edit or US3's CI matrix having
+  landed, though in practice this repo's convention is to land P1 before P2
+- **User Story 3 (P3)**: Likewise no hard dependency on T002 (CI's `test` job also installs
+  `.[test]`); independently testable without US1/US2. T010 (the ruleset update) depends on
+  T009's workflow change having *run* at least once, so GitHub's ruleset UI offers the four new
+  check names — that happens on this feature's own pull request, well before merge. Per
+  contracts/multi-version-testing-contract.md, T010 MUST be completed before or at merge, never
+  after: once the matrix ships, GitHub stops producing the bare `test` check entirely, so a
+  ruleset still requiring it would leave `main` with zero enforced test gate
 
 ### Parallel Opportunities
 
