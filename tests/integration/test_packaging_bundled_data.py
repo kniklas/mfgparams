@@ -2,7 +2,6 @@
 quickstart.md Scenario 2).
 
 Invokes ``python -m build`` and inspects the resulting wheel's namelist.
-Skipped if the ``build`` package is not installed (dev-only tooling).
 
 ``build`` is part of the ``test`` extra (which ``dev`` includes via
 ``mfgparams[test]``), so `tox` and CI's `test` job both run these assertions

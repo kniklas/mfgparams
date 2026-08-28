@@ -35,7 +35,7 @@ granted there, including all commercial rights, are reserved.
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.3),
-                                       # which predates PEP 660 editable-install support
+                                      # which predates PEP 660 editable-install support
 pip install -e ".[dev]"
 ```
 

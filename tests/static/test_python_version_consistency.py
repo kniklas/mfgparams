@@ -117,15 +117,25 @@ def _ci_canonical_version() -> str:
     return canonical
 
 
-def test_supported_python_versions_are_consistent_everywhere():
+# The tox↔classifiers and ci.yml↔classifiers comparisons are deliberately two
+# separate tests, not one. Only the second needs `yaml`, and combining them
+# would put `_ci_matrix_versions()`'s `importorskip` in the same test as the
+# tox check -- so in a bare `pip install -e .` checkout the skip would swallow
+# the tox comparison too, silently, even though it needs nothing but
+# `pyproject.toml` and `tox.ini`. That would let `envlist` drift from the
+# classifiers with a green `pytest` (code review finding).
+def test_tox_envlist_matches_the_declared_classifiers():
     classifiers = _classifier_versions()
     tox_envlist = _tox_envlist_versions()
-    ci_matrix = _ci_matrix_versions()
-
     assert tox_envlist == classifiers, (
         f"tox.ini envlist {sorted(tox_envlist)} does not match pyproject.toml "
         f"classifiers {sorted(classifiers)}"
     )
+
+
+def test_ci_matrix_matches_the_declared_classifiers():
+    classifiers = _classifier_versions()
+    ci_matrix = _ci_matrix_versions()
     assert ci_matrix == classifiers, (
         f"ci.yml test job matrix {sorted(ci_matrix)} does not match pyproject.toml "
         f"classifiers {sorted(classifiers)}"

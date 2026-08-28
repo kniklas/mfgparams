@@ -48,17 +48,27 @@ by `python_version`, mirroring the pattern already used for `black` in the same 
 
 ```toml
 "setuptools>=83.0.0; python_version >= '3.10'",
-"setuptools>=64.0.0,<83.0.0; python_version < '3.10'",
+"setuptools>=78.1.1,<83.0.0; python_version < '3.10'",
 ```
+
+**The `<3.10` floor was raised from `64.0.0` to `78.1.1` after a code review**, for a security
+reason rather than a functional one — see "Choosing the `<3.10` floor" below.
 
 **Rationale**:
 - `setuptools>=83.0.0` itself declares `Requires-Python >=3.10`, so on a real 3.9 interpreter
   pip cannot find *any* version satisfying `setuptools>=83.0.0`, and the whole `pip install
   -e ".[dev]"` resolution fails before touching any other dependency (reproduced directly:
   `ERROR: Could not find a version that satisfies the requirement setuptools>=83.0.0`).
-- `64.0.0` is the first `setuptools` release with full PEP 660 (`build_editable`) support,
-  which is the actual functional requirement for `pip install -e ".[dev]"` to work at all —
-  so the `<3.10` floor is chosen for a concrete reason, not an arbitrary "something recent."
+- **Choosing the `<3.10` floor.** `64.0.0` is the first `setuptools` release with full PEP 660
+  (`build_editable`) support, which is the functional requirement for `pip install -e ".[dev]"`
+  to work at all — and it was the floor as first implemented. It was raised to `78.1.1` after a
+  code review found the range is *never CVE-scanned*: `dependency-scan` runs `pip-audit`
+  against an environment built on `env.PYTHON_VERSION` (3.11), which always resolves the
+  `>=83.0.0` branch above, so a future advisory affecting only the `<83` range would reach 3.9
+  dev environments with the CVE gate green. `78.1.1` sits above the newest setuptools advisory.
+  This costs nothing in practice — pip resolves 82.0.1 on 3.9 either way (verified with
+  `pip install --dry-run -e ".[dev]"` in a real 3.9 venv) — so the functional floor is still
+  satisfied with room to spare.
 - The upper bound (`<83.0.0`) on the `<3.10` branch avoids ever attempting to resolve a
   `setuptools` release that has already declared itself incompatible with those interpreters,
   which is the same shape of problem being fixed.
@@ -226,14 +236,6 @@ cover` so all legs really do agree — rejected because it makes the reported nu
 invariant that any future interpreter-conditional line silently breaks, whereas the artifact is
 correct whether or not the legs agree. A separate non-matrixed job that re-runs the suite purely
 to produce the canonical number — rejected as a duplicate full test run.
-
-**Later correction (code review)**: the `<3.10` branch was originally floored at
-`setuptools>=64.0.0`, the oldest version that technically works. That range is never scanned:
-`dependency-scan` runs `pip-audit` against an environment built on `env.PYTHON_VERSION` (3.11),
-which always resolves the `>=83.0.0` branch, so a future CVE affecting only the `<83` range
-would reach 3.9 dev environments with the CVE gate green. Floor raised to `>=78.1.1`, above the
-newest setuptools advisory. This costs nothing in practice — pip resolves 82.0.1 on 3.9 either
-way (verified with `pip install --dry-run -e ".[dev]"` in a real 3.9 venv).
 
 ## #6: Documenting the pip-upgrade prerequisite
 
