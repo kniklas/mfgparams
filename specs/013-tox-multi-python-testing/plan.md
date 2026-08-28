@@ -16,7 +16,10 @@ Separately, CI's `test` job runs on a single pinned Python version (3.11), so th
 range is never actually verified anywhere. This feature (1) splits the `setuptools`
 constraint the same way `black` is already split in the same extra, so dev-dependency
 installation succeeds on every version in the supported range; (2) adds a `tox` environment
-per supported version (`py39`-`py312`) running the exact `pytest --cov` command CI uses, with
+per supported version (`py39`-`py312`) running the same suite under the same 90% coverage
+gate CI enforces — both inherit it from `[tool.pytest.ini_options].addopts`, so the two can't
+drift, though the invocations are not character-for-character identical (CI adds
+`--cov-report=xml` for its Codecov upload; research.md #4) — with
 `skip_missing_interpreters = true` so contributors without every interpreter get a clear
 skipped/available report rather than a hard failure; (3) expands the CI `test` job into a
 `fail-fast: false` matrix over the same four versions, so each version reports as a distinct,
@@ -31,8 +34,13 @@ editable-install support.
 range rather than widening or narrowing it)
 
 **Primary Dependencies**: `tox>=4` (new, added to `[project.optional-dependencies].dev`);
-corrected `setuptools` version constraint (existing dependency, constraint split by Python
-version, mirroring the existing `black` split in the same extra); no other new dependency
+a new narrow `test` extra that `dev` depends on via `mfgparams[test]`, carrying the two
+dependencies the suite itself needs and previously did not declare — `pyyaml>=6.0` (the
+version-consistency guard parses `ci.yml`) and `build>=1.0` (the packaging tests shell out to
+`python -m build`; without it their assertions were skipped everywhere) — plus the existing
+`pytest`/`pytest-cov` moved into it (research.md #4); corrected `setuptools` version
+constraint (existing dependency, constraint split by Python version, mirroring the existing
+`black` split in the same extra)
 
 **Storage**: N/A — this feature is packaging-metadata, dev-tooling, and CI configuration only
 
@@ -60,8 +68,10 @@ declared supported-version range (spec.md Assumptions); the local multi-version 
 MUST NOT hard-fail its overall run solely because a supported interpreter is missing from the
 contributor's machine (spec.md FR-004)
 
-**Scale/Scope**: One new dev dependency (`tox`), one new config file (`tox.ini`), one
-corrected dependency constraint (`pyproject.toml`), one committed static test guarding against
+**Scale/Scope**: Three new dev dependencies (`tox`, plus `pyyaml` and `build`, which the
+existing suite already needed but never declared — see Primary Dependencies above), one new
+config file (`tox.ini`), one corrected dependency constraint and one new narrow `test` extra
+(`pyproject.toml`), one committed static test guarding against
 future version-list drift (`tests/static/test_python_version_consistency.py`, research.md #7),
 one CI job converted to a 4-way matrix (`.github/workflows/ci.yml`), a documentation update
 (`README.md`), and a required-status-check-list update in the repository's branch-protection
