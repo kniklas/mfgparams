@@ -13,7 +13,7 @@ locally testable, and CI-verified together.
 | Field | Type | Description |
 |---|---|---|
 | `versions` | list of strings | `["3.9", "3.10", "3.11", "3.12"]` — sourced from `pyproject.toml`'s `requires-python`/`classifiers` (single source of truth; unchanged by this feature) |
-| `canonical_version` | string | `"3.11"` — the one version every non-matrixed CI job (lint, typecheck, security, etc.) and the `quality-summary` coverage output pin via `env.PYTHON_VERSION` (research.md #5) |
+| `canonical_version` | string | `"3.11"` — declared once as `env.PYTHON_VERSION`. Every non-matrixed CI job (lint, typecheck, security, etc.) pins it, and inside the `test` matrix it selects the single leg that uploads to Codecov and that publishes the `coverage-pct` artifact `quality-summary` renders (research.md #5) |
 
 **Validation rules**:
 - `tox.ini`'s `envlist` and the CI `test` job's `matrix.python-version` MUST both equal
@@ -33,7 +33,7 @@ Represents one Python version's outcome from a single local (`tox`) or CI (matri
 | `python_version` | string | Which of `versions` this result is for |
 | `source` | enum | `local-tox` or `ci-matrix` |
 | `outcome` | enum | `passed`, `failed`, `skipped-missing-interpreter` (local-only; FR-004) |
-| `coverage_pct` | number \| null | Present when `outcome = passed`/`failed`; expected identical across versions since coverage reflects the code under test, not the interpreter (research.md #5) |
+| `coverage_pct` | number \| null | Present when `outcome = passed`/`failed`. **Not** identical across versions: `config.py` and `registry_config.py` each carry an interpreter-conditional `tomllib`/`tomli` import fallback, so 3.9/3.10 cover two lines 3.11+ never execute (98.88% vs 98.59% as measured). Only `canonical_version`'s value is published as the repository-level headline metric, via the `coverage-pct` artifact (research.md #5) |
 
 **Validation rules**:
 - `outcome = skipped-missing-interpreter` MUST NOT be reported as `passed` (FR-004) and MUST

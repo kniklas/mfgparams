@@ -23,7 +23,7 @@ the other Principle IX gates.
 |---|---|---|---|
 | `test (3.9)` | Full suite + coverage on the oldest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.9 |
 | `test (3.10)` | Same, on 3.10 | push, pull_request | Test failure or coverage below 90% on 3.10 |
-| `test (3.11)` | Same, on 3.11 (also the canonical leg — `env.PYTHON_VERSION` — that uploads `coverage.xml` to Codecov; every leg, not just this one, sets the `coverage_pct` output `quality-summary` consumes, since a matrix job's output is published from whichever leg finishes last, not whichever leg set it — research.md #5) | push, pull_request | Test failure or coverage below 90% on 3.11 |
+| `test (3.11)` | Same, on 3.11 — also the canonical leg (`env.PYTHON_VERSION`): the only leg that uploads `coverage.xml` to Codecov, and the only one that writes the `coverage-pct` artifact `quality-summary` renders as the coverage metric. The job exposes no `coverage_pct` job output, because a matrix job's output is published from whichever leg finishes last regardless of which leg set it (research.md #5) | push, pull_request | Test failure or coverage below 90% on 3.11 |
 | `test (3.12)` | Same, on the newest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.12 |
 
 **Note**: `needs.test.result` (consumed by the `quality-summary` job) reflects the matrix
@@ -33,10 +33,12 @@ underlying gate now covers four versions instead of one.
 
 ## Required-status-check update (manual, one-time — resolves spec.md FR-007)
 
-`main`'s "status checks" ruleset (created by `003-ci-quality-security-gates`) currently
-requires the single check name `test`. Once the matrix ships, GitHub Actions stops producing
-that name entirely (a matrixed job only produces per-leg checks) — so this is not additive,
-it is a **replacement**:
+**Status: completed** — see the post-migration state recorded at the end of this section.
+
+Before this feature, `main`'s "status checks" ruleset (created by
+`003-ci-quality-security-gates`) required the single check name `test`. Once the matrix ships,
+GitHub Actions stops producing that name entirely (a matrixed job only produces per-leg checks)
+— so this was not additive, it was a **replacement**:
 
 1. Remove the `test` entry from the ruleset's required-status-checks list.
 2. Add all four: `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`.
@@ -49,6 +51,12 @@ a code change alone — `tasks.md` tracks it as an explicit, documented step (sa
 before/at merge of this feature's PR, otherwise `main` briefly has zero enforced test gate
 (the stale `test` entry matches nothing once the workflow changes) rather than the intended
 four.
+
+**Post-migration state** (applied during this feature's PR, once its matrix had run once so
+GitHub offered the new check names): the `main-required-status-checks` ruleset now requires
+`lint`, `complexity`, `typecheck`, `security`, `dependency-scan`, `test (3.9)`, `test (3.10)`,
+`test (3.11)`, `test (3.12)`, `build`, `docs`, `Analyze (python)`, and `CodeQL`. The bare `test`
+entry is gone; every non-`test` entry is unchanged from before the migration (tasks.md T010).
 
 ## Documentation interface: README
 

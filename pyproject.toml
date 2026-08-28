@@ -32,6 +32,11 @@ dependencies = [
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
+    # Used by tests/static/test_python_version_consistency.py to read
+    # .github/workflows/ci.yml's `test` job matrix as structured YAML rather
+    # than by regex. Declared explicitly rather than relied on as a transitive
+    # dependency of `bandit` (specs/013-tox-multi-python-testing FR-008).
+    "pyyaml>=6.0",
     "ruff>=0.4",
     "black>=26.3.1; python_version >= '3.10'",
     "black<26; python_version < '3.10'",

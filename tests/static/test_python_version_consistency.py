@@ -18,6 +18,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 try:  # Python 3.11+ ships tomllib in the standard library.
     import tomllib
 except ModuleNotFoundError:  # Python 3.9 / 3.10 fall back to the tomli backport.
@@ -56,18 +58,44 @@ def _tox_envlist_versions() -> set[str]:
     return versions
 
 
-def _ci_matrix_versions() -> set[str]:
+def _ci_workflow() -> dict:
+    # Parsed as YAML rather than scanned with a regex: a regex for
+    # `python-version: [...]` matches the FIRST such list anywhere in the
+    # file, so adding any other matrixed job above `test` would silently
+    # point this guard at the wrong matrix and let the `test` matrix drift
+    # unchecked — exactly the failure FR-008 exists to prevent (code review
+    # finding, specs/013-tox-multi-python-testing).
     text = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    match = re.search(r"python-version:\s*\[(.*?)\]", text)
-    assert match, "expected a literal 'python-version: [...]' matrix list in ci.yml"
-    return {v.strip().strip("\"'") for v in match.group(1).split(",")}
+    workflow = yaml.safe_load(text)
+    assert isinstance(workflow, dict), "expected ci.yml to parse as a YAML mapping"
+    return workflow
+
+
+def _ci_matrix_versions() -> set[str]:
+    jobs = _ci_workflow()["jobs"]
+    assert "test" in jobs, "expected a 'test' job in ci.yml"
+    matrix = jobs["test"]["strategy"]["matrix"]
+    versions = matrix["python-version"]
+    assert isinstance(versions, list) and versions, (
+        "expected ci.yml's `test` job to declare a non-empty "
+        "`strategy.matrix.python-version` list"
+    )
+    # YAML resolves an unquoted `3.10` to the float 3.1, which would silently
+    # compare unequal to the "3.10" classifier; require the quoted string form.
+    for version in versions:
+        assert isinstance(version, str), (
+            f"expected ci.yml's `test` matrix versions to be quoted strings, got "
+            f"{version!r} — an unquoted YAML version number is parsed as a float"
+        )
+    return set(versions)
 
 
 def _ci_canonical_version() -> str:
-    text = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    match = re.search(r'^\s*PYTHON_VERSION:\s*"(3\.\d+)"', text, re.MULTILINE)
-    assert match, "expected an 'env.PYTHON_VERSION: \"3.X\"' declaration in ci.yml"
-    return match.group(1)
+    canonical = _ci_workflow()["env"]["PYTHON_VERSION"]
+    assert isinstance(
+        canonical, str
+    ), f"expected ci.yml's `env.PYTHON_VERSION` to be a quoted string, got {canonical!r}"
+    return canonical
 
 
 def test_supported_python_versions_are_consistent_everywhere():

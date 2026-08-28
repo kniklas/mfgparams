@@ -223,25 +223,39 @@ jobs:
       # Surfaces the coverage percentage to the `quality-summary` job
       # (specs/004-pr-quality-check-summary research.md #3); reuses the
       # `.coverage` data file the `pytest --cov=...` step above already left
-      # in place, rather than a second coverage computation. Runs on every
-      # leg (not gated) because a matrix job's output is published from
-      # whichever leg happens to finish last, not from whichever leg set a
-      # non-empty value — gating this to one leg would make the job output
-      # empty whenever a different leg finished last. Coverage is expected
-      # to be numerically identical across interpreters (no
-      # version-conditional test skips affect line coverage), so any leg's
-      # value is correct regardless of which one "wins" the race
-      # (specs/013-tox-multi-python-testing research.md #5 remediation).
+      # in place, rather than a second coverage computation.
+      #
+      # Published as an ARTIFACT from the single canonical leg rather than as
+      # a matrix job output, because a matrix job cannot expose a
+      # per-version output at all: all four legs write the same output name
+      # and the value that survives is whichever leg finished last. That is a
+      # race no matter which legs are gated in or out, and coverage here is
+      # genuinely NOT identical across interpreters — `src/mfgparams/config.py`
+      # and `src/mfgparams/registry_config.py` each carry an
+      # interpreter-conditional `tomllib`/`tomli` import fallback, so 3.9/3.10
+      # execute two lines that 3.11+ never reach (98.88% vs 98.59% as of this
+      # feature's own validation run). A single artifact written by only the
+      # `env.PYTHON_VERSION` leg makes the reported number both deterministic
+      # and attributable to a named interpreter
+      # (specs/013-tox-multi-python-testing research.md #5).
+      #
       # `if: always()` because a step only runs on implicit success() by
-      # default: without it, a leg whose `pytest` step fails would skip this
-      # step too, leaving that leg's output empty and reopening the same
-      # race whenever the failing leg happens to finish last (code review
-      # finding on the same PR).
-      - id: coverage
-        if: always()
-        run: echo "coverage_pct=$(coverage report --format=total)" >> "$GITHUB_OUTPUT"
-    outputs:
-      coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}
+      # default: without it, a canonical leg whose `pytest` step failed would
+      # skip this too and report no coverage at all, when the partial run it
+      # did complete is exactly what a reviewer wants to see. `|| true`
+      # because `coverage report` exits non-zero when the total is below
+      # `fail_under`, which must not fail this step on top of the `pytest`
+      # failure that already flagged it.
+      - name: Record canonical coverage percentage
+        if: always() && matrix.python-version == env.PYTHON_VERSION
+        run: coverage report --format=total > coverage-pct.txt || true
+      - name: Upload canonical coverage percentage
+        if: always() && matrix.python-version == env.PYTHON_VERSION
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-pct
+          path: coverage-pct.txt
+          if-no-files-found: ignore
 
   # Informational-only legacy-hardware time/memory budget signal
   # (specs/006-legacy-hardware-performance-tests). Separate from `test`;
@@ -413,6 +427,30 @@ jobs:
     permissions:
       pull-requests: write
     steps:
+      # The `test` job is a Python-version matrix, so it cannot expose a
+      # meaningful single coverage number as a job output (see that job's
+      # "Record canonical coverage percentage" step). Its canonical
+      # `env.PYTHON_VERSION` leg publishes the number as this artifact
+      # instead. `continue-on-error` so a `test` job that never got far
+      # enough to produce it (cancelled, or the canonical leg's setup
+      # failed) leaves the coverage cell as the documented "—" placeholder
+      # rather than failing this job
+      # (specs/013-tox-multi-python-testing research.md #5).
+      - name: Download canonical coverage percentage
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-pct
+          path: coverage-pct
+      - name: Read canonical coverage percentage
+        id: coverage
+        run: |
+          set -euo pipefail
+          pct=""
+          if [ -f coverage-pct/coverage-pct.txt ]; then
+            pct="$(tr -d '[:space:]' < coverage-pct/coverage-pct.txt)"
+          fi
+          echo "coverage_pct=$pct" >> "$GITHUB_OUTPUT"
       # Assembles the Markdown table + overall status into a file, which is
       # handed to the comment-posting step below via `path:` (research.md
       # #5). Failures here are left to fail this step normally (not
@@ -428,7 +466,7 @@ jobs:
           SECURITY_RESULT: ${{ needs.security.result }}
           DEPENDENCY_SCAN_RESULT: ${{ needs.dependency-scan.result }}
           TEST_RESULT: ${{ needs.test.result }}
-          TEST_METRIC: ${{ needs.test.outputs.coverage_pct }}
+          TEST_METRIC: ${{ steps.coverage.outputs.coverage_pct }}
           BUILD_RESULT: ${{ needs.build.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           PERFORMANCE_STATUS: ${{ needs.performance.outputs.status_label }}

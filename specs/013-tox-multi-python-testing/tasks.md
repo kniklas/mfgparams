@@ -115,14 +115,23 @@ failing the whole run.
 - [X] T008 [US2] Execute `quickstart.md` §2 (`tox` and `tox -e py39`); confirm each available
   interpreter reports its own pass/fail and any interpreter missing from the validation
   machine is reported `SKIPPED` rather than failing the overall run, validating spec.md User
-  Story 2 Acceptance Scenarios 1-3 (depends on T002, T006). **Validated**: `tox -e py39`
-  passed cleanly (coverage 98.88%); a full `tox` run showed `py39`/`py310`/`py312` each
-  executing independently with their own coverage-passing result (2 pre-existing, unrelated
-  failures in `tests/integration/test_packaging_bundled_data.py` on every leg — caused by the
-  `build` package not being part of the `dev` extra, a pre-existing gap unrelated to Python
-  version support and out of this feature's scope), while `py311` — unresolvable on this
-  machine due to a local `pyenv` shim/env-propagation quirk — was cleanly reported `SKIP`
-  rather than crashing the run or silently passing.
+  Story 2 Acceptance Scenarios 1-3 (depends on T002, T006). **Validated** (re-run after the
+  `tests/integration/test_packaging_bundled_data.py` skip-detection fix landed on this branch,
+  replacing an earlier record that still showed those two failures):
+
+  - Full `tox -r` with all four interpreters resolvable: every env passed independently and the
+    run exited green — `py39: OK` (810 passed, 13 skipped, coverage 98.88%), `py310: OK`
+    (98.89%), `py311: OK` (98.59%), `py312: OK` (98.59%). No failures remain; the two
+    `test_packaging_bundled_data.py` failures recorded before are gone, since `build` is now
+    correctly detected as absent and the tests skip instead of erroring.
+  - Those four numbers are also the direct evidence behind research.md #5's final design: line
+    coverage is **not** interpreter-independent here, so no matrix leg's value can stand in for
+    another's and the reported CI metric has to come from one named leg.
+  - Acceptance Scenario 3 (missing interpreter) was validated in a separate run on the same
+    machine where `python3.11` was not resolvable (a local `pyenv` shim/env-propagation quirk —
+    `tox` sanitizes `PYENV_VERSION` out of its discovery subprocess): `py311` was reported
+    `SKIP` while `py39`/`py310`/`py312` still ran and reported `OK`, and the overall run still
+    exited zero rather than crashing or silently claiming 3.11 passed.
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — contributors can now both
 install on 3.9 and self-check every version locally before pushing.
@@ -147,18 +156,27 @@ one combined result.
   and gate the existing Codecov-upload step behind
   `if: matrix.python-version == '3.11'` so redundant uploads are avoided
   (research.md #3, #5; contracts/multi-version-testing-contract.md's "CI
-  interface" table). **Corrected twice after code review, post-merge of this task**: (1) the
-  `coverage_pct` output step was *also* originally gated the same way, which made
-  `quality-summary`'s single-value output non-deterministic rather than fixing that — a
-  matrix job's output is published from whichever leg finishes last, not whichever leg set a
-  non-empty value, so gating three of four legs out of setting it could leave the output
-  empty. Fixed by running `coverage_pct` unconditionally on every leg (all legs compute the
-  same value, so it no longer matters which one "wins"), and the Codecov gate's literal
-  `'3.11'` was changed to `env.PYTHON_VERSION` so it can't independently drift from the one
-  declared canonical version (research.md #5's remediation). (2) The `coverage_pct` step still
-  lacked `if: always()`, so it was skipped by GitHub Actions' default `success()`-only step
-  condition whenever a leg's `pytest` step itself failed, reopening the same race for that
-  leg — fixed by adding `if: always()`.
+  interface" table). **Corrected across three code-review rounds after this task was first
+  marked done** — the full narrative and the discarded alternatives are in research.md #5;
+  in short:
+  1. The `coverage_pct` job-output step was originally gated to the canonical leg too, which
+     made `quality-summary`'s metric intermittently *empty*: a matrix job's output is
+     published from whichever leg finishes last, not whichever leg set a non-empty value.
+  2. Removing that gate so every leg set the output fixed the emptiness but not the race, and
+     rested on a false premise — local `tox` measures 98.88% (3.9), 98.89% (3.10) and 98.59%
+     (3.11/3.12), because `config.py` and `registry_config.py` each carry an
+     interpreter-conditional `tomllib`/`tomli` import fallback. Every leg publishing its own
+     number just made the reported figure nondeterministic instead of missing.
+  3. **Final**: the `test` job publishes no `coverage_pct` output at all. Its canonical leg
+     writes `coverage report --format=total` to a `coverage-pct` artifact
+     (`if: always() && matrix.python-version == env.PYTHON_VERSION`, `|| true` so a
+     below-threshold total does not fail the step), and `quality-summary` downloads that
+     artifact (`continue-on-error: true`, falling back to the documented "—" placeholder) and
+     reads it into `TEST_METRIC`. The reported number is now deterministic and attributable to
+     one named interpreter regardless of leg finish order.
+
+  The Codecov gate's literal `'3.11'` was likewise replaced with `env.PYTHON_VERSION` so it
+  cannot independently drift from the one declared canonical version.
 - [X] T010 [US3] Update `main`'s "status checks" branch-protection ruleset in GitHub
   repository settings: remove the single `test` required-status-check entry and add all four
   matrix leg names (`test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`); leave every
@@ -201,7 +219,12 @@ combined validation across all three stories.
   (data-model.md's Supported Version Range validation rule). Add it to the default test run so
   future drift fails `pytest`/CI automatically rather than depending on a one-time manual
   check — resolves FR-008's "kept in sync if that range changes" requirement on an ongoing
-  basis (research.md #7; `/speckit-analyze` finding C1)
+  basis (research.md #7; `/speckit-analyze` finding C1). **Corrected after code review**: the
+  first implementation regex-scraped `ci.yml` for `python-version: [...]`, which matches the
+  first such list anywhere in the file rather than the `test` job's — a second matrixed job
+  added above `test` would have silently redirected the guard. Now parsed with `yaml.safe_load`
+  and looked up explicitly under `jobs.test.strategy.matrix` (and `env.PYTHON_VERSION`), with
+  `pyyaml` added to the `dev` extra.
 - [X] T013 Execute `quickstart.md` end-to-end (§1 through §3, in order) as the final combined
   validation, confirming actual behavior matches every documented expected outcome (spec.md
   SC-001 through SC-004); confirm T012's new test passes (depends on T012). **Done**: §1 (T005),

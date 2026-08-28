@@ -139,44 +139,57 @@ existing "Run the tests" section relies on the same mechanism today).
 
 ## #5: Keeping `quality-summary`'s single-value coverage output correct, and restricting the Codecov upload
 
-**Decision** (as first implemented, corrected after a `/code-review` finding — see below): gate
-only the Codecov-upload step behind `if: matrix.python-version == env.PYTHON_VERSION` (the
-version every other CI job already pins). The `coverage_pct` job-output step runs
-**unconditionally on every leg**.
+**Decision** (reached after two `/code-review` corrections — the discarded attempts are recorded
+below): the `test` job publishes **no** `coverage_pct` job output at all. Its canonical leg
+(`if: always() && matrix.python-version == env.PYTHON_VERSION`) writes `coverage report
+--format=total` to a `coverage-pct.txt` artifact, and `quality-summary` downloads that artifact
+and reads the number into `TEST_METRIC`. The Codecov upload stays gated to the same canonical
+leg.
 
-**Original (incorrect) decision**: the first implementation gated *both* the Codecov upload and
-the `coverage_pct` step behind `if: matrix.python-version == '3.11'`, reasoning that pinning the
-job output's source to one leg would keep it deterministic.
+**Attempt 1 (incorrect)**: gate *both* the Codecov upload and the `coverage_pct` job-output step
+behind `if: matrix.python-version == '3.11'`, reasoning that pinning the output's source to one
+leg keeps it deterministic. A GitHub Actions matrix job's `output` is published from whichever
+leg's job instance *completes last*, not from whichever leg actually set a non-empty value —
+so gating three of four legs out meant `needs.test.outputs.coverage_pct` resolved to an empty
+string whenever one of those legs finished last, and `quality-summary`'s coverage cell
+intermittently went missing with no job failing to flag it.
 
-**Why that was wrong**: a GitHub Actions matrix job's `output` is published from whichever leg's
-job instance *completes last*, not from whichever leg actually set a non-empty value. Gating the
-`coverage` step meant three of the four legs never ran it at all, so
-`steps.coverage.outputs.coverage_pct` was empty in their context — if one of those legs happened
-to finish last (a real possibility with `fail-fast: false` and four independently-racing legs),
-`needs.test.outputs.coverage_pct` resolved to an empty string, and `quality-summary`'s
-`TEST_METRIC` would intermittently go missing with no job failing to flag it. This was caught by
-a `/code-review` pass on the open PR (specs/013-tox-multi-python-testing), not before merge.
+**Attempt 2 (also incorrect)**: remove the gate so *every* leg sets `coverage_pct`, on the
+reasoning that coverage is a property of the code under test rather than of the interpreter, so
+all four values would be identical and the race would be harmless. That premise is false in this
+repository: `src/mfgparams/config.py` and `src/mfgparams/registry_config.py` each carry an
+interpreter-conditional `tomllib` / `tomli` import fallback, so 3.9 and 3.10 execute two lines
+that 3.11+ never reach. This feature's own validation run measured the difference directly —
+98.88% on 3.9 versus 98.59% on 3.11/3.12. Every leg setting the same output name therefore still
+publishes a *nondeterministic* number, just one that is never empty; rounding to a whole
+percentage hides it today but does not fix it.
 
-**Corrected rationale**: removing the `if:` gate from the `coverage` step means every leg
-computes and sets `coverage_pct` from its own `.coverage` data. Coverage percentage is a
-property of the code under test, not the interpreter running it (this suite has no
-version-conditional test skips that would change line-coverage counts), so every leg's value is
-expected to be numerically identical — meaning it no longer matters which leg "wins" the
-race, because every candidate value is correct. The Codecov-upload step stays restricted to the
-canonical leg, since that's a real per-leg side effect (an HTTP upload) where redundancy is
-worth avoiding, unlike a job output. The canonical-leg comparison itself was also changed from
-the literal `'3.11'` to `env.PYTHON_VERSION`, so it can never independently drift from the one
-declared canonical version (a second `/code-review` finding on the same PR) — and
-`tests/static/test_python_version_consistency.py` gained a third check asserting
-`env.PYTHON_VERSION` is always a member of the supported-version set, so dropping it from the
-matrix without updating `PYTHON_VERSION` (or vice versa) now fails a test instead of silently
-leaving the Codecov-upload `if:` permanently false.
+**Final rationale**: a matrix job simply cannot expose an attributable per-version value through
+a job output — all legs write the same output name and last-writer-wins, so no arrangement of
+`if:` gates is deterministic. An artifact has no such collision: only the canonical leg writes
+it, so the number `quality-summary` renders is always that one named interpreter's, regardless of
+leg finish order or of coverage genuinely differing between interpreters. `if: always()` on the
+recording step keeps the metric available when the canonical leg's `pytest` step failed (the
+partial result is exactly what a reviewer wants to see then), and `|| true` keeps `coverage
+report`'s below-`fail_under` non-zero exit from failing the step on top of that. On the consuming
+side, `continue-on-error: true` on the download means a `test` job that never produced the
+artifact leaves the documented "—" placeholder rather than failing `quality-summary`.
 
-**Alternatives considered**: Aggregating four coverage reports into one — rejected as
-unnecessary complexity when the underlying numbers are expected to be identical across
-interpreters. A separate, non-matrixed job that downloads the canonical leg's coverage artifact
-and republishes it as a single output — rejected as needless indirection once the simpler fix
-(just let every leg compute the same value) closes the actual race condition.
+The Codecov-upload gate's literal `'3.11'` was likewise changed to `env.PYTHON_VERSION` so it
+cannot independently drift from the one declared canonical version, and
+`tests/static/test_python_version_consistency.py` gained a check asserting `env.PYTHON_VERSION`
+is always a member of the supported-version set — so dropping that version from the matrix
+without updating `PYTHON_VERSION` (or vice versa) fails a test instead of silently leaving both
+canonical-leg conditions permanently false.
+
+**Alternatives considered**: Four uniquely named per-version job outputs (`coverage_pct_39`, …)
+aggregated by `quality-summary` — rejected because it multiplies the workflow surface by four to
+report one headline number, and each output still individually depends on matrix-output
+semantics. Excluding the `tomllib`/`tomli` fallbacks from coverage measurement with `# pragma: no
+cover` so all legs really do agree — rejected because it makes the reported number depend on an
+invariant that any future interpreter-conditional line silently breaks, whereas the artifact is
+correct whether or not the legs agree. A separate non-matrixed job that re-runs the suite purely
+to produce the canonical number — rejected as a duplicate full test run.
 
 ## #6: Documenting the pip-upgrade prerequisite
 
@@ -227,3 +240,13 @@ decision follows the same pattern.
   running the suite locally via `tox`/`pytest`, and would be the only version-consistency
   check in this project not expressed as a `tests/` file — rejected in favor of a plain static
   test, consistent with how `012` solved the same shape of problem.
+- **Regex-scraping `ci.yml` for `python-version: [...]`** (as first implemented, replaced after
+  a code-review finding): a regex matches the *first* such list anywhere in the file, so the
+  guard was not actually scoped to the `test` job. Adding any other matrixed job above `test`
+  would have silently pointed the check at the wrong matrix and let the `test` matrix drift
+  unnoticed — defeating the very requirement it exists to enforce. Replaced by
+  `yaml.safe_load` and an explicit `jobs["test"]["strategy"]["matrix"]["python-version"]`
+  lookup (and the same for `env.PYTHON_VERSION`), with an assertion that each version is a
+  quoted string, since unquoted YAML `3.10` parses as the float `3.1` and would compare
+  unequal to the `"3.10"` classifier for a non-obvious reason. `pyyaml` is declared explicitly
+  in the `dev` extra for this rather than relied on as a transitive `bandit` dependency.

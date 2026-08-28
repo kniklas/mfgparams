@@ -132,11 +132,15 @@ tests/static/
     └── ci.yml                     # MODIFY: `test` job gains
                                     #   `strategy: {fail-fast: false, matrix: {python-version:
                                     #   ["3.9","3.10","3.11","3.12"]}}` (research.md #3);
-                                    #   Codecov upload + `coverage_pct` output step gated to
-                                    #   the single canonical leg (`3.11`, the version already
-                                    #   used by every other job) to keep the
-                                    #   `quality-summary` job's single-value output
-                                    #   deterministic (research.md #5)
+                                    #   Codecov upload gated to the single canonical leg
+                                    #   (`env.PYTHON_VERSION`, the version every other job
+                                    #   already pins); the `test` job publishes no
+                                    #   `coverage_pct` job output at all — a matrix job's
+                                    #   output is last-leg-wins, so the canonical leg writes
+                                    #   the percentage to a `coverage-pct` artifact that
+                                    #   `quality-summary` downloads instead, keeping that
+                                    #   single-value metric deterministic and attributable
+                                    #   (research.md #5)
 
 README.md                          # MODIFY: "Run the tests" section documents the pip-
                                     #   upgrade prerequisite for the plain (non-tox) install
