@@ -96,10 +96,12 @@ tested against every Python version the project claims to support, without relyi
 contributor to remember to check locally.
 
 **Why this priority**: This closes the loop so the guarantee doesn't depend on individual
-contributor diligence — it's the automated backstop for Stories 1 and 2. It's ranked last only
-because it depends on the underlying dependency and test-command fixes from Story 1 already
-being in place; without those, a version matrix in CI would just fail the same way local
-installs currently do.
+contributor diligence — it's the automated backstop for Stories 1 and 2. It's ranked last by
+value, not by dependency: as originally designed it would have needed Story 1's dependency fix
+first (CI's matrix legs ran the same `pip install -e ".[dev]"` that fails on 3.9), but the
+implemented design installs a narrow `test` extra in CI instead, which carries no `setuptools`
+pin — so this story is independently implementable (plan.md research.md #4; tasks.md's User
+Story Dependencies).
 
 **Independent Test**: Open a pull request that changes any file under `src/` or `tests/`;
 confirm the CI checks section shows a distinct, individually reportable test result for each
@@ -195,10 +197,15 @@ officially supported Python version, not one combined or single-version result.
 - Contributors running the local multi-version workflow will not necessarily have every
   supported interpreter installed on their machine; gracefully reporting missing versions as
   skipped, rather than requiring all of them to be present, is acceptable.
-- The existing test suite's behavior — which tests run by default, the ≥90% coverage threshold,
-  and which suites remain opt-in (e.g., the performance suite) — is unchanged by this feature;
-  only the set of Python versions it is verified against, and the ease of doing so locally,
-  change.
+- The ≥90% coverage threshold and which suites remain opt-in (e.g., the performance suite) are
+  unchanged by this feature; the primary change is the set of Python versions the suite is
+  verified against and the ease of doing so locally. **Two deliberate exceptions**, both
+  additive and both discovered while implementing this feature: declaring `build` as a test
+  dependency makes `tests/integration/test_packaging_bundled_data.py`'s wheel-content
+  assertions *execute* in every tox env and CI matrix leg instead of being `importorskip`-ed
+  everywhere (they asserted nothing in automation before — research.md #4), and two small
+  regression/source-guard tests were added to that same file to protect the skip guard itself.
+  No existing test changes its expected outcome, and no opt-in suite becomes default.
 - The increase in automated pipeline time/cost from testing against multiple Python versions
   per pull request, instead of one, is an accepted tradeoff in exchange for the supported-version
   claim actually being enforced.

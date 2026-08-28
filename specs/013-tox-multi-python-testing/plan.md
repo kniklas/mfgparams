@@ -46,10 +46,14 @@ constraint (existing dependency, constraint split by Python version, mirroring t
 
 **Testing**: One new committed static test
 (`tests/static/test_python_version_consistency.py`, research.md #7) guards FR-008's
-version-lists-stay-in-sync requirement going forward; otherwise no new application test suite.
-Validation is via `quickstart.md`'s runnable local (`tox`) and CI (matrix job) scenarios,
-matching spec.md's acceptance scenarios; the project's existing test suite and ≥90% coverage
-gate are exercised unchanged, now across four interpreters instead of one
+version-lists-stay-in-sync requirement going forward; no new application test suite. Two
+further, additive test changes fell out of implementation: declaring `build` in the `test`
+extra makes `tests/integration/test_packaging_bundled_data.py`'s wheel-content assertions run
+in every tox env and CI matrix leg instead of being skipped everywhere, and two
+regression/source-guard tests were added to that file to protect its skip guard (research.md
+#4). Validation is otherwise via `quickstart.md`'s runnable local (`tox`) and CI (matrix job)
+scenarios, matching spec.md's acceptance scenarios; the ≥90% coverage gate is unchanged and
+now enforced across four interpreters instead of one
 
 **Target Platform**: Local contributor machines (any OS `tox`/`pyenv` supports) and GitHub
 Actions (`ubuntu-latest` runners) — same platforms already in use, no new target
@@ -62,8 +66,10 @@ Constitution Principle V, which governs the *application's* runtime, not CI/loca
 duration). CI cost is a known, accepted tradeoff (spec.md Assumptions) — the `test` job now
 runs 4x, matching the 4 supported interpreters.
 
-**Constraints**: MUST NOT change the existing test suite's behavior, the ≥90% coverage
-threshold, or which suites are opt-in (spec.md Assumptions); MUST NOT change the currently
+**Constraints**: MUST NOT change the ≥90% coverage threshold, which suites are opt-in, or any
+existing test's expected outcome (spec.md Assumptions). Making a previously-always-skipped test
+actually execute, and adding tests, are permitted — both are additive and both were needed to
+close gaps this feature surfaced (research.md #4); MUST NOT change the currently
 declared supported-version range (spec.md Assumptions); the local multi-version workflow
 MUST NOT hard-fail its overall run solely because a supported interpreter is missing from the
 contributor's machine (spec.md FR-004)
@@ -84,7 +90,7 @@ ruleset (a GitHub setting, not a version-controlled file — see `contracts/`)
 | Principle | Gate | Status |
 |---|---|---|
 | I. Code Quality | Linting MUST pass in CI (unaffected — no `src/` changes) | PASS (not applicable) |
-| II. Testing Standards | ≥90% coverage on calculation modules, CI-enforced | PASS (unaffected) — this feature adds no calculation logic and does not change the coverage threshold or which tests run; it changes only *how many interpreters* run the identical suite |
+| II. Testing Standards | ≥90% coverage on calculation modules, CI-enforced | PASS — this feature adds no calculation logic and does not change the coverage threshold. It changes *how many interpreters* run the suite (one to four) and, additively, what that suite actually asserts: `tests/integration/test_packaging_bundled_data.py`'s wheel-content checks now execute rather than being skipped everywhere for want of a declared `build` dependency, and two regression/source-guard tests were added alongside them (research.md #4). Both strengthen the gate; neither relaxes it |
 | III. Calculation Robustness & Accuracy | N/A — no calculation logic touched | PASS (not applicable) |
 | IV. Python Packaging & Versioning Standards | "Dependencies MUST be declared explicitly with sensible version constraints in `pyproject.toml`" | PASS — this feature's entire packaging change *is* correcting an existing constraint (`setuptools`) that was not actually satisfiable across the declared `requires-python` range; the fix follows the precedent already established for `black` in the same extra |
 | V. Resource-Constrained Compatibility | "MUST remain compatible with older or long-term-stable operating system releases... MUST NOT depend on bleeding-edge OS features... kernel versions, or system libraries" (implies the declared Python 3.9 floor must actually work) | PASS — this feature's purpose is closing the gap between the claimed 3.9+ compatibility and what is actually installable/verified; it introduces no new bleeding-edge dependency |

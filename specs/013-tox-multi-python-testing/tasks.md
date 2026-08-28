@@ -5,9 +5,14 @@
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md,
 contracts/multi-version-testing-contract.md, quickstart.md
 
-**Tests**: This feature is mostly dev-tooling/CI configuration, not application code — it
-changes *how many interpreters* run the existing suite, not the suite itself. One small
-committed static test is included (T012): FR-008 requires the local (`tox`) and CI version
+**Tests**: This feature is mostly dev-tooling/CI configuration, not application code — its
+primary change is *how many interpreters* run the existing suite. It does make three additive
+changes to the suite itself, all recorded below: one small committed static test (T012), two
+regression/source-guard tests in `tests/integration/test_packaging_bundled_data.py`, and — by
+declaring `build` in the new `test` extra — that file's two pre-existing wheel-content
+assertions finally *executing* in every tox env and CI matrix leg rather than being
+`importorskip`-ed everywhere (research.md #4). No existing test's expected outcome changes.
+On T012: FR-008 requires the local (`tox`) and CI version
 lists to stay in sync with `pyproject.toml`'s declared range on an ongoing basis, not just at
 the moment this feature ships, so that guarantee is enforced automatically rather than relying
 on a one-off manual check (`/speckit-analyze` finding C1; research.md #7 — same pattern
