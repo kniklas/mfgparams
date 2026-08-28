@@ -59,7 +59,15 @@ dev = [
     "black>=26.3.1; python_version >= '3.10'",
     "black<26; python_version < '3.10'",
     "setuptools>=83.0.0; python_version >= '3.10'",
-    "setuptools>=64.0.0,<83.0.0; python_version < '3.10'",
+    # The `<3.10` branch is never exercised by `dependency-scan`, which runs
+    # `pip-audit` against an environment built on `env.PYTHON_VERSION` (3.11)
+    # and therefore always resolves the `>=83.0.0` branch above. A low floor
+    # here would let a future CVE in the `<83` range ship to 3.9 dev
+    # environments with the CVE gate still green, so the floor is pinned above
+    # the newest setuptools advisory rather than at the oldest technically
+    # workable version. Costs nothing: pip resolves 82.0.1 on 3.9 either way
+    # (verified) (code review finding).
+    "setuptools>=78.1.1,<83.0.0; python_version < '3.10'",
     "tox>=4",
     "sphinx>=7.0",
     "mypy>=1.10",

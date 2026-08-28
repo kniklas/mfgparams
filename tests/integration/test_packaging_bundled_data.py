@@ -45,11 +45,23 @@ except ModuleNotFoundError:  # pragma: no cover - Python <3.11
 import pytest
 
 
-def test_wheel_contains_bundled_materials_and_tools_toml(tmp_path):
+def _build_wheel(outdir: Path) -> Path:
+    """Build the project's wheel into ``outdir`` and return its path, skipping
+    the calling test if the ``build`` package isn't importable.
+
+    Note this uses `build`'s default *isolated* mode, which pip-installs the
+    `[build-system].requires` backend into a throwaway environment — i.e. it
+    touches the network. That is deliberate: it exercises the same path a real
+    `pip install mfgparams` takes, which is the whole point of asserting on the
+    wheel's contents. The cost is contained by building **once** per module
+    rather than once per test (code review finding); the environment that runs
+    these tests already had to reach PyPI to install `.[test]` in the first
+    place, so this adds no new class of dependency.
+    """
     pytest.importorskip("build.__main__")
 
     result = subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", str(tmp_path)],
+        [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
         capture_output=True,
         text=True,
         timeout=180,
@@ -58,28 +70,27 @@ def test_wheel_contains_bundled_materials_and_tools_toml(tmp_path):
         result.returncode == 0
     ), f"python -m build failed:\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
 
-    wheels = glob.glob(str(tmp_path / "*.whl"))
+    wheels = sorted(glob.glob(str(outdir / "*.whl")))
     assert wheels, "expected python -m build to produce a wheel"
+    return Path(wheels[0])
 
-    names = zipfile.ZipFile(wheels[0]).namelist()
+
+@pytest.fixture(scope="module")
+def built_wheel(tmp_path_factory) -> Path:
+    """One wheel build shared by every test in this module."""
+    return _build_wheel(tmp_path_factory.mktemp("wheel"))
+
+
+def test_wheel_contains_bundled_materials_and_tools_toml(built_wheel):
+    names = zipfile.ZipFile(built_wheel).namelist()
     assert any(n.endswith("data/materials.toml") for n in names), names
     assert any(n.endswith("drilling/data/tools.toml") for n in names), names
     assert any(n.endswith("end_milling/data/tools.toml") for n in names), names
     assert any(n.endswith("face_milling/data/tools.toml") for n in names), names
 
 
-def test_packaged_materials_include_hardwood_softwood_and_engineered(tmp_path):
-    pytest.importorskip("build.__main__")
-
-    result = subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", str(tmp_path)],
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
-    assert result.returncode == 0, result.stderr
-
-    wheel_path = Path(sorted(glob.glob(str(tmp_path / "*.whl")))[0])
+def test_packaged_materials_include_hardwood_softwood_and_engineered(built_wheel):
+    wheel_path = built_wheel
     with zipfile.ZipFile(wheel_path) as archive:
         materials_file = next(
             name for name in archive.namelist() if name.endswith("data/materials.toml")
@@ -150,21 +161,18 @@ def _importorskip_arguments(func) -> list[str]:
 
 
 def test_packaging_tests_guard_against_build_dunder_main_not_bare_build():
-    """Source-level guard: confirms the two tests above still skip on
+    """Source-level guard: confirms `_build_wheel` -- the single place the two
+    wheel-content tests above reach `python -m build` through -- still skips on
     `"build.__main__"`, not the bare `"build"` this file used before
-    specs/013-tox-multi-python-testing -- a plain string-literal revert
-    wouldn't be caught by
+    specs/013-tox-multi-python-testing. A plain string-literal revert wouldn't
+    be caught by
     `test_stray_build_scratch_directory_does_not_fool_the_skip_guard` alone,
-    since that test only proves the general mechanism, not that these two
-    call sites actually use it.
+    since that test only proves the general mechanism, not that the real call
+    site uses it.
     """
-    for test_func in (
-        test_wheel_contains_bundled_materials_and_tools_toml,
-        test_packaged_materials_include_hardwood_softwood_and_engineered,
-    ):
-        arguments = _importorskip_arguments(test_func)
-        assert arguments == ["build.__main__"], (
-            f"{test_func.__name__} must guard with "
-            f'pytest.importorskip("build.__main__"), not the bare "build" -- '
-            f"found {arguments!r}"
-        )
+    arguments = _importorskip_arguments(_build_wheel)
+    assert arguments == ["build.__main__"], (
+        "_build_wheel must guard with "
+        'pytest.importorskip("build.__main__"), not the bare "build" -- '
+        f"found {arguments!r}"
+    )

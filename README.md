@@ -274,6 +274,10 @@ environment it builds installs the narrower `test` extra):
 ```bash
 tox            # runs the full suite + coverage gate once per supported version
 tox -e py39    # or just one version, for a faster inner loop
+
+# Narrowing down one failure: pass `--no-cov` with any filter, or the 90%
+# coverage gate fails the environment even when every selected test passed.
+tox -e py39 -- --no-cov -k drilling -x
 ```
 
 Any supported interpreter not installed on your machine (e.g., no `python3.9`

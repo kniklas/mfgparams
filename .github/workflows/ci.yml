@@ -210,13 +210,20 @@ jobs:
       # `bandit` drops 3.9, even though the library itself still supports it
       # (specs/013-tox-multi-python-testing research.md #4).
       - run: pip install -e ".[test]"
-      # Only `--cov-report=xml` (needed by the Codecov step below) is passed
-      # here; `--cov=mfgparams`, `--cov-report=term-missing` and
-      # `--cov-fail-under=90` come from `[tool.pytest.ini_options].addopts`,
-      # which `tox` inherits too. Restating them on the command line would
-      # silently *override* addopts — bumping the threshold in pyproject.toml
-      # would then raise it for `tox` but leave CI enforcing the stale value
-      # (code review finding; research.md #4).
+      # `--cov-report=xml` is REQUIRED here — it is what produces the
+      # `coverage.xml` the Codecov step below uploads, and nothing else adds
+      # it. Do not remove it believing `addopts` covers it: `addopts` sets
+      # `term-missing` only. pytest-cov's `--cov-report` accumulates addopts
+      # and command-line values into one dict, so passing it here *adds* the
+      # xml reporter rather than replacing the terminal one (verified).
+      #
+      # Everything else — `--cov=mfgparams`, `--cov-report=term-missing`,
+      # `--cov-fail-under=90` — is deliberately left to
+      # `[tool.pytest.ini_options].addopts`, which `tox` inherits too.
+      # `--cov-fail-under` specifically does NOT accumulate: a command-line
+      # value silently *overrides* addopts, so restating `90` here would mean
+      # bumping the threshold in pyproject.toml raises it for `tox` while CI
+      # keeps enforcing the stale value (code review finding; research.md #4).
       - run: pytest --cov-report=xml
       # Publishes coverage.xml to Codecov so README.md's coverage badge stays
       # auto-updating (Constitution Principle VII; specs/003-ci-quality-security-gates).

@@ -144,13 +144,28 @@ identical in shape to the `setuptools>=83` pin that made `pip install -e ".[dev]
 on 3.9 in the first place (#2). A dedicated `test` extra decouples the version gate from
 unrelated tooling; `dev` lists `mfgparams[test]` so the two cannot drift apart.
 
-`build` is part of that extra deliberately.
+`build` is part of that extra deliberately, and the two tests that use it share a single
+module-scoped wheel build rather than one each — `build`'s default isolated mode pip-installs
+the `[build-system]` backend into a throwaway env, so halving the builds halves that cost
+across all four matrix legs. Isolated mode is kept rather than `--no-isolation` because it is
+the path a real `pip install mfgparams` takes, which is the property these tests exist to
+assert; the environment running them already had to reach PyPI to install `.[test]`, so this
+introduces no new class of dependency (code review finding).
 `tests/integration/test_packaging_bundled_data.py` shells out to `python -m build` and asserts
 the bundled `data/*.toml` files really ship inside the wheel, but guards itself with
 `pytest.importorskip("build.__main__")`. With `build` installed nowhere that runs pytest, those
 assertions were skipped in every tox env and every CI matrix leg, so dropping a path from
 `[tool.setuptools.package-data]` would have shipped silently — the guard was hardened by this
 feature but had nothing to guard (code review finding).
+
+**Consequence for narrowed local runs**: because the 90% gate lives in `addopts`, it applies to
+*any* pytest invocation, including a deliberately narrowed one — `tox -e py39 -- -k drilling`
+reports the env FAILED on coverage even when every selected test passed, burying the real
+failure being chased. `tox.ini` and README both document `--no-cov` alongside any filter
+(code review finding). Note also that `--cov-report` *accumulates* addopts and command-line
+values (pytest-cov's `StoreReport` action), while `--cov-fail-under` does not — only the latter
+is a genuine override, which is why CI can safely add `--cov-report=xml` but must not restate
+the threshold.
 
 **Alternatives considered**: Duplicating the full flag list explicitly in `tox.ini` for
 "clarity" — rejected, since it reintroduces exactly the drift risk this decision avoids. A bare
@@ -211,6 +226,14 @@ cover` so all legs really do agree — rejected because it makes the reported nu
 invariant that any future interpreter-conditional line silently breaks, whereas the artifact is
 correct whether or not the legs agree. A separate non-matrixed job that re-runs the suite purely
 to produce the canonical number — rejected as a duplicate full test run.
+
+**Later correction (code review)**: the `<3.10` branch was originally floored at
+`setuptools>=64.0.0`, the oldest version that technically works. That range is never scanned:
+`dependency-scan` runs `pip-audit` against an environment built on `env.PYTHON_VERSION` (3.11),
+which always resolves the `>=83.0.0` branch, so a future CVE affecting only the `<83` range
+would reach 3.9 dev environments with the CVE gate green. Floor raised to `>=78.1.1`, above the
+newest setuptools advisory. This costs nothing in practice — pip resolves 82.0.1 on 3.9 either
+way (verified with `pip install --dry-run -e ".[dev]"` in a real 3.9 venv).
 
 ## #6: Documenting the pip-upgrade prerequisite
 
