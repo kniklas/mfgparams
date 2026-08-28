@@ -19,7 +19,7 @@ import re
 from configparser import ConfigParser
 from pathlib import Path
 
-import yaml
+import pytest
 
 try:  # Python 3.11+ ships tomllib in the standard library.
     import tomllib
@@ -69,6 +69,15 @@ def _tox_envlist_versions() -> set[str]:
 
 
 def _ci_workflow() -> dict:
+    # `importorskip`, not a module-level `import yaml`: a bare checkout
+    # installed with a plain `pip install -e .` (no extras) is a supported way
+    # to run this suite — `tests/integration/test_packaging_bundled_data.py`
+    # documents and guards for exactly that case — and an unguarded import
+    # here would turn that into a *collection* error rather than a skip.
+    # Scoped to this helper rather than the module so the checks that need
+    # only `pyproject.toml`/`tox.ini` still run in such an environment (code
+    # review finding).
+    yaml = pytest.importorskip("yaml")
     # Parsed as YAML rather than scanned with a regex: a regex for
     # `python-version: [...]` matches the FIRST such list anywhere in the
     # file, so adding any other matrixed job above `test` would silently
@@ -130,6 +139,55 @@ def test_requires_python_floor_matches_the_oldest_classifier():
         f"requires-python floor {floor!r} does not match the oldest declared "
         f"classifier {oldest_classifier!r}"
     )
+
+
+def _tool_target_versions() -> dict:
+    """``[tool.ruff].target-version`` and ``[tool.black].target-version``, as
+    ``3.X`` strings keyed by tool name.
+
+    Both are hand-maintained copies of the *floor* of the supported range, in
+    the same file this test already parses. `ruff` takes a bare ``"py39"``;
+    `black` takes a list, and only its oldest entry is the floor.
+    """
+    data = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    versions = {}
+
+    ruff_target = data["tool"]["ruff"]["target-version"]
+    assert isinstance(
+        ruff_target, str
+    ), f"expected [tool.ruff].target-version to be a string, got {ruff_target!r}"
+    versions["ruff"] = _py_target_to_version(ruff_target)
+
+    black_targets = data["tool"]["black"]["target-version"]
+    assert (
+        isinstance(black_targets, list) and black_targets
+    ), "expected a non-empty [tool.black].target-version list"
+    parsed = [_py_target_to_version(v) for v in black_targets]
+    versions["black"] = min(parsed, key=lambda v: tuple(map(int, v.split("."))))
+    return versions
+
+
+def _py_target_to_version(target: str) -> str:
+    match = re.fullmatch(r"py3(\d+)", target)
+    assert match, f"expected a 'py3<minor>' target-version, got {target!r}"
+    return f"3.{match.group(1)}"
+
+
+def test_formatter_and_linter_target_the_oldest_supported_version():
+    # `ruff`'s and `black`'s `target-version` are two further hand-maintained
+    # copies of the supported range's floor, in the same `pyproject.toml` this
+    # test already reads. They were not covered by the checks above, so raising
+    # the floor everywhere else -- `requires-python`, classifiers, `tox.ini`,
+    # `ci.yml` -- would leave all of those green while `ruff` kept applying
+    # `UP` autofixes aimed at the old version and `black` kept formatting to
+    # its grammar. That is precisely the silent drift FR-008 exists to close
+    # (code review finding, specs/013-tox-multi-python-testing).
+    floor = _requires_python_floor()
+    for tool, target in _tool_target_versions().items():
+        assert target == floor, (
+            f"[tool.{tool}].target-version targets {target!r} but the supported "
+            f"range's floor is {floor!r} (pyproject.toml requires-python)"
+        )
 
 
 def test_ci_canonical_version_is_a_supported_version():

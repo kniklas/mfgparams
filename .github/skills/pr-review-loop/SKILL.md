@@ -258,9 +258,17 @@ The loop (§3) is done only when, on a fresh fetch:
 - `gh pr checks <number>` shows all required jobs passing (no pending
   jobs either — wait them out). Required jobs in this repo's `ci.yml`:
   `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`,
-  `test`, `build`, `docs`, plus CodeQL. `performance` and
-  `deploy-docs`/`quality-summary` are supporting jobs — check `ci.yml`
-  if unsure which are branch-protection required.
+  `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`, `build`,
+  `docs`, plus `Analyze (python)` and `CodeQL`. **There is no check named
+  plain `test`** — `013-tox-multi-python-testing` converted that job into a
+  Python-version matrix, and a matrixed job only ever emits per-leg check
+  names, so waiting for a bare `test` entry to appear waits forever.
+  `performance` and `deploy-docs`/`quality-summary` are supporting jobs —
+  check `ci.yml` if unsure which are branch-protection required. To read
+  the authoritative list rather than trusting this one:
+  `gh api repos/:owner/:repo/rulesets/19477007 --jq '[.rules[] |
+  select(.type=="required_status_checks") |
+  .parameters.required_status_checks[].context]'`
 - No unresolved, non-suppressed Copilot review comments remain (§2).
 - A fresh `gh pr view <number> --json mergeable,reviewDecision` shows
   `mergeable=MERGEABLE` and `reviewDecision` is not `CHANGES_REQUESTED`

@@ -251,18 +251,23 @@ jobs:
       # and attributable to a named interpreter
       # (specs/013-tox-multi-python-testing research.md #5).
       #
-      # `if: always()` because a step only runs on implicit success() by
-      # default: without it, a canonical leg whose `pytest` step failed would
-      # skip this too and report no coverage at all, when the partial run it
-      # did complete is exactly what a reviewer wants to see. `|| true`
-      # because `coverage report` exits non-zero when the total is below
-      # `fail_under`, which must not fail this step on top of the `pytest`
-      # failure that already flagged it.
+      # `if: !cancelled()` rather than the implicit `success()`: without an
+      # override, a canonical leg whose `pytest` step failed would skip this
+      # too and report no coverage at all, when the partial run it did
+      # complete is exactly what a reviewer wants to see. `!cancelled()`
+      # rather than `always()` because `always()` also forces both steps to
+      # run when the *workflow* is cancelled, where the upload would fight a
+      # torn-down run and add a spurious failed step to an otherwise clean
+      # cancellation. `!cancelled()` covers the failed-pytest case and
+      # nothing more (code review finding). `|| true` because `coverage
+      # report` exits non-zero when the total is below `fail_under`, which
+      # must not fail this step on top of the `pytest` failure that already
+      # flagged it.
       - name: Record canonical coverage percentage
-        if: always() && matrix.python-version == env.PYTHON_VERSION
+        if: ${{ !cancelled() && matrix.python-version == env.PYTHON_VERSION }}
         run: coverage report --format=total > coverage-pct.txt || true
       - name: Upload canonical coverage percentage
-        if: always() && matrix.python-version == env.PYTHON_VERSION
+        if: ${{ !cancelled() && matrix.python-version == env.PYTHON_VERSION }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-pct
