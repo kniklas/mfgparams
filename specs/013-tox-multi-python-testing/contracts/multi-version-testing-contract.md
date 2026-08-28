@@ -2,8 +2,20 @@
 
 This is the interface this feature exposes to contributors (the local `tox` command) and to
 GitHub branch/ruleset protection (the CI matrix checks) — the same kind of "public API" role
-`contracts/ci-checks-contract.md` plays for `003-ci-quality-security-gates`, which this
-contract extends rather than replaces.
+`contracts/ci-checks-contract.md` plays for `003-ci-quality-security-gates`.
+
+**It supersedes two rows of earlier contracts** (both annotated in place, so a maintainer
+reading either one is redirected here rather than following a guarantee that no longer holds):
+
+- `specs/003-ci-quality-security-gates/contracts/ci-checks-contract.md`'s single `test` check
+  row — GitHub stops producing a check named `test` once the job is matrixed; the four
+  `test (3.x)` checks below replace it.
+- `specs/004-pr-quality-check-summary/contracts/pr-summary-comment-contract.md`'s
+  `needs.test.outputs.coverage_pct` input row — a matrix job cannot publish an attributable
+  per-version output, so `quality-summary` now reads the canonical leg's `coverage-pct`
+  artifact instead (research.md #5).
+
+Everything else in those contracts it extends rather than replaces.
 
 ## Local interface: `tox`
 
