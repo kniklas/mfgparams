@@ -30,6 +30,7 @@ import ast
 import glob
 import importlib.machinery
 import inspect
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -43,10 +44,25 @@ except ModuleNotFoundError:  # pragma: no cover - Python <3.11
 
 import pytest
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _build_wheel(outdir: Path) -> Path:
     """Build the project's wheel into ``outdir`` and return its path, skipping
     the calling test if the ``build`` package isn't importable.
+
+    Clears ``<repo>/build/`` first. setuptools' ``build_py`` copies sources
+    into that scratch tree but never prunes files it no longer copies, and
+    ``bdist_wheel`` then archives ``build/lib`` wholesale — so anything left
+    there by an earlier run is silently baked into the wheel. Verified
+    directly: dropping a file into ``build/lib/mfgparams/data/`` and
+    rebuilding puts it in the wheel's namelist. Without this, a locally
+    renamed or removed data file would still satisfy the assertions below
+    from the stale copy, while a clean CI checkout saw the real result —
+    exactly the false green these tests exist to prevent (code review
+    finding). Clearing it also stops these tests from leaving behind the
+    stray ``build/`` directory whose namespace-package shadowing the module
+    docstring above describes.
 
     Note this uses `build`'s default *isolated* mode, which pip-installs the
     `[build-system].requires` backend into a throwaway environment — i.e. it
@@ -59,11 +75,17 @@ def _build_wheel(outdir: Path) -> Path:
     """
     pytest.importorskip("build.__main__")
 
+    shutil.rmtree(_REPO_ROOT / "build", ignore_errors=True)
+    # `timeout` is generous because `build`'s isolated mode pip-installs the
+    # `[build-system]` backend from PyPI: these run inside the *required*
+    # `test (3.x)` checks, where a transient registry slowdown tripping the
+    # timeout would turn a merge-blocking check red for a reason unrelated to
+    # the change under review. A local build takes ~3s (code review finding).
     result = subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=600,
     )
     assert (
         result.returncode == 0

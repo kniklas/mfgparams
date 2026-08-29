@@ -177,6 +177,19 @@ values (pytest-cov's `StoreReport` action), while `--cov-fail-under` does not �
 is a genuine override, which is why CI can safely add `--cov-report=xml` but must not restate
 the threshold.
 
+**Considered and declined — narrowing `dependency-scan`'s scope.** Adding `tox`, `build` and
+`pyyaml` to `dev` also pulls their transitives (`virtualenv`, `filelock`, `platformdirs`,
+`pyproject_hooks`, …) into the environment `dependency-scan` audits, so a CVE in purely-local
+orchestration tooling can fail a required check even though nothing shipped depends on it. A
+code review noted this sits in tension with pinning the `<3.10` `setuptools` floor high
+*because* pip-audit coverage matters (#2). Declined for this feature, for two reasons: the
+`dev` extra already carried eight dev-only tools (`sphinx`, `mypy`, `bandit`, `radon`, `black`,
+`ruff`, `pip-audit`, `setuptools`) and their transitives before this change, so the increment
+adds no new *class* of exposure; and narrowing the audit to runtime dependencies would rewrite
+`003-ci-quality-security-gates`'s FR-005 contract and would trade a noisy gate for a blind one
+— a dev-tool CVE is still worth knowing about. If the noise becomes a real problem, the right
+fix is a scoped `pip-audit` policy in that feature, not a smaller `dev` extra here.
+
 **Alternatives considered**: Duplicating the full flag list explicitly in `tox.ini` for
 "clarity" — rejected, since it reintroduces exactly the drift risk this decision avoids. A bare
 `deps = pytest, pytest-cov, pyyaml, build` list in `tox.ini` instead of an extra — rejected

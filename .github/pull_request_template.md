@@ -26,4 +26,5 @@ a matching entry here.
 
 - [ ] Tests added/updated for the change
 - [ ] All required CI checks pass (`lint`, `complexity`, `typecheck`, `security`,
-  `dependency-scan`, `test`, `build`, `docs`, CodeQL)
+  `dependency-scan`, `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`,
+  `build`, `docs`, `Analyze (python)`, CodeQL)
