@@ -280,6 +280,14 @@ jobs:
           name: coverage-pct
           path: coverage-pct.txt
           if-no-files-found: ignore
+          # Artifacts persist across run *attempts*, and upload-artifact@v4
+          # rejects a second upload of an existing name within one workflow run
+          # with `409 Conflict`. Without this, "Re-run failed jobs" on `test` —
+          # a routine action, and one this repo's own pr-review-loop skill
+          # relies on — would fail this step and turn the required
+          # `test (3.11)` check red for a reason unrelated to the change
+          # (code review finding).
+          overwrite: true
 
   # Informational-only legacy-hardware time/memory budget signal
   # (specs/006-legacy-hardware-performance-tests). Separate from `test`;

@@ -67,11 +67,14 @@ broken would be backwards.
 - [X] T002 In `pyproject.toml`'s `[project.optional-dependencies].dev`, split the
   `setuptools>=83.0.0` line by `python_version` — mirroring the existing `black` split in the
   same list — into `"setuptools>=83.0.0; python_version >= '3.10'"` and
-  `"setuptools>=78.1.1,<83.0.0; python_version < '3.10'"` (research.md #2), and add
+  `"setuptools>=78.1.1; python_version < '3.10'"` (research.md #2), and add
   `"tox>=4"` to the same `dev` list (research.md #1). **Corrected after code review**: the
   `<3.10` floor shipped as `64.0.0` (the PEP 660 functional minimum) and was raised to
   `78.1.1`, above the newest setuptools advisory — `dependency-scan` only ever resolves the
-  `>=83.0.0` branch, so the `<83` range is never CVE-scanned (research.md #2)
+  `>=83.0.0` branch, so whatever this branch permits is never CVE-scanned. The original
+  `<83.0.0` cap was dropped in the same round: it was redundant (pip already honours
+  `Requires-Python`) and would have pinned 3.9 below a future 3.9-compatible security release
+  (research.md #2)
 - [X] T003 Reinstall dev dependencies in the primary local environment
   (`pip install -e ".[dev]"`) and run the existing single-version test command
   (`pytest --cov=mfgparams --cov-report=term-missing --cov-fail-under=90`) to confirm T002

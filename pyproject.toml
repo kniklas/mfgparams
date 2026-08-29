@@ -61,13 +61,20 @@ dev = [
     "setuptools>=83.0.0; python_version >= '3.10'",
     # The `<3.10` branch is never exercised by `dependency-scan`, which runs
     # `pip-audit` against an environment built on `env.PYTHON_VERSION` (3.11)
-    # and therefore always resolves the `>=83.0.0` branch above. A low floor
-    # here would let a future CVE in the `<83` range ship to 3.9 dev
-    # environments with the CVE gate still green, so the floor is pinned above
-    # the newest setuptools advisory rather than at the oldest technically
-    # workable version. Costs nothing: pip resolves 82.0.1 on 3.9 either way
-    # (verified) (code review finding).
-    "setuptools>=78.1.1,<83.0.0; python_version < '3.10'",
+    # and therefore always resolves the `>=83.0.0` branch above. Anything this
+    # branch permits is effectively unscanned, so it is bounded from below
+    # only, and the floor sits above the newest setuptools advisory rather
+    # than at the oldest technically workable version (`64.0.0`, the PEP 660
+    # minimum). Costs nothing: pip resolves 82.0.1 on 3.9 either way.
+    #
+    # Deliberately no upper bound. An earlier `<83.0.0` cap was redundant —
+    # pip already skips releases whose `Requires-Python` excludes the running
+    # interpreter, which is exactly why 83+ is never considered here — and it
+    # would have permanently pinned 3.9 environments below any future
+    # 3.9-compatible setuptools, *including a security release*, re-opening
+    # the same unscanned-range hole the floor was raised to close
+    # (code review findings).
+    "setuptools>=78.1.1; python_version < '3.10'",
     "tox>=4",
     "sphinx>=7.0",
     "mypy>=1.10",

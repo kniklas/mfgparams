@@ -60,9 +60,10 @@ def _build_wheel(outdir: Path) -> Path:
     renamed or removed data file would still satisfy the assertions below
     from the stale copy, while a clean CI checkout saw the real result —
     exactly the false green these tests exist to prevent (code review
-    finding). Clearing it also stops these tests from leaving behind the
-    stray ``build/`` directory whose namespace-package shadowing the module
-    docstring above describes.
+    finding). Note this does **not** stop these tests leaving a ``build/``
+    directory behind — ``python -m build`` recreates it on the very next
+    line — so the namespace-package shadowing the module docstring describes
+    is still live, and ``importorskip("build.__main__")`` is still load-bearing.
 
     Note this uses `build`'s default *isolated* mode, which pip-installs the
     `[build-system].requires` backend into a throwaway environment — i.e. it
@@ -75,7 +76,17 @@ def _build_wheel(outdir: Path) -> Path:
     """
     pytest.importorskip("build.__main__")
 
-    shutil.rmtree(_REPO_ROOT / "build", ignore_errors=True)
+    scratch = _REPO_ROOT / "build"
+    shutil.rmtree(scratch, ignore_errors=True)
+    # `ignore_errors` swallows a failed removal (a permission problem, or an
+    # open handle on Windows), and a surviving tree is silently archived into
+    # the wheel — the exact false green this call exists to prevent. Assert
+    # rather than trust it (code review finding).
+    assert not scratch.exists(), (
+        f"could not clear the stale build scratch tree at {scratch}; "
+        "a leftover build/lib would be archived into the wheel and could mask "
+        "a packaging regression"
+    )
     # `timeout` is generous because `build`'s isolated mode pip-installs the
     # `[build-system]` backend from PyPI: these run inside the *required*
     # `test (3.x)` checks, where a transient registry slowdown tripping the
@@ -83,6 +94,13 @@ def _build_wheel(outdir: Path) -> Path:
     # the change under review. A local build takes ~3s (code review finding).
     result = subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
+        # Explicit `cwd`, so the directory cleared above is the same one
+        # setuptools writes to. Without it the build ran in pytest's cwd:
+        # invoked from anywhere but the repo root it would either fail outright
+        # ("does not appear to be a Python project") or clear one `build/` and
+        # populate another, reinstating the stale-scratch false green
+        # (code review finding).
+        cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
         timeout=600,

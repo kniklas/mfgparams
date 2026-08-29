@@ -48,7 +48,7 @@ by `python_version`, mirroring the pattern already used for `black` in the same 
 
 ```toml
 "setuptools>=83.0.0; python_version >= '3.10'",
-"setuptools>=78.1.1,<83.0.0; python_version < '3.10'",
+"setuptools>=78.1.1; python_version < '3.10'",
 ```
 
 **The `<3.10` floor was raised from `64.0.0` to `78.1.1` after a code review**, for a security
@@ -64,14 +64,22 @@ reason rather than a functional one — see "Choosing the `<3.10` floor" below.
   to work at all — and it was the floor as first implemented. It was raised to `78.1.1` after a
   code review found the range is *never CVE-scanned*: `dependency-scan` runs `pip-audit`
   against an environment built on `env.PYTHON_VERSION` (3.11), which always resolves the
-  `>=83.0.0` branch above, so a future advisory affecting only the `<83` range would reach 3.9
-  dev environments with the CVE gate green. `78.1.1` sits above the newest setuptools advisory.
+  `>=83.0.0` branch above, so whatever version *this* branch resolves on 3.9 is never audited,
+  and a future advisory against it would reach 3.9 dev environments with the CVE gate green.
+  `78.1.1` sits above the newest setuptools advisory. Since the branch is unscanned either way,
+  the floor is the only lever available — hence raising it rather than capping the range (see
+  the no-upper-bound bullet above).
   This costs nothing in practice — pip resolves 82.0.1 on 3.9 either way (verified with
   `pip install --dry-run -e ".[dev]"` in a real 3.9 venv) — so the functional floor is still
   satisfied with room to spare.
-- The upper bound (`<83.0.0`) on the `<3.10` branch avoids ever attempting to resolve a
-  `setuptools` release that has already declared itself incompatible with those interpreters,
-  which is the same shape of problem being fixed.
+- **No upper bound on the `<3.10` branch.** It first shipped with `<83.0.0`, on the reasoning
+  that it should never attempt to resolve a `setuptools` release already declaring itself
+  incompatible with those interpreters. A code review established that bound is both redundant
+  and harmful: pip already skips releases whose `Requires-Python` excludes the running
+  interpreter (verified — 3.9 resolves 82.0.1 with or without the cap, precisely because 83+
+  declares `>=3.10`), and because this branch is never CVE-scanned, a cap would permanently
+  pin 3.9 environments below any future 3.9-compatible setuptools *including a security
+  release* — re-opening the same unscanned-range hole the floor was raised to close. Removed.
 - Minimal-diff: the `>=3.10` branch keeps today's exact constraint (`>=83.0.0`) unchanged, so
   behavior on the versions that currently work (3.10+) is untouched — only the previously-
   broken 3.9 install path is fixed.
