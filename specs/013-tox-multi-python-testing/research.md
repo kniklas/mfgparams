@@ -196,7 +196,9 @@ code review noted this sits in tension with pinning the `<3.10` `setuptools` flo
 adds no new *class* of exposure; and narrowing the audit to runtime dependencies would rewrite
 `003-ci-quality-security-gates`'s FR-005 contract and would trade a noisy gate for a blind one
 — a dev-tool CVE is still worth knowing about. If the noise becomes a real problem, the right
-fix is a scoped `pip-audit` policy in that feature, not a smaller `dev` extra here.
+fix is a scoped `pip-audit` policy in that feature, not a smaller `dev` extra here. Tracked in
+issue #73, together with the related gap that `dependency-scan` only ever audits the 3.11
+resolution and so never scans the `<3.10` dependency branch at all.
 
 **Alternatives considered**: Duplicating the full flag list explicitly in `tox.ini` for
 "clarity" — rejected, since it reintroduces exactly the drift risk this decision avoids. A bare
