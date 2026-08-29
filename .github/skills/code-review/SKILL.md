@@ -196,8 +196,11 @@ that combines multiple signals into a single pass/fail/skip verdict:
   combined verdict.
 - A supporting/non-required job (see this repo's required-jobs list:
   `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`,
-  `test`, `build`, `docs`, CodeQL) must never become a de facto blocker
-  through an aggregate/wrapper check that can't complete until it does.
+  `test (3.9)`/`test (3.10)`/`test (3.11)`/`test (3.12)` — the `test` job
+  is a Python-version matrix, so no check named plain `test` exists —
+  `build`, `docs`, `Analyze (python)`, CodeQL) must never become a de facto
+  blocker through an aggregate/wrapper check that can't complete until it
+  does.
 
 ## 8. Cross-referencing issues
 

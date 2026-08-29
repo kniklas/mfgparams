@@ -34,8 +34,16 @@ granted there, including all commercial rights, are reserved.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.3),
+                                      # which predates PEP 660 editable-install support
 pip install -e ".[dev]"
 ```
+
+> **Note:** `source .venv/bin/activate` only applies to your *current* shell — a new
+> terminal session needs to re-run it. If a bare `pytest` reports collection errors like
+> `ModuleNotFoundError: No module named 'mfgparams'`, your shell is picking up a different
+> `pytest` from `PATH` instead of `.venv/bin/pytest` — re-activate the venv (or run
+> `.venv/bin/pytest` directly) and try again.
 
 ## Use as a library
 
@@ -249,10 +257,32 @@ pytest
 
 This project targets Python 3.9+ for compatibility with older/stable Linux
 distributions (see `.specify/memory/constitution.md` Principle V), and aims
-for ≥90% test coverage on calculation modules (Principle II).
+for ≥90% test coverage on calculation modules (Principle II). The command
+above runs against whichever Python interpreter is active in your virtual
+environment.
 
 See `specs/001-metal-drilling-calc/` for the full spec, plan, and task
 breakdown driving this implementation.
+
+### Checking every supported Python version locally
+
+To verify a change against every officially supported Python version
+(3.9-3.12) without hand-building a separate environment per version,
+use [`tox`](https://tox.wiki/) (installed as part of the `dev` extra; each
+environment it builds installs the narrower `test` extra):
+
+```bash
+tox            # runs the full suite + coverage gate once per supported version
+tox -e py39    # or just one version, for a faster inner loop
+
+# Narrowing down one failure: pass `--no-cov` with any filter, or the 90%
+# coverage gate fails the environment even when every selected test passed.
+tox -e py39 -- --no-cov -k drilling -x
+```
+
+Any supported interpreter not installed on your machine (e.g., no `python3.9`
+on `PATH`) is reported `SKIPPED` rather than failing the run — install it
+(e.g., via `pyenv install 3.9`) to include it.
 
 ### Legacy-hardware performance suite (opt-in)
 
@@ -283,7 +313,7 @@ per `.specify/memory/constitution.md` Principle IX:
 | `typecheck` | `mypy` | Static type errors (FR-003) |
 | `security` | `bandit` | High/medium-severity security findings (FR-004) |
 | `dependency-scan` | `pip-audit` | Known CVEs in resolved dependencies (FR-005); also runs weekly, independent of PRs |
-| `test` | `pytest --cov` | Test failures / coverage below 90% |
+| `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
 | `build` | `python -m build` | Package build failures |
 | `docs` | Sphinx | Docs build failures |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |

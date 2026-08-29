@@ -190,17 +190,51 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
+    # Verifies every officially supported Python version on every pull request
+    # (specs/013-tox-multi-python-testing FR-005/FR-006), not just the single
+    # `env.PYTHON_VERSION` every other job pins. `fail-fast: false` so a
+    # failure on one version doesn't cancel the others before they report
+    # their own independent result (research.md #3).
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install -e ".[dev]"
-      - run: pytest --cov=mfgparams --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+          python-version: ${{ matrix.python-version }}
+      # `.[test]`, not `.[dev]`: this job is the Python-version gate, so it must
+      # install only what the suite needs. Pulling the whole dev toolchain would
+      # make `test (3.9)` fail at install time the first time `sphinx`/`mypy`/
+      # `bandit` drops 3.9, even though the library itself still supports it
+      # (specs/013-tox-multi-python-testing research.md #4).
+      - run: pip install -e ".[test]"
+      # `--cov-report=xml` is REQUIRED here — it is what produces the
+      # `coverage.xml` the Codecov step below uploads, and nothing else adds
+      # it. Do not remove it believing `addopts` covers it: `addopts` sets
+      # `term-missing` only. pytest-cov's `--cov-report` accumulates addopts
+      # and command-line values into one dict, so passing it here *adds* the
+      # xml reporter rather than replacing the terminal one (verified).
+      #
+      # Everything else — `--cov=mfgparams`, `--cov-report=term-missing`,
+      # `--cov-fail-under=90` — is deliberately left to
+      # `[tool.pytest.ini_options].addopts`, which `tox` inherits too.
+      # `--cov-fail-under` specifically does NOT accumulate: a command-line
+      # value silently *overrides* addopts, so restating `90` here would mean
+      # bumping the threshold in pyproject.toml raises it for `tox` while CI
+      # keeps enforcing the stale value (code review finding; research.md #4).
+      - run: pytest --cov-report=xml
       # Publishes coverage.xml to Codecov so README.md's coverage badge stays
       # auto-updating (Constitution Principle VII; specs/003-ci-quality-security-gates).
       # Requires a CODECOV_TOKEN repository secret from https://codecov.io.
+      # Restricted to the canonical leg (research.md #5) so this doesn't
+      # upload four near-identical reports per push/PR. Compared against
+      # `env.PYTHON_VERSION` (the single declared canonical version) rather
+      # than a separate hardcoded literal, so this can't silently drift from
+      # it (specs/013-tox-multi-python-testing research.md #5 remediation).
       - uses: codecov/codecov-action@v4
+        if: matrix.python-version == env.PYTHON_VERSION
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -209,10 +243,51 @@ jobs:
       # (specs/004-pr-quality-check-summary research.md #3); reuses the
       # `.coverage` data file the `pytest --cov=...` step above already left
       # in place, rather than a second coverage computation.
-      - id: coverage
-        run: echo "coverage_pct=$(coverage report --format=total)" >> "$GITHUB_OUTPUT"
-    outputs:
-      coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}
+      #
+      # Published as an ARTIFACT from the single canonical leg rather than as
+      # a matrix job output, because a matrix job cannot expose a
+      # per-version output at all: all four legs write the same output name
+      # and the value that survives is whichever leg finished last. That is a
+      # race no matter which legs are gated in or out, and coverage here is
+      # genuinely NOT identical across interpreters — `src/mfgparams/config.py`
+      # and `src/mfgparams/registry_config.py` each carry an
+      # interpreter-conditional `tomllib`/`tomli` import fallback, so 3.9/3.10
+      # execute two lines that 3.11+ never reach (98.88% vs 98.59% as of this
+      # feature's own validation run). A single artifact written by only the
+      # `env.PYTHON_VERSION` leg makes the reported number both deterministic
+      # and attributable to a named interpreter
+      # (specs/013-tox-multi-python-testing research.md #5).
+      #
+      # `if: !cancelled()` rather than the implicit `success()`: without an
+      # override, a canonical leg whose `pytest` step failed would skip this
+      # too and report no coverage at all, when the partial run it did
+      # complete is exactly what a reviewer wants to see. `!cancelled()`
+      # rather than `always()` because `always()` also forces both steps to
+      # run when the *workflow* is cancelled, where the upload would fight a
+      # torn-down run and add a spurious failed step to an otherwise clean
+      # cancellation. `!cancelled()` covers the failed-pytest case and
+      # nothing more (code review finding). `|| true` because `coverage
+      # report` exits non-zero when the total is below `fail_under`, which
+      # must not fail this step on top of the `pytest` failure that already
+      # flagged it.
+      - name: Record canonical coverage percentage
+        if: ${{ !cancelled() && matrix.python-version == env.PYTHON_VERSION }}
+        run: coverage report --format=total > coverage-pct.txt || true
+      - name: Upload canonical coverage percentage
+        if: ${{ !cancelled() && matrix.python-version == env.PYTHON_VERSION }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-pct
+          path: coverage-pct.txt
+          if-no-files-found: ignore
+          # Artifacts persist across run *attempts*, and upload-artifact@v4
+          # rejects a second upload of an existing name within one workflow run
+          # with `409 Conflict`. Without this, "Re-run failed jobs" on `test` —
+          # a routine action, and one this repo's own pr-review-loop skill
+          # relies on — would fail this step and turn the required
+          # `test (3.11)` check red for a reason unrelated to the change
+          # (code review finding).
+          overwrite: true
 
   # Informational-only legacy-hardware time/memory budget signal
   # (specs/006-legacy-hardware-performance-tests). Separate from `test`;
@@ -384,6 +459,30 @@ jobs:
     permissions:
       pull-requests: write
     steps:
+      # The `test` job is a Python-version matrix, so it cannot expose a
+      # meaningful single coverage number as a job output (see that job's
+      # "Record canonical coverage percentage" step). Its canonical
+      # `env.PYTHON_VERSION` leg publishes the number as this artifact
+      # instead. `continue-on-error` so a `test` job that never got far
+      # enough to produce it (cancelled, or the canonical leg's setup
+      # failed) leaves the coverage cell as the documented "—" placeholder
+      # rather than failing this job
+      # (specs/013-tox-multi-python-testing research.md #5).
+      - name: Download canonical coverage percentage
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-pct
+          path: coverage-pct
+      - name: Read canonical coverage percentage
+        id: coverage
+        run: |
+          set -euo pipefail
+          pct=""
+          if [ -f coverage-pct/coverage-pct.txt ]; then
+            pct="$(tr -d '[:space:]' < coverage-pct/coverage-pct.txt)"
+          fi
+          echo "coverage_pct=$pct" >> "$GITHUB_OUTPUT"
       # Assembles the Markdown table + overall status into a file, which is
       # handed to the comment-posting step below via `path:` (research.md
       # #5). Failures here are left to fail this step normally (not
@@ -399,7 +498,7 @@ jobs:
           SECURITY_RESULT: ${{ needs.security.result }}
           DEPENDENCY_SCAN_RESULT: ${{ needs.dependency-scan.result }}
           TEST_RESULT: ${{ needs.test.result }}
-          TEST_METRIC: ${{ needs.test.outputs.coverage_pct }}
+          TEST_METRIC: ${{ steps.coverage.outputs.coverage_pct }}
           BUILD_RESULT: ${{ needs.build.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           PERFORMANCE_STATUS: ${{ needs.performance.outputs.status_label }}
