@@ -48,10 +48,10 @@ mid-loop, so re-fetch it whenever re-checking suppression status.
 
 Initialize (mentally or in a scratch note) two counters for this session:
 - **review-fix commit count** — commits made *specifically* to address a
-  Copilot review comment or a failing CI job. Resets only if the user
-  explicitly asks to continue past the 5-commit checkpoint (see §4).
+  Copilot review comment or a failing CI job. Reported at the §4 budget
+  checkpoint; it no longer triggers that checkpoint on its own.
 - **running summary** — one line per commit describing what changed and
-  why, to be presented at the 5-commit checkpoint and again at closure.
+  why, to be presented at the §4 budget checkpoint and again at closure.
 
 Also track a boolean:
 - **copilot-review-invoked** — set true only after explicitly requesting
@@ -65,6 +65,71 @@ At closure, derive from the time log:
     intervals.
   - **time agent was working** = total wall time − time waiting on human
     decisions.
+
+### Declare the review intensity before the first fix
+
+Pick an intensity from the diff, state the choice and its budget in chat
+in one line, and proceed. Do **not** ask by default — the user may
+override with a single word (`low` / `medium` / `high` / `very high`) at
+any point, which re-baselines the budget **without** resetting counters
+already spent — a mid-loop override changes the size of the budget, not
+how much of it you have used. That is a different event from answering
+"continue" at a §4 checkpoint, which grants a fresh budget with the
+counters reset; see §4.
+
+| Intensity | Max rounds | Agent-busy budget | Severity floor (fix in-loop) | Auto-select when |
+|---|---:|---:|---|---|
+| **low** | 2 | 20 min | HIGH+ | docs/prose only, or <=50 changed lines with no `src/` |
+| **medium** | 3 | 40 min | MEDIUM+ | <=300 changed lines, no new public API |
+| **high** | 5 | 75 min | MEDIUM+ | new public API, formula changes, `ci.yml` gating, `harness.py` |
+| **very high** | 8 | 120 min | LOW+ | new feature spec, >1000 changed lines, release, constitution amendment |
+
+The minute budgets are single thresholds, not ranges — a range gives two
+agents on the same PR two different checkpoint times. They are upper
+bounds calibrated against this repo's measured agent-busy cost of ~8 min
+per round on small PRs and ~27 min on large ones (#71).
+
+**Selection precedence: the highest-intensity matching row wins.** A
+1500-line docs-only spec PR matches both `low` and `very high`; it is
+`very high`. **If no row matches** — say a 600-line test-only refactor
+with no new public API, no formula/`ci.yml`/`harness.py` change and no new
+spec — default to **medium** rather than inventing a row.
+
+At **very high** the floor is `LOW+`: nothing is deferred and every band
+is fixed in-loop. Whether a LOW fix at that intensity should additionally
+require human approval is a **deferral-path question** — decide it
+alongside §3a in the follow-up, not here, where it would contradict this
+section's "do not ask by default" and §4's design of asking only at the
+checkpoint.
+
+Severity bands are defined in `.github/skills/code-review/SKILL.md` §0.
+The **floor** is the lowest band fixed inside the loop; everything below
+it is deferred, not fixed — though until the deferral path lands the
+floor drives §4's stop conditions and reporting only, and every finding
+is still fixed or rebutted (see §3).
+
+**Changed lines = additions + deletions.** Read them with
+`gh pr view <number> --json additions,deletions` (verified on PR #71:
+`{"additions":1920,"deletions":40}`, so 1960 changed lines) — prefer it
+over piping `gh pr diff` into `diffstat`, which is not installed
+everywhere. The command returns two numbers and the table needs one:
+summing them, rather than taking the larger, keeps a 600-added /
+600-deleted refactor from being scored as half the change it is.
+
+**Rounds bind; minutes are advisory.** A round — one Copilot review
+submission and the fix batch answering it — is mechanically countable, so
+**rounds exhausted always ends the loop**. The agent-busy budget cannot
+be enforced mid-round: it is derived after the fact from the §6 time log
+and is self-reported, so it never silently ends the loop on its own.
+Instead, once agent-busy time crosses its budget, the **next round
+boundary** fires the §4 checkpoint even if rounds remain. This keeps a
+large PR (#71: ~27 min per round) from spending five rounds before anyone
+looks, without pretending a soft measure is a hard gate.
+
+Initialize a third counter alongside the two above:
+- **review round count** — incremented once per completed Copilot review
+  round (a review submission plus the fix batch answering it). This, not
+  the commit count, is what §4's budget is spent against.
 
 ## 2. Fetch Copilot review comments, excluding suppressed ones
 
@@ -84,6 +149,7 @@ gh api graphql -f query='
         reviewThreads(first:100, after:$cursor) {
           pageInfo { hasNextPage endCursor }
           nodes {
+            id
             isResolved
             isOutdated
             comments(first:10) { nodes { author { login } body path line } }
@@ -117,6 +183,12 @@ Everything else from the Copilot reviewer that is unresolved is in scope
 and must be fixed or explicitly rebutted (with a reply comment) before
 proceeding.
 
+Keep each thread's `id` (a `PRRT_...` node ID) for the session — §4's
+novelty-stall check is defined over these IDs, and they are the only
+stable handle on "have I seen this finding before". Verified against this
+repo: `reviewThreads(first:3){nodes{id ...}}` on PR #71 returns
+`PRRT_kwDOTTuBh86cnh5v` and siblings.
+
 ## 3. Iterate: fix → commit → push → re-check
 
 Repeat until both are true: all required CI jobs are green **and** no
@@ -124,6 +196,19 @@ non-suppressed Copilot review comments remain unresolved.
 
 1. Pick the highest-value unresolved item (correctness/test bugs before
    style nits) or the first failing CI job.
+
+   Band every open finding per `.github/skills/code-review/SKILL.md` §0
+   as you go, and record the counts — §4's checkpoint report and the §6
+   histogram both need them, and §4's novelty-stall check reads the bands
+   directly (at a fixed MEDIUM+ threshold, not the §1 floor).
+
+   **The floor does not yet gate what gets fixed.** Every non-suppressed
+   finding is still fixed or explicitly rebutted here, exactly as before;
+   the floor currently drives §4's stop conditions and reporting only.
+   Triage-before-fix, per-round batching, and the deferral path for
+   below-floor findings are a follow-up to issue #76 — until they land,
+   there is no exit for a finding other than fixing or rebutting it, so
+   do not silently skip a LOW.
 2. Make the fix. Follow `.github/instructions/python.instructions.md` and
    the priorities in `.github/skills/code-review/SKILL.md` (calculation
    correctness > resource limits > tests > extensibility > style).
@@ -227,28 +312,117 @@ non-suppressed Copilot review comments remain unresolved.
    GitHub change stops surfacing it there, fall back to `gh api
    repos/:owner/:repo/commits/<sha>/check-runs` instead.)
 9. Re-fetch review threads (§2) to see what's newly resolved/added.
+   This closes a **review round**: snapshot this round's thread `id`s,
+   band each new finding, and record the per-band counts for §4's
+   histogram. Then increment the review round count (§1). A round is
+   exempt from that increment only when it **fixed at least one finding**
+   *and* **every finding it fixed was CRITICAL** (§4's critical
+   override). A round that fixed nothing — every item rebutted, or the
+   round spent entirely on a failing CI job — always increments: without
+   the "at least one" condition the exemption is vacuously true, the
+   round count never advances, and §4's "rounds exhausted" trigger can
+   never fire. Finally, evaluate
+   §4's four triggers before starting another round — the budget is
+   checked at this boundary, not mid-fix.
 
-## 4. 5-commit checkpoint
+## 4. Budget checkpoint
 
-The moment the **review-fix commit count** (from step 5, not all commits
-on the PR) reaches 5, stop looping immediately — do not start another
-fix — and:
+The §1 budget, not a flat commit count, decides when to stop and ask. A
+flat count cannot tell #35 (4 trivial rounds, ~10 min) apart from #71
+(4 rounds, ~110 min) — they are the same number and nothing like the same
+amount of work.
 
-1. Summarize all review-fix commits made so far in this session (one line
-   each: commit SHA/message + what it addressed).
-2. State current status: which CI jobs are green/red, how many Copilot
-   comments remain unresolved.
-3. Give a recommendation (e.g. "N items are trivial style nits left,
-   recommend continuing" or "remaining items look architecturally
-   significant, recommend a human look before more automated commits").
-4. Ask the user, via `ask_user`, whether to continue iterating. Only
-   resume the loop (§3) on explicit "yes" — do not assume. Record this as
-   a waiting interval in the time log (§1): note when the question was
-   asked and when the user responded, for the closure-time time
-   accounting.
+Stop looping immediately — do not start another fix — when **any** of
+these fires:
 
-If the user says yes, keep counting further commits and re-checkpoint
-every additional 5.
+1. **Rounds exhausted.** The review round count reaches the §1 maximum
+   for the declared intensity.
+2. **Agent-busy budget crossed.** At the next round boundary after
+   agent-busy time (§1 time log) exceeds the intensity's minute budget.
+   Never mid-round; see §1's "rounds bind, minutes are advisory".
+3. **Novelty stall.** Two consecutive non-novel rounds (defined below) —
+   the loop has converged and further rounds will not improve it.
+4. **Late escalation.** A CRITICAL or HIGH finding appears in the final
+   budgeted round. This means the intensity was chosen too low, not that
+   one more round will finish the job — so it forces the checkpoint
+   rather than a silent budget extension.
+
+### Novelty — the mechanical definition
+
+Snapshot the set of non-suppressed review thread `id`s (§2) after each
+round. A round is **novel** if it contains at least one thread whose `id`
+was not present in any earlier round this session **and** whose
+`code-review` §0 band is **MEDIUM or above**. Otherwise the round is
+**non-novel**.
+
+**The novelty threshold is fixed at MEDIUM+ and is deliberately not the
+severity floor.** The floor answers *is this worth fixing at this
+intensity?*; novelty answers *is the review still finding real things?*
+Those two questions come apart in both directions, and tying them
+together breaks the stall at both ends of §1's table:
+
+- At **low** (floor `HIGH+`) a MEDIUM finding sits below the floor but is
+  still a real finding. Scoring it as non-progress would stall the loop
+  after two rounds of genuine MEDIUM findings — and on a directive
+  document, where `code-review` §6b bands drift MEDIUM by design, that is
+  most of what a good review produces.
+- At **very high** (floor `LOW+`) a LOW finding sits at or above the floor
+  but is still a prose nit. Scoring it as progress would mean the stall
+  can never fire, at the one intensity with 8 rounds to burn.
+
+LOW findings never make a round novel, at any intensity — a round
+producing eleven LOW prose nits is non-novel even at very high.
+
+One judgement call is allowed on top of the mechanical rule, and it must
+be logged: Copilot sometimes re-raises a finding you already fixed as a
+*fresh* thread with a new `id`, which the ID rule alone would score as
+novel. When you judge a new thread to be a restatement of a finding
+already resolved this session, record it as non-novel and name it in the
+checkpoint report ("thread X counted non-novel: restates the already-fixed
+Y"). Do not make the reverse call — never score a genuinely new thread as
+non-novel to reach a stall faster.
+
+### The critical override
+
+A CRITICAL finding (`code-review` §0) is **always fixed**, even past an
+exhausted budget. It does not consume budget — mechanically, §3 step 9
+skips the round-count increment for a round that fixed at least one
+finding and whose fixes were all CRITICAL — and it resets the novelty
+counter to zero. Budgets bound how much
+polish a PR gets; they never let a fundamentally broken change through.
+
+A round mixing CRITICAL with lower-band fixes **does** consume its round:
+the exemption is for rounds spent solely on CRITICAL, not for any round
+that happens to contain one.
+
+### At the checkpoint, report
+
+1. All review-fix commits made so far this session (one line each: SHA or
+   message + what it addressed).
+2. **Severity histogram** — counts per band per round, and the session
+   total. This is the number that tells the user whether the remaining
+   work is real.
+3. **Open findings by band**, with the current intensity floor marked.
+4. **Elapsed vs. budget** — rounds used/max, agent-busy minutes vs. the
+   minute budget, and which of the four triggers fired.
+5. Current CI status: which required jobs are green/red.
+6. A recommendation — continue at this intensity, escalate the intensity
+   (state which, and why the original choice was wrong), or stop and
+   merge/defer.
+
+Then ask the user, via `ask_user`, whether to continue. Only resume the
+loop (§3) on an explicit yes — do not assume. Record this as a waiting
+interval in the time log (§1).
+
+If the user says continue, they are granting a **new budget**, not an
+unlimited one: **reset the round count and the agent-busy baseline to
+zero**, then re-run at the same intensity's full allowance — or, if they
+name a different intensity, at that one's allowance, also from zero — and
+re-checkpoint when it is spent.
+
+This reset belongs to a checkpoint answer specifically. A *mid-loop*
+intensity override (§1) is the other case: it changes the budget's size
+and leaves what is already spent in place.
 
 ## 5. Exit criteria for the loop
 
@@ -329,7 +503,7 @@ merge, branch deletion, and cleanup) has actually finished:
      human-decision waiting intervals (this includes CI/review polling
      time, since the agent was actively driving that, not blocked).
    - **Time waiting on human decisions** — the sum of the recorded
-     waiting intervals (e.g. "ambiguous PR confirmation — 1m", "5-commit
+     waiting intervals (e.g. "ambiguous PR confirmation — 1m", "budget
      checkpoint: continue? — 4m", "closure approval — 2m"), including the
      closure-approval interval closed above.
    Report these three numbers in chat.
@@ -355,6 +529,18 @@ not the entire PR-authoring session, which may have started earlier.)_
   <wait_count> checkpoint(s):
   - <checkpoint description> — ~<duration>
   - <checkpoint description> — ~<duration>
+
+### Review rounds and severity
+
+- **Intensity:** <declared intensity> (<max_rounds> rounds / <minute_budget> min budget)
+- **Rounds used:** <rounds_used> / <max_rounds>
+- **Checkpoint trigger:** <rounds exhausted | budget crossed | novelty stall | late escalation | none>
+
+| Round | CRITICAL | HIGH | MEDIUM | LOW | Novel? |
+|---:|---:|---:|---:|---:|---|
+| 1 | <n> | <n> | <n> | <n> | <yes/no> |
+| 2 | <n> | <n> | <n> | <n> | <yes/no> |
+| **Total** | <n> | <n> | <n> | <n> | — |
 
 ### Totals
 - **Session turns:** <turn_count>
@@ -397,8 +583,15 @@ rm /tmp/pr-aic-summary.md
 
 ## 7. Anti-patterns to avoid
 
-- Counting all commits (docs typos, rebases) toward the 5-commit
-  checkpoint instead of only review/CI-fix commits.
+- Counting all commits (docs typos, rebases) toward the review-fix
+  commit count instead of only review/CI-fix commits.
+- Treating the agent-busy minute budget (§1) as a hard stop and abandoning
+  a round half-finished — rounds bind, minutes only bring the §4
+  checkpoint forward to the next round boundary.
+- Fixing a finding without banding it first (`code-review` §0) — §4's
+  histogram and novelty check both read the bands, so an unbanded fix
+  leaves the budget unaccountable. (An unbanded finding still gets fixed:
+  `code-review` §0 defaults it to the floor, not to LOW.)
 - Treating a resolved-but-still-`isOutdated:false`-with-new-diff thread as
   settled — GitHub can silently re-open relevance after a force-push;
   always re-fetch after pushing.
