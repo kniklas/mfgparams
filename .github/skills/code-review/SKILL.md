@@ -370,7 +370,9 @@ that combines multiple signals into a single pass/fail/skip verdict:
     implicitly — an aggregate without the assertion reports success while
     `lint` is red, which is a CRITICAL-band decorative guard (§0).
 
-  `tests/static/test_ci_ok_aggregate_check.py` locks both, and forces any
+  `tests/static/test_ci_ok_aggregate_check.py` locks both — including the
+  step body itself, so replacing it with `run: echo ok` or dropping its
+  `sys.exit(1)` fails the suite — and forces any
   newly-added `ci.yml` job to be classified as gating or supporting rather
   than silently neither. A change to `ci-ok` that also edits that test to
   suit itself deserves particular scrutiny.

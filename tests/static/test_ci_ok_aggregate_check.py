@@ -21,6 +21,7 @@ be read from CI.
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pytest
 
@@ -69,6 +70,61 @@ def test_ci_ok_exists_and_is_not_itself_gated_away(ci_jobs: dict) -> None:
     assert "ci-ok" in ci_jobs, "ci-ok job is missing; main's ruleset requires it"
     assert "always()" in ci_jobs["ci-ok"]["if"], (
         "ci-ok must use `if: always()` or a failed dependency skips it " "instead of failing it"
+    )
+
+
+def test_ci_ok_only_excludes_scheduled_runs(ci_jobs: dict) -> None:
+    """``ci-ok`` must still report on pull requests.
+
+    ``always()`` alone is not enough: a condition narrowed to, say,
+    ``github.event_name == 'push'`` still contains ``always()`` but never
+    reports on a pull request. Since ``ci-ok`` is the only required check
+    derived from this workflow, that leaves every pull request blocked
+    indefinitely with no failing check to point at - the same dead end
+    this module exists to prevent, reached from the other direction.
+    """
+    condition = ci_jobs["ci-ok"]["if"]
+    excluded_events = re.findall(r"github\.event_name\s*(==|!=)\s*'([a-z_]+)'", condition)
+    for operator, event in excluded_events:
+        if operator == "!=":
+            assert event == "schedule", (
+                f"ci-ok excludes {event!r}; only 'schedule' may be excluded, "
+                "or the check stops reporting on pull requests"
+            )
+        else:
+            raise AssertionError(
+                f"ci-ok is restricted to {event!r} only. It must run on "
+                "pull_request, or every PR blocks with no failing check."
+            )
+
+
+def test_ci_ok_actually_asserts_its_dependencies(ci_jobs: dict) -> None:
+    """The step must read the results and be able to fail.
+
+    ``if: always()`` makes the job run when a dependency failed, and
+    GitHub does **not** then fail it implicitly. An aggregate that does
+    not inspect ``needs`` and exit non-zero reports success while
+    ``lint`` is red - a gate that cannot fail, which is the decorative
+    guard ``code-review`` §0 bands CRITICAL and #24's original finding.
+
+    Without this test, replacing the step body with ``run: echo ok``
+    passes every other check in this module while silently removing the
+    merge gate entirely.
+    """
+    steps = ci_jobs["ci-ok"]["steps"]
+    body = "\n".join(step.get("run", "") for step in steps)
+    env_values = " ".join(
+        str(value) for step in steps for value in (step.get("env") or {}).values()
+    )
+
+    assert "toJSON(needs)" in env_values, (
+        "ci-ok must pass ${{ toJSON(needs) }} into the step; without the "
+        "results it cannot assert anything about them"
+    )
+    assert "NEEDS_JSON" in body, "ci-ok's step must read the needs results"
+    assert "sys.exit(1)" in body, (
+        "ci-ok's step must be able to exit non-zero, or the aggregate "
+        "reports success while a required job is red"
     )
 
 

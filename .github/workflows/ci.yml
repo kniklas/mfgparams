@@ -611,10 +611,12 @@ jobs:
 
   # Single stable required status check (issue #75 P2.4).
   #
-  # `main`'s ruleset previously named all 11 of this workflow's required
-  # jobs individually, so every rename or matrix change had to be mirrored
-  # into the ruleset *and* into the 12 committed files that enumerate check
-  # names. #71 renamed `test` -> `test (3.9)`..`test (3.12)` and that took
+  # `main`'s ruleset previously named all 11 required check contexts from
+  # this workflow's 8 gating jobs individually (`test` is one job emitting
+  # four matrix legs — that jobs-vs-contexts distinction is exactly what
+  # made the #71 rename expensive), so every rename or matrix change had to
+  # be mirrored into the ruleset *and* into the 12 committed files that
+  # enumerate check names. #71 renamed `test` -> `test (3.9)`..`test (3.12)` and that took
   # three commits, still missing `.github/pull_request_template.md` until
   # review round 5 of 10. Requiring only `ci-ok` makes the ruleset immune to
   # job renames and to adding a Python version: `ci-ok` is the only name

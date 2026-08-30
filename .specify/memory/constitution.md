@@ -1,6 +1,43 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 1.10.0 -> 1.10.1
+Modified principles: none redefined. Principle IX's required-status-check clause, the
+  Additional Constraints echo of it, and the Development Workflow echo of it are
+  clarified to say the gates MUST *gate* `main`, directly or through a conforming
+  aggregate check - rather than each appearing in the ruleset under its own name.
+Rationale: PR #79 (issue #75 P2.4) migrated `main`'s ruleset from 13 individually-named
+  contexts to three (`ci-ok`, `Analyze (python)`, `CodeQL`). Every Principle IX gate
+  still blocks a merge - `ci-ok` depends on all eight and asserts each result - but the
+  three clauses above, read literally, said the individual checks must each be configured
+  as required status checks, which is no longer true. Left unamended, a future
+  contributor reading the constitution as authoritative would "restore" the per-job
+  ruleset and reintroduce exactly the churn #79 removed (#71's rename cost three commits
+  and still missed a file until review round 5 of 10).
+PATCH rather than MINOR: what is required is unchanged - every gate must still block a
+  merge, and bypass is still limited to the review-approval gate. Only the permitted
+  *mechanism* for wiring them to the branch is stated more precisely. The new
+  MUST NOT clauses (an aggregate may neither enlarge nor shrink the gate, and its
+  composition must be automatically enforced) restate constraints Principle IX already
+  implied; they are written down because #79 showed both failure modes are silent.
+Templates requiring updates:
+  OK .specify/templates/plan-template.md (no changes needed)
+  OK .specify/templates/tasks-template.md (no changes needed)
+  OK .specify/templates/spec-template.md (no changes needed)
+  OK .github/copilot-instructions.md (no changes needed - does not enumerate check names)
+Propagation done in the same change (PR #79): README.md, .github/pull_request_template.md,
+  specs/003-ci-quality-security-gates/contracts/ci-checks-contract.md,
+  .github/skills/code-review/SKILL.md §7a, .github/skills/pr-review-loop/SKILL.md §5.
+  Enforcement of the aggregate's composition: tests/static/test_ci_ok_aggregate_check.py.
+Follow-up TODOs:
+  - Run /speckit-analyze against a representative in-flight spec per the Governance
+    section's amendment-propagation requirement. Not run here: this is a wording
+    clarification with no affected feature spec/plan/tasks of its own.
+-->
+
+<!--
+Sync Impact Report
+==================
 Version change: 1.9.1 → 1.10.0
 Modified principles: none (all existing principles unchanged)
 Added sections:
@@ -296,10 +333,17 @@ human review.
 - Continuous static application security testing (SAST) (e.g., GitHub CodeQL) MUST be
   enabled for the repository; new high-confidence alerts MUST be triaged before the
   pull request that introduced them is merged.
-- These checks MUST be configured as required status checks on the `main` branch so no
-  pull request — including the repository owner's own — merges without them passing;
-  bypassing required checks (e.g., via administrator override) MUST be limited to the
-  review-approval gate alone, never to these automated quality/security gates.
+- These checks MUST gate the `main` branch as required status checks so no pull request
+  — including the repository owner's own — merges without them passing; bypassing
+  required checks (e.g., via administrator override) MUST be limited to the
+  review-approval gate alone, never to these automated quality/security gates. The
+  requirement is that every gate blocks a merge, not that each one appears in the ruleset
+  under its own name: an aggregate check that depends on every gate, runs even when one
+  fails, and asserts each result explicitly satisfies this clause, and is the
+  preferred form once the enumerated names become a maintenance burden of their own
+  (issue #75). Aggregating MUST NOT quietly enlarge the gate — a supporting,
+  non-blocking job pulled into the aggregate becomes a merge blocker — nor shrink it,
+  and the aggregate's own composition MUST be enforced by an automated check.
 - Rationale: subjective code review alone cannot consistently catch complexity growth,
   latent security defects, or vulnerable dependencies at scale; objective, automated
   metrics computed identically on every pull request make code quality and security
@@ -453,7 +497,8 @@ into one PR or merged to `main` in a partially-built state.
   complexity/Maintainability Index checks (radon/xenon or equivalent), static security
   analysis (bandit or equivalent), and dependency vulnerability scanning (pip-audit or
   equivalent); GitHub CodeQL MUST run continuously as repository-level SAST. All MUST
-  pass before merge, and all MUST be configured as required status checks on `main`.
+  pass before merge, and all MUST gate `main` as required status checks — directly or
+  through an aggregate check meeting Principle IX's conditions.
 - GitHub Actions MUST automatically publish the generated Sphinx documentation to GitHub
   Pages on every successful build of the default branch, keeping user- and developer-facing
   docs continuously up to date.
@@ -469,10 +514,10 @@ into one PR or merged to `main` in a partially-built state.
   logic is documented with units/sources, (3) no floating-point exact-equality bugs,
   (4) packaging/version metadata is consistent with Principle IV.
 - Automated Principle IX gates (complexity, maintainability, type-checking, static
-  security analysis, dependency scanning, CodeQL) MUST pass as required status checks
-  before merge; reviewers are not required to manually re-derive metrics already computed
-  by these gates, but MUST review and approve any documented exception/suppression raised
-  against them.
+  security analysis, dependency scanning, CodeQL) MUST pass before merge, gating `main`
+  either directly or through an aggregate check per Principle IX; reviewers are not
+  required to manually re-derive metrics already computed by these gates, but MUST review
+  and approve any documented exception/suppression raised against them.
 - The `/speckit.analyze` and `/speckit.checklist` workflows SHOULD be used before
   `/speckit.implement` on any feature touching calculation logic, to catch spec/plan gaps
   early rather than during code review.
@@ -503,4 +548,4 @@ recurring pattern, MUST trigger a proposed constitution amendment rather than re
 ad-hoc exceptions. Use `.specify/memory/constitution.md` as the authoritative source for
 runtime development guidance until a dedicated guidance file is introduced.
 
-**Version**: 1.10.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-25
+**Version**: 1.10.1 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-30

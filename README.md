@@ -303,8 +303,9 @@ and actionable failure reporting).
 
 ## Quality & Security Gates (CI)
 
-Every pull request runs the following required checks (`.github/workflows/ci.yml`),
-per `.specify/memory/constitution.md` Principle IX:
+Every pull request runs the following jobs (`.github/workflows/ci.yml`), per
+`.specify/memory/constitution.md` Principle IX. All of them gate a merge — via the
+`ci-ok` aggregate described below, rather than each being named in the ruleset:
 
 | Check | Tool | Enforces |
 |---|---|---|
@@ -325,8 +326,9 @@ reports under its own name; they are simply no longer read by branch
 protection, so renaming a job or adding a Python version no longer requires a
 ruleset change (issue #75 P2.4). `Analyze (python)` and `CodeQL` stay separate
 because they come from GitHub's managed CodeQL setup rather than `ci.yml`.
-`performance`, `quality-summary` and `deploy-docs` are supporting jobs and are
-deliberately outside `ci-ok`.
+`performance`, `quality-summary`, `deploy-docs` and `sync-agent-integrations` are
+supporting jobs, deliberately outside `ci-ok`; pulling one in would make it a merge
+blocker, which `tests/static/test_ci_ok_aggregate_check.py` fails on.
 
 `main` is protected by two GitHub rulesets (not classic branch protection): a
 status-checks ruleset with **no bypass for anyone** (a failing required check blocks
