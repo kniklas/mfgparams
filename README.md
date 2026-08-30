@@ -317,6 +317,16 @@ per `.specify/memory/constitution.md` Principle IX:
 | `build` | `python -m build` | Package build failures |
 | `docs` | Sphinx | Docs build failures |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |
+| `ci-ok` | aggregate | Passes only when all eight jobs above (excluding CodeQL) succeeded |
+
+`main`'s ruleset requires exactly three checks — **`ci-ok`, `Analyze (python)`
+and `CodeQL`** — not the individual jobs. Every job in the table still runs and
+reports under its own name; they are simply no longer read by branch
+protection, so renaming a job or adding a Python version no longer requires a
+ruleset change (issue #75 P2.4). `Analyze (python)` and `CodeQL` stay separate
+because they come from GitHub's managed CodeQL setup rather than `ci.yml`.
+`performance`, `quality-summary` and `deploy-docs` are supporting jobs and are
+deliberately outside `ci-ok`.
 
 `main` is protected by two GitHub rulesets (not classic branch protection): a
 status-checks ruleset with **no bypass for anyone** (a failing required check blocks

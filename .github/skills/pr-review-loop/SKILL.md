@@ -602,17 +602,27 @@ The loop (§3) is done only when, on a fresh fetch:
   description's own `## Review process deviations` heading, naming the
   local rounds run in its place. Not in the "Quality & Security Gate
   Exceptions" table; §3 step 3 explains why.
-- `gh pr checks <number>` shows all required jobs passing (no pending
-  jobs either — wait them out). Required jobs in this repo's `ci.yml`:
-  `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`,
-  `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`, `build`,
-  `docs`, plus `Analyze (python)` and `CodeQL`. **There is no check named
-  plain `test`** — `013-tox-multi-python-testing` converted that job into a
-  Python-version matrix, and a matrixed job only ever emits per-leg check
-  names, so waiting for a bare `test` entry to appear waits forever.
-  `performance` and `deploy-docs`/`quality-summary` are supporting jobs —
-  check `ci.yml` if unsure which are branch-protection required. To read
-  the authoritative list rather than trusting this one:
+- `gh pr checks <number> --required` shows all required checks passing
+  (no pending ones either — wait them out). Since #79 there are exactly
+  **three**: `ci-ok`, `Analyze (python)` and `CodeQL`.
+
+  `ci-ok` is an aggregate that passes only when all eight individually
+  gating jobs did — `lint`, `complexity`, `typecheck`, `security`,
+  `dependency-scan`, `test`, `build`, `docs` — so a red `ci-ok` means one
+  of those failed and its own log names which. `Analyze (python)` and
+  `CodeQL` stay separate because they come from GitHub's managed CodeQL
+  setup rather than `ci.yml`, so `ci-ok` cannot depend on them.
+
+  The individual jobs still run and still report under their own names —
+  `test` is still a matrix emitting `test (3.9)`…`test (3.12)`, and there
+  is still no check named plain `test`. They are simply no longer what
+  branch protection reads, so a rename or a new Python version no longer
+  touches the ruleset. `performance`, `quality-summary`, `deploy-docs`
+  and `sync-agent-integrations` are supporting jobs and deliberately
+  outside `ci-ok`; `tests/static/test_ci_ok_aggregate_check.py` fails if
+  one is ever added.
+
+  To read the authoritative list rather than trusting this one:
   `gh api repos/:owner/:repo/rulesets/19477007 --jq '[.rules[] |
   select(.type=="required_status_checks") |
   .parameters.required_status_checks[].context]'`

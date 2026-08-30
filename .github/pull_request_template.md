@@ -25,6 +25,7 @@ a matching entry here.
 ## Checklist
 
 - [ ] Tests added/updated for the change
-- [ ] All required CI checks pass (`lint`, `complexity`, `typecheck`, `security`,
-  `dependency-scan`, `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)`,
-  `build`, `docs`, `Analyze (python)`, CodeQL)
+- [ ] All required CI checks pass — `ci-ok`, `Analyze (python)`, CodeQL.
+  (`ci-ok` aggregates `lint`, `complexity`, `typecheck`, `security`,
+  `dependency-scan`, `test`, `build`, `docs`; if it is red, its log names
+  which one failed.)

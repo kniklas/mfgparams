@@ -351,13 +351,29 @@ that combines multiple signals into a single pass/fail/skip verdict:
   coexists with a harder failure signal (the test step itself erroring,
   a required job failing), the failure signal MUST take precedence in the
   combined verdict.
-- A supporting/non-required job (see this repo's required-jobs list:
-  `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`,
-  `test (3.9)`/`test (3.10)`/`test (3.11)`/`test (3.12)` — the `test` job
-  is a Python-version matrix, so no check named plain `test` exists —
-  `build`, `docs`, `Analyze (python)`, CodeQL) must never become a de facto
-  blocker through an aggregate/wrapper check that can't complete until it
-  does.
+- A supporting/non-required job must never become a de facto blocker
+  through an aggregate/wrapper check that can't complete until it does.
+
+  **This repo now has such an aggregate.** Since #79, `main` requires only
+  `ci-ok`, `Analyze (python)` and `CodeQL`; `ci-ok` expands to the eight
+  gating jobs (`lint`, `complexity`, `typecheck`, `security`,
+  `dependency-scan`, `test`, `build`, `docs`). Review any change to it
+  against two properties, both of which fail silently — the PR just goes
+  green:
+
+  - It must `needs:` **only** those eight. `performance` is
+    `continue-on-error` by design, and `quality-summary`, `deploy-docs`
+    and `sync-agent-integrations` are reporting/conditional; any of them
+    in `needs:` is promoted to a merge blocker.
+  - It must assert each result **explicitly**. `if: always()` makes the
+    job run when a dependency failed, and GitHub does not then fail it
+    implicitly — an aggregate without the assertion reports success while
+    `lint` is red, which is a CRITICAL-band decorative guard (§0).
+
+  `tests/static/test_ci_ok_aggregate_check.py` locks both, and forces any
+  newly-added `ci.yml` job to be classified as gating or supporting rather
+  than silently neither. A change to `ci-ok` that also edits that test to
+  suit itself deserves particular scrutiny.
 
 ## 8. Cross-referencing issues
 
