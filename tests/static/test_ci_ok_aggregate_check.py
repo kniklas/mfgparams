@@ -85,6 +85,12 @@ def test_ci_ok_only_excludes_scheduled_runs(ci_jobs: dict) -> None:
     """
     condition = ci_jobs["ci-ok"]["if"]
     excluded_events = re.findall(r"github\.event_name\s*(==|!=)\s*'([a-z_]+)'", condition)
+    assert ("!=", "schedule") in excluded_events, (
+        "ci-ok must exclude scheduled runs. On the weekly cron every "
+        "dependency except dependency-scan is skipped, so the assertion step "
+        "sees 'skipped' and fails - a permanently red scheduled run that "
+        "gates nothing."
+    )
     for operator, event in excluded_events:
         if operator == "!=":
             assert event == "schedule", (

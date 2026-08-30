@@ -303,9 +303,9 @@ and actionable failure reporting).
 
 ## Quality & Security Gates (CI)
 
-Every pull request runs the following jobs (`.github/workflows/ci.yml`), per
-`.specify/memory/constitution.md` Principle IX. All of them gate a merge — via the
-`ci-ok` aggregate described below, rather than each being named in the ruleset:
+Every pull request runs the following checks, per
+`.specify/memory/constitution.md` Principle IX. All of them gate a merge, but only
+three are named in `main`'s ruleset — see the note below the table:
 
 | Check | Tool | Enforces |
 |---|---|---|

@@ -36,7 +36,7 @@ Follow-up TODOs:
 -->
 
 <!--
-Sync Impact Report
+Sync Impact Report (previous amendment)
 ==================
 Version change: 1.9.1 → 1.10.0
 Modified principles: none (all existing principles unchanged)
