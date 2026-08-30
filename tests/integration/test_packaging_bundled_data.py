@@ -56,11 +56,14 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# These assertions verify *packaging*, not Python-version compatibility, so
-# they run once rather than once per interpreter: CI's `build` job and
-# `tox -e packaging`, deselected from the `test (3.x)` matrix and from tox's
-# envlist. See this module's docstring for why that matters.
-pytestmark = pytest.mark.packaging
+# NOTE: the ``packaging`` marker goes on the two tests that actually build a
+# wheel, NOT on this module. The other two tests here build nothing and run in
+# microseconds, and one of them —
+# ``test_stray_build_scratch_directory_does_not_fool_the_skip_guard`` —
+# asserts PEP 420 implicit-namespace-package resolution, which is genuinely
+# interpreter-dependent and so is exactly what the version matrix exists to
+# check. Marking the module would have quietly narrowed it to whichever single
+# interpreter runs the `build` job (code review finding).
 
 
 def _build_wheel(outdir: Path) -> Path:
@@ -137,6 +140,7 @@ def built_wheel(tmp_path_factory) -> Path:
     return _build_wheel(tmp_path_factory.mktemp("wheel"))
 
 
+@pytest.mark.packaging
 def test_wheel_contains_bundled_materials_and_tools_toml(built_wheel):
     names = zipfile.ZipFile(built_wheel).namelist()
     assert any(n.endswith("data/materials.toml") for n in names), names
@@ -145,6 +149,7 @@ def test_wheel_contains_bundled_materials_and_tools_toml(built_wheel):
     assert any(n.endswith("face_milling/data/tools.toml") for n in names), names
 
 
+@pytest.mark.packaging
 def test_packaged_materials_include_hardwood_softwood_and_engineered(built_wheel):
     wheel_path = built_wheel
     with zipfile.ZipFile(wheel_path) as archive:

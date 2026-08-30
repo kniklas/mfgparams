@@ -48,12 +48,72 @@ def tox_config() -> configparser.ConfigParser:
     return parser
 
 
+def _packaging_step(job: dict) -> dict | None:
+    for step in job["steps"]:
+        if f"-m {MARKER}" in step.get("run", ""):
+            return step
+    return None
+
+
 def test_build_job_runs_the_packaging_assertions(ci_jobs: dict) -> None:
     """Something merge-blocking must still run them."""
-    assert f"-m {MARKER}" in _run_steps(ci_jobs["build"]), (
+    assert _packaging_step(ci_jobs["build"]) is not None, (
         "the `build` job must run `pytest -m packaging`; without it the "
         "wheel-contents assertions run nowhere in CI, because every `test` "
         "leg deselects them"
+    )
+
+
+def test_the_packaging_step_can_actually_fail_the_build_job(ci_jobs: dict) -> None:
+    """Present is not the same as blocking.
+
+    Asserting only that the step's text exists lets a disabled step satisfy
+    the guard: ``continue-on-error: true`` keeps ``pytest -m packaging`` in
+    the file while the assertions lose the ability to redden ``build``. That
+    is the likely edit here precisely because this step's isolated,
+    PyPI-touching build is the flakiness P1.3 moved out of the matrix - when
+    it goes red, ``continue-on-error`` is what someone reaches for. Same
+    decorative-guard shape ``test_ci_ok_aggregate_check.py`` guards at job
+    level.
+    """
+    step = _packaging_step(ci_jobs["build"])
+    assert step is not None
+    build_job = ci_jobs["build"]
+    for holder, label in ((step, "the packaging step"), (build_job, "the build job")):
+        assert not holder.get("continue-on-error"), (
+            f"{label} must not set continue-on-error: the wheel-contents "
+            "assertions would stop being able to fail a required check"
+        )
+
+    assert "if" not in step, (
+        "the packaging step must not be conditional: a condition that "
+        "evaluates false leaves the wheel unverified while CI stays green"
+    )
+    # The job itself carries `if: github.event_name != 'schedule'`, like every
+    # other gating job - a scheduled run has no pull request to gate. Any
+    # *other* condition would narrow when the wheel gets verified.
+    assert build_job.get("if") in (None, "github.event_name != 'schedule'"), (
+        f"the build job's condition is {build_job.get('if')!r}; only the "
+        "standard schedule exclusion is allowed, or the wheel stops being "
+        "verified on some events"
+    )
+
+
+def test_build_job_installs_the_extra_that_makes_them_run(ci_jobs: dict) -> None:
+    """Otherwise they *skip*, and skipping is exit 0.
+
+    ``_build_wheel`` guards with ``pytest.importorskip("build.__main__")``,
+    so if ``build`` ever leaves the ``test`` extra - or this job's install is
+    narrowed - the step reports "skipped", exits 0, and ``build`` goes green
+    with the wheel entirely unverified. Before P1.3 that silent skip was
+    spread across four legs; now this is the only place CI verifies the
+    wheel at all, so the whole gate can vanish without anything going red.
+    """
+    install_steps = _run_steps(ci_jobs["build"])
+    assert '".[test]"' in install_steps or "'.[test]'" in install_steps, (
+        "the `build` job must install the `test` extra, which is what "
+        "provides `build` and stops the packaging assertions from being "
+        "importorskip-ed into a silent pass"
     )
 
 
