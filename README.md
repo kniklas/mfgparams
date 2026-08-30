@@ -272,13 +272,26 @@ use [`tox`](https://tox.wiki/) (installed as part of the `dev` extra; each
 environment it builds installs the narrower `test` extra):
 
 ```bash
-tox            # runs the full suite + coverage gate once per supported version
+tox            # the suite + coverage gate once per supported version
+tox -p auto    # the same, in parallel
 tox -e py39    # or just one version, for a faster inner loop
 
 # Narrowing down one failure: pass `--no-cov` with any filter, or the 90%
 # coverage gate fails the environment even when every selected test passed.
 tox -e py39 -- --no-cov -k drilling -x
+
+# The wheel-contents assertions, which the envs above deselect. They verify
+# packaging rather than Python-version compatibility, so they run once.
+tox -e packaging
 ```
+
+The version envs deselect the `packaging` marker
+(`tests/integration/test_packaging_bundled_data.py`). Those tests shell out to
+`python -m build`, and setuptools writes its scratch tree to `<repo>/build/`
+regardless of `--outdir` — one directory shared by every env. Running them in
+all four was what made `tox -p` unsafe (issue #74); with no env in `envlist`
+building, parallel mode works. CI runs them once in its `build` job, which is
+equally merge-blocking, so nothing stops gating on them.
 
 Any supported interpreter not installed on your machine (e.g., no `python3.9`
 on `PATH`) is reported `SKIPPED` rather than failing the run — install it
@@ -314,8 +327,8 @@ three are named in `main`'s ruleset — see the note below the table:
 | `typecheck` | `mypy` | Static type errors (FR-003) |
 | `security` | `bandit` | High/medium-severity security findings (FR-004) |
 | `dependency-scan` | `pip-audit` | Known CVEs in resolved dependencies (FR-005); also runs weekly, independent of PRs |
-| `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
-| `build` | `python -m build` | Package build failures |
+| `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest -m "not packaging" --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
+| `build` | `python -m build`, then `pytest -m packaging` | Package build failures, and the wheel-contents assertions — the only place in CI they run |
 | `docs` | Sphinx | Docs build failures |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |
 | `ci-ok` | aggregate | Passes only when all eight jobs above (excluding CodeQL) succeeded |

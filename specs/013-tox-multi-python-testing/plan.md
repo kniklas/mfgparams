@@ -49,7 +49,9 @@ constraint (existing dependency, constraint split by Python version, mirroring t
 version-lists-stay-in-sync requirement going forward; no new application test suite. Two
 further, additive test changes fell out of implementation: declaring `build` in the `test`
 extra makes `tests/integration/test_packaging_bundled_data.py`'s wheel-content assertions run
-in every tox env and CI matrix leg instead of being skipped everywhere, and two
+in automation instead of being skipped everywhere — in every tox env and CI matrix leg as
+shipped here, since narrowed by issue #75 P1.3 to CI's `build` job and `tox -e packaging`,
+which run them once and still block a merge. And two
 regression/source-guard tests were added to that file to protect its skip guard (research.md
 #4). Validation is otherwise via `quickstart.md`'s runnable local (`tox`) and CI (matrix job)
 scenarios, matching spec.md's acceptance scenarios; the ≥90% coverage gate is unchanged and

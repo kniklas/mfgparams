@@ -224,7 +224,16 @@ jobs:
       # value silently *overrides* addopts, so restating `90` here would mean
       # bumping the threshold in pyproject.toml raises it for `tox` while CI
       # keeps enforcing the stale value (code review finding; research.md #4).
-      - run: pytest --cov-report=xml
+      #
+      # `-m "not packaging"` deselects the wheel-contents assertions. They
+      # verify *packaging*, not Python-version compatibility, and were in
+      # this matrix by accident of file location: each leg shelled out to an
+      # isolated `python -m build`, so a PyPI slowdown could redden a
+      # *required*, merge-blocking check for a reason unrelated to the change
+      # under review — four times per run. They now run once in the `build`
+      # job below, which is equally required, so nothing stops gating on them
+      # (issue #75 P1.3). Coverage is unaffected: 98.59% either way.
+      - run: pytest -m "not packaging" --cov-report=xml
       # Publishes coverage.xml to Codecov so README.md's coverage badge stays
       # auto-updating (Constitution Principle VII; specs/003-ci-quality-security-gates).
       # Requires a CODECOV_TOKEN repository secret from https://codecov.io.
@@ -424,8 +433,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install build
+      - run: pip install -e ".[test]"
       - run: python -m build
+      # The wheel-contents assertions, moved out of the `test (3.x)` matrix
+      # (issue #75 P1.3). This job is required, so they still gate a merge —
+      # they simply run once instead of once per interpreter, and a transient
+      # PyPI slowdown during `build`'s isolated mode now reddens one check
+      # rather than four.
+      #
+      # `--no-cov` because `[tool.pytest.ini_options].addopts` carries
+      # `--cov-fail-under=90`, which four packaging tests will never meet on
+      # their own; coverage is measured by the `test` job.
+      - run: pytest -m packaging --no-cov
 
   docs:
     name: docs

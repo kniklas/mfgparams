@@ -105,6 +105,7 @@ testpaths = ["tests"]
 addopts = "--cov=mfgparams --cov-report=term-missing --cov-fail-under=90"
 markers = [
     "performance: opt-in legacy-hardware time/memory budget checks (see tests/performance/)",
+    "packaging: wheel-contents assertions that shell out to `python -m build` (see tests/integration/test_packaging_bundled_data.py); run once in CI's `build` job and `tox -e packaging`, deselected from the version matrix",
 ]
 
 [tool.coverage.run]

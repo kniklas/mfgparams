@@ -21,8 +21,10 @@ Everything else in those contracts it extends rather than replaces.
 
 | Command | Behavior |
 |---|---|
-| `tox` | Runs a bare `pytest` once per env in `envlist` (`py39`, `py310`, `py311`, `py312`), each in its own isolated environment with the narrow `test` extra installed. The coverage flags (`--cov=mfgparams --cov-report=term-missing --cov-fail-under=90`) come from `[tool.pytest.ini_options].addopts`, the single source of truth CI's `test` job also inherits (research.md #4). Exits non-zero if any *available* interpreter's env fails; prints a per-env summary. |
+| `tox` | Runs `pytest -m "not packaging"` once per env in `envlist` (`py39`, `py310`, `py311`, `py312`), each in its own isolated environment with the narrow `test` extra installed. The coverage flags (`--cov=mfgparams --cov-report=term-missing --cov-fail-under=90`) come from `[tool.pytest.ini_options].addopts`, the single source of truth CI's `test` job also inherits (research.md #4). Exits non-zero if any *available* interpreter's env fails; prints a per-env summary. |
 | `tox -e py39` (etc.) | Runs the same suite against a single named version, for a faster inner loop when iterating on one version's failure. |
+| `tox -p` / `tox -p auto` | Supported since issue #75 P1.3. Previously unsafe (#74): every env shelled out to `python -m build`, which writes its scratch tree to `<repo>/build/` regardless of `--outdir`, so parallel envs raced on one shared directory. Deselecting the `packaging` marker from `envlist` leaves nothing to race on. |
+| `tox -e packaging` | The wheel-contents assertions (`tests/integration/test_packaging_bundled_data.py`), once, on the default interpreter — deliberately outside `envlist`. They verify *packaging*, not Python-version compatibility; building the same wheel four times proves nothing extra, and running the env in parallel with itself reinstates the race above. CI's equally-required `build` job runs them, so they still gate a merge. |
 | Missing interpreter (e.g. no `python3.9` on `PATH`) | That env is reported `SKIPPED` (not `FAILED`, not silently omitted) in the summary; other available envs still run and report their own result; overall exit status reflects only the envs that actually ran (spec.md FR-004). |
 
 ## CI interface: `test` matrix checks
@@ -33,8 +35,9 @@ the other Principle IX gates.
 
 | Check name | Enforces | Trigger | Blocks merge when |
 |---|---|---|---|
-| `test (3.9)` | Full suite + coverage on the oldest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.9 |
+| `test (3.9)` | Suite + coverage on the oldest declared-supported version, less the `packaging` marker (issue #75 P1.3) | push, pull_request | Test failure or coverage below 90% on 3.9 |
 | `test (3.10)` | Same, on 3.10 | push, pull_request | Test failure or coverage below 90% on 3.10 |
+| `build` | Package build check, **plus the wheel-contents assertions** (`pytest -m packaging`) that issue #75 P1.3 moved out of the matrix. This is the only place in CI they run: every `test` leg deselects the marker. Removing that step silently leaves the wheel unverified while CI stays green, so `tests/static/test_packaging_marker_still_gates.py` fails if it disappears | push, pull_request | Build failure, or a wheel-contents assertion failing |
 | `test (3.11)` | Same, on 3.11 — also the canonical leg (`env.PYTHON_VERSION`): the only leg that uploads `coverage.xml` to Codecov, and the only one that writes the `coverage-pct` artifact `quality-summary` renders as the coverage metric. The job exposes no `coverage_pct` job output, because a matrix job's output is published from whichever leg finishes last regardless of which leg set it (research.md #5) | push, pull_request | Test failure or coverage below 90% on 3.11 |
 | `test (3.12)` | Same, on the newest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.12 |
 
