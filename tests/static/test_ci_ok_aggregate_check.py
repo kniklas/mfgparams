@@ -26,9 +26,7 @@ import pytest
 
 yaml = pytest.importorskip("yaml")
 
-CI_WORKFLOW = (
-    pathlib.Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
-)
+CI_WORKFLOW = pathlib.Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
 
 # Jobs that MUST gate a merge. Keep in sync with the ruleset's single
 # `ci-ok` entry - this list is what `ci-ok` expands to.
@@ -70,8 +68,7 @@ def test_ci_ok_exists_and_is_not_itself_gated_away(ci_jobs: dict) -> None:
     """
     assert "ci-ok" in ci_jobs, "ci-ok job is missing; main's ruleset requires it"
     assert "always()" in ci_jobs["ci-ok"]["if"], (
-        "ci-ok must use `if: always()` or a failed dependency skips it "
-        "instead of failing it"
+        "ci-ok must use `if: always()` or a failed dependency skips it " "instead of failing it"
     )
 
 
@@ -80,9 +77,7 @@ def test_ci_ok_gates_exactly_the_required_jobs(ci_jobs: dict) -> None:
 
 
 @pytest.mark.parametrize("job,reason", sorted(SUPPORTING_JOBS.items()))
-def test_ci_ok_does_not_gate_supporting_jobs(
-    ci_jobs: dict, job: str, reason: str
-) -> None:
+def test_ci_ok_does_not_gate_supporting_jobs(ci_jobs: dict, job: str, reason: str) -> None:
     """A supporting job in ``needs:`` becomes a merge blocker by the back door."""
     assert job not in ci_jobs["ci-ok"]["needs"], (
         f"{job!r} must not gate merges: {reason}. Adding it to ci-ok's "
