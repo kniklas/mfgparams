@@ -21,8 +21,10 @@ Everything else in those contracts it extends rather than replaces.
 
 | Command | Behavior |
 |---|---|
-| `tox` | Runs a bare `pytest` once per env in `envlist` (`py39`, `py310`, `py311`, `py312`), each in its own isolated environment with the narrow `test` extra installed. The coverage flags (`--cov=mfgparams --cov-report=term-missing --cov-fail-under=90`) come from `[tool.pytest.ini_options].addopts`, the single source of truth CI's `test` job also inherits (research.md #4). Exits non-zero if any *available* interpreter's env fails; prints a per-env summary. |
+| `tox` | Runs `pytest -m "not packaging"` once per env in `envlist` (`py39`, `py310`, `py311`, `py312`), each in its own isolated environment with the narrow `test` extra installed. The coverage flags (`--cov=mfgparams --cov-report=term-missing --cov-fail-under=90`) come from `[tool.pytest.ini_options].addopts`, the single source of truth CI's `test` job also inherits (research.md #4). Exits non-zero if any *available* interpreter's env fails; prints a per-env summary. |
 | `tox -e py39` (etc.) | Runs the same suite against a single named version, for a faster inner loop when iterating on one version's failure. |
+| `tox -p` / `tox -p auto` | Supported since issue #75 P1.3. Previously unsafe (#74): every env shelled out to `python -m build`, which writes its scratch tree to `<repo>/build/` regardless of `--outdir`, so parallel envs raced on one shared directory. Deselecting the `packaging` marker from `envlist` leaves nothing to race on. |
+| `tox -e packaging` | The wheel-contents assertions (`tests/integration/test_packaging_bundled_data.py`), once, on the default interpreter — deliberately outside `envlist`. They verify *packaging*, not Python-version compatibility; building the same wheel four times proves nothing extra, and running the env in parallel with itself reinstates the race above. CI's equally-required `build` job runs them, so they still gate a merge. |
 | Missing interpreter (e.g. no `python3.9` on `PATH`) | That env is reported `SKIPPED` (not `FAILED`, not silently omitted) in the summary; other available envs still run and report their own result; overall exit status reflects only the envs that actually ran (spec.md FR-004). |
 
 ## CI interface: `test` matrix checks

@@ -3,11 +3,21 @@ quickstart.md Scenario 2).
 
 Invokes ``python -m build`` and inspects the resulting wheel's namelist.
 
+These assertions carry the ``packaging`` marker and run **once**, not once
+per interpreter: CI's ``build`` job and ``tox -e packaging``. The
+``test (3.x)`` matrix and tox's ``envlist`` deselect them (issue #75 P1.3).
+They verify *packaging*, not Python-version compatibility, and were in the
+matrix only by accident of file location — at the cost of four isolated,
+network-touching ``python -m build`` runs inside *required*, merge-blocking
+checks, and of making ``tox -p`` unsafe (issue #74). The ``build`` job is
+equally required, so they still gate a merge.
+
 ``build`` is part of the ``test`` extra (which ``dev`` includes via
-``mfgparams[test]``), so `tox` and CI's `test` job both run these assertions
-for real — they are not skipped in automation. The ``importorskip`` guard is
-for the remaining case: a bare environment with neither extra installed, e.g.
-someone running ``pytest`` against a plain ``pip install -e .`` checkout.
+``mfgparams[test]``), so both places that run them have it installed — these
+are not skipped in automation. The ``importorskip`` guard below is for the
+remaining case, which moving out of the matrix does **not** remove: a bare
+environment with neither extra installed, e.g. someone running ``pytest``
+against a plain ``pip install -e .`` checkout.
 
 That guard imports ``build.__main__`` specifically, not just ``build``:
 running ``python -m build`` leaves a ``build/`` scratch directory at the repo
@@ -45,6 +55,12 @@ except ModuleNotFoundError:  # pragma: no cover - Python <3.11
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# These assertions verify *packaging*, not Python-version compatibility, so
+# they run once rather than once per interpreter: CI's `build` job and
+# `tox -e packaging`, deselected from the `test (3.x)` matrix and from tox's
+# envlist. See this module's docstring for why that matters.
+pytestmark = pytest.mark.packaging
 
 
 def _build_wheel(outdir: Path) -> Path:
