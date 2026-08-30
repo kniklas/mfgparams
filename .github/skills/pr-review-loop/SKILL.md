@@ -1,6 +1,6 @@
 ---
 name: pr-review-loop
-description: Iteratively drive a mfgparams pull/merge request to green — fixing code until GitHub Copilot (balanced) code review comments and all required CI jobs pass — then require explicit user approval, a high-level summary of all commits, and cleanup of stale branches before closing. Use whenever asked to "work on a PR/MR until it's mergeable", "address Copilot review comments", "get CI green on this PR", or "finish up and close this MR".
+description: Iteratively drive a mfgparams pull/merge request to green — triaging every code-review finding by severity band, batch-fixing everything at or above the intensity floor one commit per round, deferring the rest, until GitHub Copilot (balanced) review and all required CI jobs pass — then require explicit user approval, a high-level summary of all commits, and cleanup of stale branches before closing. Use whenever asked to "work on a PR/MR until it's mergeable", "address Copilot review comments", "get CI green on this PR", or "finish up and close this MR".
 ---
 
 # PR Review Loop (mfgparams)
@@ -96,17 +96,17 @@ with no new public API, no formula/`ci.yml`/`harness.py` change and no new
 spec — default to **medium** rather than inventing a row.
 
 At **very high** the floor is `LOW+`: nothing is deferred and every band
-is fixed in-loop. Whether a LOW fix at that intensity should additionally
-require human approval is a **deferral-path question** — decide it
-alongside §3a in the follow-up, not here, where it would contradict this
-section's "do not ask by default" and §4's design of asking only at the
-checkpoint.
+is fixed in-loop, LOW included, **without a per-fix approval step**.
+Issue #76 proposed gating LOW fixes on human approval at this intensity;
+that is deliberately not adopted. It would contradict this section's "do
+not ask by default" and §4's design of asking only at the checkpoint, and
+it would block on a human for prose nits at the most thorough setting.
+The human control at very high is the §4 checkpoint and the 8-round
+budget, not an approval prompt per nit.
 
 Severity bands are defined in `.github/skills/code-review/SKILL.md` §0.
 The **floor** is the lowest band fixed inside the loop; everything below
-it is deferred, not fixed — though until the deferral path lands the
-floor drives §4's stop conditions and reporting only, and every finding
-is still fixed or rebutted (see §3).
+it is deferred via §3a, not fixed and not dropped.
 
 **Changed lines = additions + deletions.** Read them with
 `gh pr view <number> --json additions,deletions` (verified on PR #71:
@@ -127,9 +127,35 @@ large PR (#71: ~27 min per round) from spending five rounds before anyone
 looks, without pretending a soft measure is a hard gate.
 
 Initialize a third counter alongside the two above:
-- **review round count** — incremented once per completed Copilot review
-  round (a review submission plus the fix batch answering it). This, not
-  the commit count, is what §4's budget is spent against.
+- **review round count** — incremented once per completed **remote
+  round**. This, not the commit count, is what §4's budget is spent
+  against.
+
+Two kinds of round exist and only one is budgeted; keep them distinct:
+
+- A **remote round** is a Copilot review submission plus the fix batch
+  answering it. It costs a review credit and a CI cycle, it consumes the
+  §1 budget, and it is what §4's triggers and novelty stall are measured
+  over.
+- A **local round** is a `/code-review` pass run before pushing (§3 step
+  3). It costs no review credit and no CI cycle, so it does **not**
+  consume the *round* budget and does **not** count toward the novelty
+  stall. It appears in the §6 histogram labelled `local`.
+
+  It does consume **agent-busy minutes** like any other work, and §1
+  derives that figure from wall time, so local rounds are already inside
+  the minute budget. Do not treat them as free against trigger 2.
+
+**Local-only mode.** If the user directs a loop with no remote review at
+all (§3 step 3, credits exhausted), local rounds become the budgeted
+unit: they increment the round count, they are what §4's novelty stall is
+measured over, and §4's triggers fire on them exactly as they would
+remotely. Otherwise a local-only loop would have no stop condition at
+all, since every §4 trigger is defined over remote rounds. Skip §3 steps
+7-8 (requesting and polling a Copilot review) in this mode; step 9 still
+closes the round.
+
+Unqualified "round" below means a remote round.
 
 ## 2. Fetch Copilot review comments, excluding suppressed ones
 
@@ -180,38 +206,51 @@ A comment counts as **suppressed / not actionable** — and must be
   the user says otherwise.
 
 Everything else from the Copilot reviewer that is unresolved is in scope
-and must be fixed or explicitly rebutted (with a reply comment) before
-proceeding.
+and must reach one of three outcomes before the loop can exit (§5):
+fixed, explicitly rebutted with a reply comment, or deferred via §3a.
+"Left open and hoped about" is not one of them.
 
-Keep each thread's `id` (a `PRRT_...` node ID) for the session — §4's
-novelty-stall check is defined over these IDs, and they are the only
-stable handle on "have I seen this finding before". Verified against this
+Keep each thread's `id` (a `PRRT_...` node ID) for the session — it is a
+remote finding's identity for §4's novelty-stall check, and the only
+stable handle on "have I seen this finding before". (A *local* finding
+has no thread; §4 gives it a `(path, band, summary)` identity instead.) Verified against this
 repo: `reviewThreads(first:3){nodes{id ...}}` on PR #71 returns
 `PRRT_kwDOTTuBh86cnh5v` and siblings.
 
-## 3. Iterate: fix → commit → push → re-check
+## 3. Iterate: triage → batch-fix → commit → push → re-check
 
-Repeat until both are true: all required CI jobs are green **and** no
-non-suppressed Copilot review comments remain unresolved.
+Repeat until §5's exit criteria are met. **One round handles every open
+finding at once** — not one finding per round. #24 spent 11 rounds on 11
+findings, each costing a full CI and review cycle; batching is the single
+largest recoverable cost in this loop.
 
-1. Pick the highest-value unresolved item (correctness/test bugs before
-   style nits) or the first failing CI job.
+1. **Triage first — classify before fixing anything.** Band *every* open
+   finding per `.github/skills/code-review/SKILL.md` §0, then print the
+   histogram in chat before making a single edit:
 
-   Band every open finding per `.github/skills/code-review/SKILL.md` §0
-   as you go, and record the counts — §4's checkpoint report and the §6
-   histogram both need them, and §4's novelty-stall check reads the bands
-   directly (at a fixed MEDIUM+ threshold, not the §1 floor).
+   ```
+   Round <n> triage: CRITICAL <a> · HIGH <b> · MEDIUM <c> · LOW <d>
+   Floor: <band>+ — fixing <k>, deferring <m>
+   ```
 
-   **The floor does not yet gate what gets fixed.** Every non-suppressed
-   finding is still fixed or explicitly rebutted here, exactly as before;
-   the floor currently drives §4's stop conditions and reporting only.
-   Triage-before-fix, per-round batching, and the deferral path for
-   below-floor findings are a follow-up to issue #76 — until they land,
-   there is no exit for a finding other than fixing or rebutting it, so
-   do not silently skip a LOW.
-2. Make the fix. Follow `.github/instructions/python.instructions.md` and
-   the priorities in `.github/skills/code-review/SKILL.md` (calculation
-   correctness > resource limits > tests > extensibility > style).
+   Triage is a separate step from fixing because doing it inline
+   reintroduces the per-item judgement this rubric exists to replace: you
+   cannot know a round's shape while you are already three fixes into it.
+   Record the counts — §4's checkpoint report and the §6 histogram need
+   them, and §4's novelty check reads the bands directly (at a fixed
+   MEDIUM+ threshold, not the floor).
+
+2. **Fix everything at or above the floor, in one batch.** Order the
+   batch by `code-review` §1's priorities (calculation correctness >
+   resource limits > tests > extensibility > style) — that list is the
+   tiebreak *within* the batch, not a reason to split it across rounds.
+   Follow `.github/instructions/python.instructions.md`.
+
+   Everything **below** the floor goes to §3a. Do not fix it, and do not
+   silently drop it either — §3a is the only other exit.
+
+   A CRITICAL finding is fixed whatever the floor and whatever the
+   remaining budget (§4's critical override).
 3. **Local pre-check before pushing** — apply the relevant checklist
    yourself against the diff, catching mechanically-checkable issues
    before spending a Copilot review round on them (each round costs
@@ -230,15 +269,55 @@ non-suppressed Copilot review comments remain unresolved.
      mention of any concept/flag/command you changed, and verify any
      newly-asserted CLI/API behavior claim in a real shell before writing
      it down as fact.
-   - This is not a substitute for the remote Copilot review (§5's exit
-     criteria still requires it) — it's a cheap filter to reduce how many
-     rounds you need.
+   - Then run **`/code-review` locally** on the batch and fix what it
+     finds, before pushing. A local round costs no Copilot credit and no
+     CI cycle, so it is strictly cheaper than discovering the same
+     finding remotely. Per intensity (§1), run local rounds before
+     spending a remote one:
+
+     | Intensity | Local rounds before each remote round |
+     |---|---:|
+     | low | 1 |
+     | medium | 2 |
+     | high | 2 |
+     | very high | 3 |
+
+     Treat local findings exactly like remote ones: band them, batch the
+     at-or-above-floor fixes, defer the rest via §3a. **Local rounds do
+     not consume the §1 round budget** — that budget prices remote review
+     cycles. They do appear in the §6 histogram, labelled `local`.
+
+   - **Squash any local WIP before pushing.** Committing between local
+     rounds is optional — step 5 is the only required commit — but if you
+     do commit WIP to keep the iterations separable, collapse it into the
+     round's single commit before pushing. Scope the squash to *this
+     round's unpushed commits only*: never rewrite a commit already
+     pushed in an earlier round, which would turn step 6's `git push`
+     into a non-fast-forward failure and invite a force-push over a
+     branch Copilot has already reviewed.
+
+   - **If Copilot credits are exhausted**, the user may direct the loop to
+     run entirely on local rounds — see "Local-only mode" in §1 for how
+     the budget then applies. That is a supported override, not a
+     shortcut: record it in the PR description under its own
+     `## Review process deviations` heading, naming the local rounds run
+     in place of the remote one, per the constitution's Governance clause
+     ("Any deviation MUST be justified in the pull request description").
+
+     Do **not** put it in the "Quality & Security Gate Exceptions" table.
+     `.github/pull_request_template.md` scopes that table to Principle IX
+     complexity/security suppressions, each paired with an in-code
+     `# noqa: C901` / `# nosec B###`, and §2 reads the same table when
+     deciding whether a Copilot comment is suppressed. A review-process
+     waiver there is a category error in a table another step parses.
 4. Run the smallest targeted test/lint/build command locally that covers
    the change before pushing (see repo CI job list below) — don't rely on
    CI alone for feedback loop speed.
-5. Commit with a message describing the specific review comment or CI
-   failure addressed (not a generic "fix review comments"). Increment the
-   review-fix commit counter and append a line to the running summary.
+5. **Commit the whole batch as one commit** — one commit per round, not
+   one per finding. The message enumerates what the round addressed
+   (never a generic "fix review comments"): a line per finding, with its
+   band. Increment the review-fix commit counter and append a line to the
+   running summary.
 6. Push: `git push`. Capture the new head SHA (`git rev-parse HEAD`) — it
    identifies which CI/review run belongs to this specific commit.
 7. Re-request Copilot review if it doesn't auto re-review on push:
@@ -321,9 +400,77 @@ non-suppressed Copilot review comments remain unresolved.
    round spent entirely on a failing CI job — always increments: without
    the "at least one" condition the exemption is vacuously true, the
    round count never advances, and §4's "rounds exhausted" trigger can
-   never fire. Finally, evaluate
-   §4's four triggers before starting another round — the budget is
-   checked at this boundary, not mid-fix.
+   never fire. Finally, evaluate §4's four triggers before starting
+   another round — the budget is checked at this boundary, not mid-fix.
+
+## 3a. The deferral path — the only exit other than fixing
+
+Before this section existed, a finding had exactly one exit: fix it. That
+is why 33% of this repo's review-driven churn went into specs and prose,
+and why the ~45% of findings that issue #76's evidence section classified
+LOW were costing full review rounds to satisfy. (`code-review` §0 defines
+the bands; the measured distribution across them is #76's, not §0's.)
+
+A finding **below the intensity floor** is deferred, not fixed and not
+ignored. Deferring has three obligations, all of them cheap, and all of
+them required before §5 will let the loop exit.
+
+**1. Record it in one batched PR comment.** One comment per PR, titled
+`## Deferred findings`, updated in place as rounds add to it — never one
+comment per finding. Each row:
+
+```markdown
+| Band | Path | Finding | Why deferred |
+|---|---|---|---|
+| LOW | `src/mfgparams/foo.py:42` | one-line summary | below `MEDIUM+` floor at medium intensity |
+```
+
+**2. Raise a tracked issue for every deferred MEDIUM.** LOW findings do
+not get issues — batching them into the comment above is the whole point,
+and a LOW that was never worth a round is not worth an issue either.
+MEDIUM does: it is a real defect this intensity chose not to pay for, and
+without an issue it is simply lost. Reference the PR and quote the
+finding.
+
+**3. Reply on the thread, then resolve it.** *(Remote findings only — see
+"Local findings" below.)* A one-line reply naming the
+outcome — `Deferred (LOW, below floor); tracked in the deferred-findings
+comment.` or `Deferred (MEDIUM); raised as #NN.` — and then resolve the
+thread. This is not optional politeness: four of the six PRs sampled in
+issue #76 merged with *every* review thread left unresolved-but-outdated,
+which makes the next reviewer re-read findings that were handled months
+ago.
+
+### Local findings have no thread
+
+A finding from a local round (§3 step 3) exists only in your own output —
+there is no review thread to reply on or resolve, so obligation 3 does
+not apply to it and §5 does not look for one.
+
+- **At or above the floor:** fix it in this round's batch, like any other.
+- **Below the floor:** fix it if the fix is trivial — with no thread to
+  reply on and no round being spent, the bookkeeping costs more than the
+  edit. Otherwise record it in the deferred-findings comment (obligation
+  1) once the PR exists, and raise an issue if it is MEDIUM (obligation
+  2). Never drop it silently.
+
+### What may never be deferred
+
+- **CRITICAL** — always fixed, at any intensity, past any budget.
+- Anything at or above the floor. Deferral is for below-floor findings
+  only; if a finding at the floor is genuinely not worth fixing, the
+  honest move is to argue the band down with a reply on the thread, not
+  to defer it at its stated band.
+- A finding whose fix is already written. Once fixed, ship it.
+
+### Re-banding is allowed; band-shopping is not
+
+You may argue a finding's band down — Copilot's banding is an input, not
+a verdict — but the argument goes in the thread reply where a human can
+see it, and it must be about reachability or blast radius (`code-review`
+§0's actual test), never about how much work the fix is. Re-banding
+something to LOW because fixing it is tedious is how the rubric stops
+meaning anything.
 
 ## 4. Budget checkpoint
 
@@ -349,11 +496,25 @@ these fires:
 
 ### Novelty — the mechanical definition
 
-Snapshot the set of non-suppressed review thread `id`s (§2) after each
-round. A round is **novel** if it contains at least one thread whose `id`
-was not present in any earlier round this session **and** whose
-`code-review` §0 band is **MEDIUM or above**. Otherwise the round is
-**non-novel**.
+Snapshot the set of non-suppressed **finding identities** after each
+budgeted round. A round is **novel** if it contains at least one identity
+not present in any earlier round this session **and** whose `code-review`
+§0 band is **MEDIUM or above**. Otherwise the round is **non-novel**.
+
+A finding's identity depends on where it came from:
+
+- **Remote finding** — the review thread `id` (a `PRRT_...` node ID, §2).
+  Stable and exact.
+- **Local finding** — the tuple `(path, band, one-line summary)`, since a
+  local `/code-review` finding has no thread (§3a). Two findings with the
+  same tuple are the same finding.
+
+This matters only in local-only mode (§1), where local rounds are the
+budgeted unit: defining novelty over thread IDs alone would make *every*
+local round non-novel, so the stall would fire after exactly two rounds
+no matter how many real findings were still arriving. In a normal loop,
+only remote rounds are budgeted, so only their thread IDs are snapshotted
+here.
 
 **The novelty threshold is fixed at MEDIUM+ and is deliberately not the
 severity floor.** The floor answers *is this worth fixing at this
@@ -395,6 +556,13 @@ A round mixing CRITICAL with lower-band fixes **does** consume its round:
 the exemption is for rounds spent solely on CRITICAL, not for any round
 that happens to contain one.
 
+Note that §3's mandatory batching makes an all-CRITICAL round uncommon —
+it now requires the round's entire at-or-above-floor set to be CRITICAL,
+where under the old one-finding-per-round procedure it was the normal
+case. The override's load-bearing half is therefore the first sentence:
+CRITICAL is fixed **past an exhausted budget**. The round exemption is a
+rarely-triggered bonus, not the mechanism to rely on.
+
 ### At the checkpoint, report
 
 1. All review-fix commits made so far this session (one line each: SHA or
@@ -402,7 +570,8 @@ that happens to contain one.
 2. **Severity histogram** — counts per band per round, and the session
    total. This is the number that tells the user whether the remaining
    work is real.
-3. **Open findings by band**, with the current intensity floor marked.
+3. **Open findings by band**, with the current intensity floor marked,
+   split into still-to-fix versus deferred via §3a.
 4. **Elapsed vs. budget** — rounds used/max, agent-busy minutes vs. the
    minute budget, and which of the four triggers fired.
 5. Current CI status: which required jobs are green/red.
@@ -428,7 +597,11 @@ and leaves what is already spent in place.
 
 The loop (§3) is done only when, on a fresh fetch:
 - `copilot-review-invoked=true` (balanced Copilot review was explicitly
-  requested on this PR).
+  requested on this PR) — **or** the user has directed a local-only loop
+  (§3 step 3), in which case the waiver is recorded under the PR
+  description's own `## Review process deviations` heading, naming the
+  local rounds run in its place. Not in the "Quality & Security Gate
+  Exceptions" table; §3 step 3 explains why.
 - `gh pr checks <number>` shows all required jobs passing (no pending
   jobs either — wait them out). Required jobs in this repo's `ci.yml`:
   `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`,
@@ -443,7 +616,70 @@ The loop (§3) is done only when, on a fresh fetch:
   `gh api repos/:owner/:repo/rulesets/19477007 --jq '[.rules[] |
   select(.type=="required_status_checks") |
   .parameters.required_status_checks[].context]'`
-- No unresolved, non-suppressed Copilot review comments remain (§2).
+- **No open, non-suppressed finding sits at or above the intensity floor
+  (§1).** This replaces the old "no unresolved comments" test. A
+  below-floor finding no longer blocks the exit — but it does not simply
+  linger either: §3a routes it to the deferred-findings comment, an issue
+  if MEDIUM, and a resolved thread. What changes is that the loop stops
+  owing it a *fix*, not that it stops owing it an outcome.
+- **Thread hygiene: every non-suppressed thread is resolved, with a reply
+  stating fixed-or-deferred.** No thread is left unresolved-but-outdated.
+  Verify mechanically rather than by memory:
+
+  ```bash
+  gh api graphql -f query='
+    query($owner:String!,$repo:String!,$pr:Int!,$cursor:String) {
+      repository(owner:$owner,name:$repo){ pullRequest(number:$pr){
+        reviewThreads(first:100, after:$cursor){
+          pageInfo{ hasNextPage endCursor }
+          nodes{ isResolved comments(first:1){nodes{author{login}}} }
+        } } }
+    }' -f owner=<org> -f repo=<repo> -F pr=<n> --jq '
+      .data.repository.pullRequest.reviewThreads
+      | "hasNextPage=\(.pageInfo.hasNextPage)
+         endCursor=\(.pageInfo.endCursor)
+         unresolved=\([.nodes[]
+           | select(.isResolved==false)
+           | select((.comments.nodes[0].author.login // "")
+                    | test("copilot";"i"))] | length)"'
+  ```
+
+  Three details this query gets right that a naive one does not, each of
+  which otherwise lets §5 declare the loop done while work remains, or
+  strands it forever:
+
+  - **It paginates, and prints `endCursor`.** `first:100` alone hides
+    everything past thread 100 on a long-running PR — the trap §2
+    documents. When `hasNextPage` is `true`, re-run with
+    `-F cursor=<the endCursor it printed>` and sum the counts. Printing
+    the cursor is the point: a filter that emits only `hasNextPage`
+    leaves you knowing there is a page 2 and unable to fetch it.
+  - **It tolerates a null author.** A ghost or deleted account gives
+    `author: null`, and a bare `.author.login|test(...)` then aborts with
+    `null (null) cannot be matched` and prints *no count at all* rather
+    than a number. The `// ""` guard is what keeps it returning a value.
+  - **It filters to Copilot-authored threads**, since §2 treats
+    human/other-bot threads as informational. Counting those would let a
+    single human comment you have no authority to resolve pin the count
+    above zero forever.
+
+  This is a **first-pass filter, not the full §2 test.** §2 also suppresses
+  a Copilot thread that has a matching in-code `# noqa: C901` / `# nosec
+  B###` *and* a "Quality & Security Gate Exceptions" row — those are
+  Copilot-authored and unresolved, so they still appear in this count.
+  Subtract them by hand against §2's list; the query narrows the set to
+  check, it does not decide the criterion.
+
+  Verified against PR #71: `hasNextPage=false unresolved=0`, with a real
+  `endCursor` printed.
+
+  A correctly discharged deferral is resolved, so it contributes zero
+  here: any non-zero count means real work remains.
+- Every deferred finding has its §3a obligations discharged: a row in the
+  `## Deferred findings` comment, an issue if it was MEDIUM, and — for a
+  finding that has a review thread — a reply and a resolve. A local
+  finding has no thread, so §3a obligation 3 does not apply and nothing
+  here looks for one.
 - A fresh `gh pr view <number> --json mergeable,reviewDecision` shows
   `mergeable=MERGEABLE` and `reviewDecision` is not `CHANGES_REQUESTED`
   (re-fetch these two fields explicitly here — the values captured back
@@ -536,11 +772,14 @@ not the entire PR-authoring session, which may have started earlier.)_
 - **Rounds used:** <rounds_used> / <max_rounds>
 - **Checkpoint trigger:** <rounds exhausted | budget crossed | novelty stall | late escalation | none>
 
-| Round | CRITICAL | HIGH | MEDIUM | LOW | Novel? |
-|---:|---:|---:|---:|---:|---|
-| 1 | <n> | <n> | <n> | <n> | <yes/no> |
-| 2 | <n> | <n> | <n> | <n> | <yes/no> |
-| **Total** | <n> | <n> | <n> | <n> | — |
+| Round | Kind | CRITICAL | HIGH | MEDIUM | LOW | Fixed | Deferred | Novel? |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 1 | local | <n> | <n> | <n> | <n> | <n> | <n> | <yes/no> |
+| 1 | remote | <n> | <n> | <n> | <n> | <n> | <n> | <yes/no> |
+| **Total** | | <n> | <n> | <n> | <n> | <n> | <n> | — |
+
+Local rounds are listed but do not count against `rounds used` — except
+in local-only mode (§1), where they are the budgeted unit and do count.
 
 ### Totals
 - **Session turns:** <turn_count>
@@ -588,6 +827,12 @@ rm /tmp/pr-aic-summary.md
 - Treating the agent-busy minute budget (§1) as a hard stop and abandoning
   a round half-finished — rounds bind, minutes only bring the §4
   checkpoint forward to the next round boundary.
+- Letting a below-floor finding consume a review round. It has an exit
+  now (§3a); spending a round on it is a round the budget can no longer
+  spend on a real finding.
+- Deferring a finding without discharging §3a — no comment row, no issue
+  for a MEDIUM, or the thread left unresolved. That is not deferral, it
+  is dropping it, and §5 will refuse to exit.
 - Fixing a finding without banding it first (`code-review` §0) — §4's
   histogram and novelty check both read the bands, so an unbanded fix
   leaves the budget unaccountable. (An unbanded finding still gets fixed:
