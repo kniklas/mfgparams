@@ -84,8 +84,9 @@ already spent.
 Severity bands are defined in `.github/skills/code-review/SKILL.md` §0.
 The **floor** is the lowest band fixed inside the loop; everything below
 it is deferred, not fixed. Get the changed-line count from
-`gh pr diff <number> --patch | diffstat` or `gh pr view <number>
---json additions,deletions`.
+`gh pr view <number> --json additions,deletions` (verified on PR #71:
+`{"additions":1920,"deletions":40}`) — prefer it over piping `gh pr diff`
+into `diffstat`, which is not installed everywhere.
 
 **Rounds bind; minutes are advisory.** A round — one Copilot review
 submission and the fix batch answering it — is mechanically countable, so
@@ -283,6 +284,11 @@ non-suppressed Copilot review comments remain unresolved.
    GitHub change stops surfacing it there, fall back to `gh api
    repos/:owner/:repo/commits/<sha>/check-runs` instead.)
 9. Re-fetch review threads (§2) to see what's newly resolved/added.
+   This closes a **review round**: increment the review round count (§1),
+   snapshot this round's thread `id`s, band each new finding, and record
+   the per-band counts for §4's histogram. Then evaluate §4's four
+   triggers before starting another round — the budget is checked at this
+   boundary, not mid-fix.
 
 ## 4. Budget checkpoint
 
