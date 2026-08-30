@@ -125,7 +125,7 @@ LOW yet, because nothing else will catch it.
 | CRITICAL | Required wherever the fix changes observable behavior — must fail before the fix, pass after. |
 | HIGH | Required wherever the fix changes observable behavior — must fail before the fix, pass after. |
 | MEDIUM | Required if the fix is a bug fix to calculation logic; otherwise only if cheap. |
-| LOW | Not applicable — LOW is never fixed in-loop. |
+| LOW | Not required. LOW is fixed in-loop only at `very high`, or under the transitional rule above. |
 
 **Constitution Principle II is never overridden by this table.**
 Principle II is NON-NEGOTIABLE and requires that *every* bug fix ship a
@@ -145,6 +145,13 @@ message says so explicitly. But *this repo tests more than
 is exactly how §0's own CRITICAL exemplar (#24's `continue-on-error`
 performance gate) is testable. "It's only CI config" is not a reason to
 skip the test — check `tests/static/` before claiming no test can exist.
+
+A LOW fix needs no test at any intensity — and that is a consistency
+check on the banding, not an exemption carved out of Principle II: LOW
+means no effect on any user and no effect on how an agent builds, so a
+LOW fix has nothing a regression test could assert. If you find yourself
+wanting a test for something you banded LOW, the band is wrong. Re-band
+it and the row above it applies.
 
 The band changes *whether and when* a finding is fixed. It never changes
 what Principle II demands once you do fix it.

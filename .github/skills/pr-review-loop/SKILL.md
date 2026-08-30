@@ -71,8 +71,11 @@ At closure, derive from the time log:
 Pick an intensity from the diff, state the choice and its budget in chat
 in one line, and proceed. Do **not** ask by default — the user may
 override with a single word (`low` / `medium` / `high` / `very high`) at
-any point, which re-baselines the budget without resetting counters
-already spent.
+any point, which re-baselines the budget **without** resetting counters
+already spent — a mid-loop override changes the size of the budget, not
+how much of it you have used. That is a different event from answering
+"continue" at a §4 checkpoint, which grants a fresh budget with the
+counters reset; see §4.
 
 | Intensity | Max rounds | Agent-busy budget | Severity floor (fix in-loop) | Auto-select when |
 |---|---:|---:|---|---|
@@ -92,19 +95,26 @@ per round on small PRs and ~27 min on large ones (#71).
 with no new public API, no formula/`ci.yml`/`harness.py` change and no new
 spec — default to **medium** rather than inventing a row.
 
-At **very high** the floor is `LOW+`, so LOW is in scope; but a LOW fix
-still needs explicit human approval before it is made. The point of very
-high is thoroughness on a release or a constitution amendment, not
-unattended prose churn.
+At **very high** the floor is `LOW+`: nothing is deferred and every band
+is fixed in-loop. Whether a LOW fix at that intensity should additionally
+require human approval is a **deferral-path question** — decide it
+alongside §3a in the follow-up, not here, where it would contradict this
+section's "do not ask by default" and §4's design of asking only at the
+checkpoint.
 
 Severity bands are defined in `.github/skills/code-review/SKILL.md` §0.
 The **floor** is the lowest band fixed inside the loop; everything below
 it is deferred, not fixed — though until the deferral path lands the
 floor drives §4's stop conditions and reporting only, and every finding
-is still fixed or rebutted (see §3). Get the changed-line count from
+is still fixed or rebutted (see §3).
+
+**Changed lines = additions + deletions.** Read them with
 `gh pr view <number> --json additions,deletions` (verified on PR #71:
-`{"additions":1920,"deletions":40}`) — prefer it over piping `gh pr diff`
-into `diffstat`, which is not installed everywhere.
+`{"additions":1920,"deletions":40}`, so 1960 changed lines) — prefer it
+over piping `gh pr diff` into `diffstat`, which is not installed
+everywhere. The command returns two numbers and the table needs one:
+summing them, rather than taking the larger, keeps a 600-added /
+600-deleted refactor from being scored as half the change it is.
 
 **Rounds bind; minutes are advisory.** A round — one Copilot review
 submission and the fix batch answering it — is mechanically countable, so
@@ -405,9 +415,14 @@ loop (§3) on an explicit yes — do not assume. Record this as a waiting
 interval in the time log (§1).
 
 If the user says continue, they are granting a **new budget**, not an
-unlimited one: re-baseline at the same intensity (its full round and
-minute allowance again) unless they name a different one, and
-re-checkpoint when that budget is spent.
+unlimited one: **reset the round count and the agent-busy baseline to
+zero**, then re-run at the same intensity's full allowance — or, if they
+name a different intensity, at that one's allowance, also from zero — and
+re-checkpoint when it is spent.
+
+This reset belongs to a checkpoint answer specifically. A *mid-loop*
+intensity override (§1) is the other case: it changes the budget's size
+and leaves what is already spent in place.
 
 ## 5. Exit criteria for the loop
 
