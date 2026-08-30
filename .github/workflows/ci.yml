@@ -608,3 +608,63 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Single stable required status check (issue #75 P2.4).
+  #
+  # `main`'s ruleset previously named all 11 of this workflow's required
+  # jobs individually, so every rename or matrix change had to be mirrored
+  # into the ruleset *and* into the 12 committed files that enumerate check
+  # names. #71 renamed `test` -> `test (3.9)`..`test (3.12)` and that took
+  # three commits, still missing `.github/pull_request_template.md` until
+  # review round 5 of 10. Requiring only `ci-ok` makes the ruleset immune to
+  # job renames and to adding a Python version: `ci-ok` is the only name
+  # branch protection ever sees.
+  #
+  # `code-review/SKILL.md` §7a warns that an aggregate check must never
+  # become a de facto blocker on non-required jobs. Two rules keep that
+  # true, and both are load-bearing:
+  #
+  #   1. `needs:` lists **only** the jobs that were individually required.
+  #      `performance` (continue-on-error by design), `quality-summary`
+  #      (reporting), `deploy-docs` (main-only) and `sync-agent-integrations`
+  #      (schedule-only) are deliberately absent. Adding any of them here
+  #      would silently promote it to a merge blocker.
+  #   2. Results are asserted **explicitly**. With `if: always()` a job runs
+  #      even when a dependency failed, and GitHub does *not* fail it
+  #      implicitly — without the assertion below, `ci-ok` would report
+  #      success while `lint` was red, which is the decorative-guard failure
+  #      mode `code-review` §0 bands CRITICAL.
+  #
+  # `if: always()` is required rather than cosmetic: without it a failed
+  # dependency leaves `ci-ok` *skipped*, and a required check that never
+  # reports leaves the PR blocked with no failing check to point at.
+  # Scheduled runs skip every dependency except `dependency-scan`, so
+  # `ci-ok` excludes itself there — there is no pull request to gate.
+  ci-ok:
+    name: ci-ok
+    needs: [lint, complexity, typecheck, security, dependency-scan, test, build, docs]
+    if: always() && github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert every required job succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          failures = {
+              name: data.get("result")
+              for name, data in sorted(needs.items())
+              if data.get("result") != "success"
+          }
+          for name, data in sorted(needs.items()):
+              print(f"{name:20} {data.get('result')}")
+          if failures:
+              print("\nci-ok FAILED - not every required job succeeded:")
+              for name, result in failures.items():
+                  print(f"  - {name}: {result}")
+              sys.exit(1)
+          print(f"\nci-ok: all {len(needs)} required jobs succeeded.")
+          PY
