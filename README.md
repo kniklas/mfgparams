@@ -303,8 +303,9 @@ and actionable failure reporting).
 
 ## Quality & Security Gates (CI)
 
-Every pull request runs the following required checks (`.github/workflows/ci.yml`),
-per `.specify/memory/constitution.md` Principle IX:
+Every pull request runs the following checks, per
+`.specify/memory/constitution.md` Principle IX. All of them gate a merge, but only
+three are named in `main`'s ruleset — see the note below the table:
 
 | Check | Tool | Enforces |
 |---|---|---|
@@ -317,6 +318,17 @@ per `.specify/memory/constitution.md` Principle IX:
 | `build` | `python -m build` | Package build failures |
 | `docs` | Sphinx | Docs build failures |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |
+| `ci-ok` | aggregate | Passes only when all eight jobs above (excluding CodeQL) succeeded |
+
+`main`'s ruleset requires exactly three checks — **`ci-ok`, `Analyze (python)`
+and `CodeQL`** — not the individual jobs. Every job in the table still runs and
+reports under its own name; they are simply no longer read by branch
+protection, so renaming a job or adding a Python version no longer requires a
+ruleset change (issue #75 P2.4). `Analyze (python)` and `CodeQL` stay separate
+because they come from GitHub's managed CodeQL setup rather than `ci.yml`.
+`performance`, `quality-summary`, `deploy-docs` and `sync-agent-integrations` are
+supporting jobs, deliberately outside `ci-ok`; pulling one in would make it a merge
+blocker, which `tests/static/test_ci_ok_aggregate_check.py` fails on.
 
 `main` is protected by two GitHub rulesets (not classic branch protection): a
 status-checks ruleset with **no bypass for anyone** (a failing required check blocks

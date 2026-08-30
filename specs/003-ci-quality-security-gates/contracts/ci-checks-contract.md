@@ -22,6 +22,15 @@ finding failed") are satisfiable from the PR's checks list alone.
 | `build` | Existing package build check (unchanged) | push, pull_request | Build failure |
 | `docs` | Existing Sphinx docs build (unchanged) | push, pull_request | Docs build failure |
 | CodeQL default setup (`Analyze (python)` + `CodeQL` check contexts) | FR-006 | push to `main`, pull_request (GitHub-managed, not a custom job) | New high-confidence alert (per GitHub's own gating, not a custom workflow step); both contexts are required in `main`'s status-checks ruleset (T023/T035/T037) |
+| `ci-ok` | **Aggregates every row above except the CodeQL contexts.** Issue #75 P2.4: `main`'s ruleset named all 11 workflow jobs individually, so each rename or matrix change had to be mirrored into the ruleset and into 12 committed files — #71's `test` → `test (3.9)`…`test (3.12)` rename took three commits and still missed `.github/pull_request_template.md`. `ci-ok` `needs:` the eight gating jobs and asserts each result explicitly (`if: always()` does not fail a job implicitly, so an unasserted aggregate reports green while `lint` is red). `performance`, `quality-summary`, `deploy-docs` and `sync-agent-integrations` are deliberately excluded, enforced by `tests/static/test_ci_ok_aggregate_check.py` | push, pull_request | Any of the eight gating jobs failing, being cancelled, or being skipped |
+
+**Ruleset status (supersedes the "required in `main`'s ruleset" claims in
+the rows above).** Since #79, `main`'s status-checks ruleset requires
+exactly three contexts: **`ci-ok`, `Analyze (python)`, `CodeQL`.** Every
+other job in this table still runs and still reports under its own name;
+those names are simply no longer read by branch protection. Adding a
+Python version or renaming a job therefore no longer requires a ruleset
+change — which is the whole point of the row above.
 
 **Note**: `lint`, `test`, `build`, `docs` already exist as planned (unimplemented) tasks from
 `001-metal-drilling-calc` tasks.md (T037); this feature's plan/tasks extend that same
