@@ -104,10 +104,11 @@ def _build_wheel(outdir: Path) -> Path:
         "a packaging regression"
     )
     # `timeout` is generous because `build`'s isolated mode pip-installs the
-    # `[build-system]` backend from PyPI: these run inside the *required*
-    # `test (3.x)` checks, where a transient registry slowdown tripping the
-    # timeout would turn a merge-blocking check red for a reason unrelated to
-    # the change under review. A local build takes ~3s (code review finding).
+    # `[build-system]` backend from PyPI: this runs inside the *required*
+    # `build` check, where a transient registry slowdown tripping the timeout
+    # would turn a merge-blocking check red for a reason unrelated to the
+    # change under review. A local build takes ~3s (code review finding).
+    # Since issue #75 P1.3 that is one check rather than four.
     result = subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
         # Explicit `cwd`, so the directory cleared above is the same one

@@ -327,8 +327,8 @@ three are named in `main`'s ruleset — see the note below the table:
 | `typecheck` | `mypy` | Static type errors (FR-003) |
 | `security` | `bandit` | High/medium-severity security findings (FR-004) |
 | `dependency-scan` | `pip-audit` | Known CVEs in resolved dependencies (FR-005); also runs weekly, independent of PRs |
-| `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
-| `build` | `python -m build` | Package build failures |
+| `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest -m "not packaging" --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
+| `build` | `python -m build`, then `pytest -m packaging` | Package build failures, and the wheel-contents assertions — the only place in CI they run |
 | `docs` | Sphinx | Docs build failures |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |
 | `ci-ok` | aggregate | Passes only when all eight jobs above (excluding CodeQL) succeeded |

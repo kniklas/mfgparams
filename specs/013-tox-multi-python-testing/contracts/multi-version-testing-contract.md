@@ -35,8 +35,9 @@ the other Principle IX gates.
 
 | Check name | Enforces | Trigger | Blocks merge when |
 |---|---|---|---|
-| `test (3.9)` | Full suite + coverage on the oldest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.9 |
+| `test (3.9)` | Suite + coverage on the oldest declared-supported version, less the `packaging` marker (issue #75 P1.3) | push, pull_request | Test failure or coverage below 90% on 3.9 |
 | `test (3.10)` | Same, on 3.10 | push, pull_request | Test failure or coverage below 90% on 3.10 |
+| `build` | Package build check, **plus the wheel-contents assertions** (`pytest -m packaging`) that issue #75 P1.3 moved out of the matrix. This is the only place in CI they run: every `test` leg deselects the marker. Removing that step silently leaves the wheel unverified while CI stays green, so `tests/static/test_packaging_marker_still_gates.py` fails if it disappears | push, pull_request | Build failure, or a wheel-contents assertion failing |
 | `test (3.11)` | Same, on 3.11 — also the canonical leg (`env.PYTHON_VERSION`): the only leg that uploads `coverage.xml` to Codecov, and the only one that writes the `coverage-pct` artifact `quality-summary` renders as the coverage metric. The job exposes no `coverage_pct` job output, because a matrix job's output is published from whichever leg finishes last regardless of which leg set it (research.md #5) | push, pull_request | Test failure or coverage below 90% on 3.11 |
 | `test (3.12)` | Same, on the newest declared-supported version | push, pull_request | Test failure or coverage below 90% on 3.12 |
 

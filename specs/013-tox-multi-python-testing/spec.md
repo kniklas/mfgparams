@@ -202,8 +202,10 @@ officially supported Python version, not one combined or single-version result.
   verified against and the ease of doing so locally. **Two deliberate exceptions**, both
   additive and both discovered while implementing this feature: declaring `build` as a test
   dependency makes `tests/integration/test_packaging_bundled_data.py`'s wheel-content
-  assertions *execute* in every tox env and CI matrix leg instead of being `importorskip`-ed
-  everywhere (they asserted nothing in automation before — research.md #4), and two small
+  assertions *execute* in automation instead of being `importorskip`-ed everywhere (they
+  asserted nothing before — research.md #4). They ran in every tox env and CI matrix leg
+  until issue #75 P1.3 moved them to CI's `build` job and `tox -e packaging`, where they
+  run once; both remain merge-blocking. And two small
   regression/source-guard tests were added to that same file to protect the skip guard itself.
   No existing test changes its expected outcome, and no opt-in suite becomes default.
 - The increase in automated pipeline time/cost from testing against multiple Python versions

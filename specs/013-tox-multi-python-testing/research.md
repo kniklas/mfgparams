@@ -164,8 +164,9 @@ unrelated tooling; `dev` lists `mfgparams[test]` so the two cannot drift apart.
 
 `build` is part of that extra deliberately, and the two tests that use it share a single
 module-scoped wheel build rather than one each — `build`'s default isolated mode pip-installs
-the `[build-system]` backend into a throwaway env, so halving the builds halves that cost
-across all four matrix legs. Isolated mode is kept rather than `--no-isolation` because it is
+the `[build-system]` backend into a throwaway env, so halving the builds halves that cost.
+(As shipped here that saving applied across all four matrix legs; since issue #75 P1.3 these
+assertions run once, in CI's `build` job, so it applies to that single run.) Isolated mode is kept rather than `--no-isolation` because it is
 the path a real `pip install mfgparams` takes, which is the property these tests exist to
 assert; the environment running them already had to reach PyPI to install `.[test]`, so this
 introduces no new class of dependency (code review finding).

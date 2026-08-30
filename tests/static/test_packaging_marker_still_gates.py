@@ -69,11 +69,28 @@ def test_test_matrix_deselects_the_packaging_assertions(ci_jobs: dict) -> None:
 def test_tox_envlist_deselects_the_packaging_assertions(
     tox_config: configparser.ConfigParser,
 ) -> None:
-    """This is what makes ``tox -p`` safe (issue #74)."""
-    assert f'-m "not {MARKER}"' in tox_config["testenv"]["commands"], (
-        "tox's default testenv must deselect the packaging marker, or "
-        "parallel envs race on the shared <repo>/build/ scratch tree"
-    )
+    """This is what makes ``tox -p`` safe (issue #74).
+
+    Checks the base ``[testenv]`` *and* every per-version override. tox lets
+    ``[testenv:py39]`` replace ``commands`` outright, so asserting only on
+    the base section leaves a hole: one such override reinstates four
+    isolated ``python -m build`` runs and re-opens the ``<repo>/build/``
+    race while this guard stays green. That is the same shape as the #71
+    finding where a version check was not scoped to ``jobs.test``.
+    """
+    sections = ["testenv"] + [
+        name
+        for name in tox_config.sections()
+        if name.startswith("testenv:") and name != f"testenv:{MARKER}"
+    ]
+    for name in sections:
+        commands = tox_config[name].get("commands")
+        if commands is None:  # inherits [testenv], already checked
+            continue
+        assert f'-m "not {MARKER}"' in commands, (
+            f"[{name}] must deselect the packaging marker, or parallel envs "
+            "race on the shared <repo>/build/ scratch tree (#74)"
+        )
 
 
 def test_tox_has_a_packaging_env_outside_envlist(
@@ -91,9 +108,16 @@ def test_tox_has_a_packaging_env_outside_envlist(
     )
 
 
-def test_marker_is_registered(ci_jobs: dict) -> None:
-    """An unregistered marker silently deselects nothing under ``--strict-markers``
-    and, worse, typos in ``-m`` expressions match no tests at all."""
+def test_marker_is_registered() -> None:
+    """Registration is what makes the marker name reviewable in one place.
+
+    An unregistered marker is not silent - pytest warns, and under
+    ``--strict-markers`` it is a hard collection error. The reason to
+    assert it here is that ``-m`` expressions are strings scattered across
+    ``ci.yml`` and ``tox.ini``: the declaration in ``pyproject.toml`` is
+    the one place a reviewer can see what the marker means and that its
+    name is spelled the same everywhere.
+    """
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert f'"{MARKER}: ' in pyproject, (
         f"the {MARKER!r} marker must be declared in " "[tool.pytest.ini_options].markers"
