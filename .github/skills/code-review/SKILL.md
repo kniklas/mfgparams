@@ -21,8 +21,10 @@ finding is to fix, and not how confident you are that it is real.
 
 `pr-review-loop` §1 sets a severity floor per review intensity and uses
 these bands to decide what gets fixed inside the review loop and what is
-deferred. A finding reported without a band cannot be triaged and is
-treated as LOW.
+deferred. A finding reported without a band cannot be triaged, so it is
+treated as sitting **at the floor** — it gets fixed. Never default an
+unbanded finding to LOW: a forgotten prefix on a real defect must not
+silently discard it.
 
 ### CRITICAL
 
@@ -42,8 +44,6 @@ existing callers/users on an ordinary path.
 > from `quality-summary`, so the invalid-memory verdict the PR was built
 > to enforce blocks nothing.
 
-**Action:** always fix, in this PR, regardless of review intensity.
-
 ### HIGH
 
 The code does not satisfy a stated requirement (a spec FR, a contract, an
@@ -62,8 +62,6 @@ contrivance.
 > requires a re-prompt.
 > **#30:** derived display labels collide, making a material category
 > unreachable.
-
-**Action:** fix in this PR at medium intensity and above.
 
 ### MEDIUM
 
@@ -85,9 +83,6 @@ misdirect a future agent or contributor.
 > **#71:** the version-consistency guard is not scoped to `jobs.test`, so
 > a matrix added above it defeats FR-008.
 
-**Action:** fix at high intensity and above; below that, defer to a
-tracked issue.
-
 ### LOW
 
 Cosmetic, or a border case so remote it needs a hostile constructed
@@ -103,16 +98,33 @@ input. No effect on any user, and no effect on how an agent builds.
 > **#50:** `"Use 'for' rather than 'or'"`; a PR body claiming 17 tests
 > where the file has 21.
 
-**Action:** never fixed inside the review loop. Batched into one deferred
--findings comment and fixed opportunistically later, or never.
+### What a band does — the floor decides, not this section
+
+A band never states its own intensity threshold. `pr-review-loop` §1
+declares a **severity floor** per review intensity, and that table is the
+single authority on what is fixed inside the loop:
+
+- **CRITICAL** is always fixed, at every intensity, and overrides an
+  exhausted budget (`pr-review-loop` §4).
+- **HIGH**, **MEDIUM** and **LOW** are fixed in-loop when the band sits at
+  or above the declared floor, and are otherwise deferred.
+
+Do not restate a threshold here. One concept defined in two places is how
+the two definitions drift apart.
+
+**Until the deferral path lands** (a follow-up to issue #76), the floor
+drives `pr-review-loop` §4's stop conditions and reporting *only*: every
+non-suppressed finding is still fixed or explicitly rebutted, whatever
+its band. Band findings now so the histogram is real — but do not skip a
+LOW yet, because nothing else will catch it.
 
 ### Test policy by band
 
 | Band | Regression test for the fix |
 |---|---|
-| CRITICAL | Required — must fail before the fix, pass after. |
-| HIGH | Required — must fail before the fix, pass after. |
-| MEDIUM | Required if the fix is a bug fix to calculation logic (see below); otherwise only if cheap. |
+| CRITICAL | Required wherever the fix changes observable behavior — must fail before the fix, pass after. |
+| HIGH | Required wherever the fix changes observable behavior — must fail before the fix, pass after. |
+| MEDIUM | Required if the fix is a bug fix to calculation logic; otherwise only if cheap. |
 | LOW | Not applicable — LOW is never fixed in-loop. |
 
 **Constitution Principle II is never overridden by this table.**
@@ -120,11 +132,19 @@ Principle II is NON-NEGOTIABLE and requires that *every* bug fix ship a
 regression test that fails before the fix and passes after, and that all
 calculation logic be tested. So where a finding's fix is a bug fix to
 calculation logic (`src/mfgparams/**`), a failing-first regression test is
-mandatory **whatever the band** — the "only if cheap" allowance for
-MEDIUM applies solely to findings whose fix is *not* a bug fix to
-calculation logic: documentation, spec-kit artifacts, CI/workflow wiring,
-comments, and prose. When unsure which side a fix falls on, write the
-test.
+mandatory **whatever the band**. The allowances in the table exist only
+for fixes that are not calculation bug fixes. When unsure which side a
+fix falls on, write the test.
+
+**"Observable behavior" is the limit on CRITICAL/HIGH, not an escape
+hatch.** Some CRITICAL and HIGH findings have no surface a test can
+observe — a comment or a doc contradicting the implementation, a stale
+spec-kit artifact, a prose fix. Those ship without a test, and the commit
+message says so explicitly. But *this repo tests more than
+`src/mfgparams/**`*: `tests/static/` covers CI and workflow wiring, which
+is exactly how §0's own CRITICAL exemplar (#24's `continue-on-error`
+performance gate) is testable. "It's only CI config" is not a reason to
+skip the test — check `tests/static/` before claiming no test can exist.
 
 The band changes *whether and when* a finding is fixed. It never changes
 what Principle II demands once you do fix it.

@@ -76,14 +76,32 @@ already spent.
 
 | Intensity | Max rounds | Agent-busy budget | Severity floor (fix in-loop) | Auto-select when |
 |---|---:|---:|---|---|
-| **low** | 2 | 10-20 min | HIGH+ | docs/prose only, or <=50 changed lines with no `src/` |
-| **medium** | 3 | 20-40 min | MEDIUM+ | <=300 changed lines, no new public API |
-| **high** | 5 | 40-75 min | MEDIUM+ (LOW deferred) | new public API, formula changes, `ci.yml` gating, `harness.py` |
-| **very high** | 8 | 75-120 min | LOW fixed only with explicit human approval | new feature spec, >1000 changed lines, release, constitution amendment |
+| **low** | 2 | 20 min | HIGH+ | docs/prose only, or <=50 changed lines with no `src/` |
+| **medium** | 3 | 40 min | MEDIUM+ | <=300 changed lines, no new public API |
+| **high** | 5 | 75 min | MEDIUM+ | new public API, formula changes, `ci.yml` gating, `harness.py` |
+| **very high** | 8 | 120 min | LOW+ | new feature spec, >1000 changed lines, release, constitution amendment |
+
+The minute budgets are single thresholds, not ranges — a range gives two
+agents on the same PR two different checkpoint times. They are upper
+bounds calibrated against this repo's measured agent-busy cost of ~8 min
+per round on small PRs and ~27 min on large ones (#71).
+
+**Selection precedence: the highest-intensity matching row wins.** A
+1500-line docs-only spec PR matches both `low` and `very high`; it is
+`very high`. **If no row matches** — say a 600-line test-only refactor
+with no new public API, no formula/`ci.yml`/`harness.py` change and no new
+spec — default to **medium** rather than inventing a row.
+
+At **very high** the floor is `LOW+`, so LOW is in scope; but a LOW fix
+still needs explicit human approval before it is made. The point of very
+high is thoroughness on a release or a constitution amendment, not
+unattended prose churn.
 
 Severity bands are defined in `.github/skills/code-review/SKILL.md` §0.
 The **floor** is the lowest band fixed inside the loop; everything below
-it is deferred, not fixed. Get the changed-line count from
+it is deferred, not fixed — though until the deferral path lands the
+floor drives §4's stop conditions and reporting only, and every finding
+is still fixed or rebutted (see §3). Get the changed-line count from
 `gh pr view <number> --json additions,deletions` (verified on PR #71:
 `{"additions":1920,"deletions":40}`) — prefer it over piping `gh pr diff`
 into `diffstat`, which is not installed everywhere.
@@ -284,11 +302,14 @@ non-suppressed Copilot review comments remain unresolved.
    GitHub change stops surfacing it there, fall back to `gh api
    repos/:owner/:repo/commits/<sha>/check-runs` instead.)
 9. Re-fetch review threads (§2) to see what's newly resolved/added.
-   This closes a **review round**: increment the review round count (§1),
-   snapshot this round's thread `id`s, band each new finding, and record
-   the per-band counts for §4's histogram. Then evaluate §4's four
-   triggers before starting another round — the budget is checked at this
-   boundary, not mid-fix.
+   This closes a **review round**: snapshot this round's thread `id`s,
+   band each new finding, and record the per-band counts for §4's
+   histogram. Then increment the review round count (§1) — **unless every
+   finding fixed in this round was CRITICAL**, in which case the round
+   does not consume budget (§4's critical override; without this
+   exemption the override cannot actually be executed). Finally, evaluate
+   §4's four triggers before starting another round — the budget is
+   checked at this boundary, not mid-fix.
 
 ## 4. Budget checkpoint
 
@@ -336,9 +357,14 @@ non-novel to reach a stall faster.
 ### The critical override
 
 A CRITICAL finding (`code-review` §0) is **always fixed**, even past an
-exhausted budget. It does not consume budget, and it resets the novelty
-counter to zero. Budgets bound how much polish a PR gets; they never let a
-fundamentally broken change through.
+exhausted budget. It does not consume budget — mechanically, §3 step 9
+skips the round-count increment for a round whose fixes were all CRITICAL
+— and it resets the novelty counter to zero. Budgets bound how much
+polish a PR gets; they never let a fundamentally broken change through.
+
+A round mixing CRITICAL with lower-band fixes **does** consume its round:
+the exemption is for rounds spent solely on CRITICAL, not for any round
+that happens to contain one.
 
 ### At the checkpoint, report
 
@@ -528,11 +554,10 @@ rm /tmp/pr-aic-summary.md
 - Treating the agent-busy minute budget (§1) as a hard stop and abandoning
   a round half-finished — rounds bind, minutes only bring the §4
   checkpoint forward to the next round boundary.
-- Letting a below-floor finding (`code-review` §0) consume a review round.
-  A round spent on LOW prose nits is a round the budget can no longer
-  spend on a real finding.
-- Reporting a finding without a `code-review` §0 band, which makes it
-  untriageable and defaults it to LOW.
+- Fixing a finding without banding it first (`code-review` §0) — §4's
+  histogram and novelty check both read the bands, so an unbanded fix
+  leaves the budget unaccountable. (An unbanded finding still gets fixed:
+  `code-review` §0 defaults it to the floor, not to LOW.)
 - Treating a resolved-but-still-`isOutdated:false`-with-new-diff thread as
   settled — GitHub can silently re-open relevance after a force-push;
   always re-fetch after pushing.
