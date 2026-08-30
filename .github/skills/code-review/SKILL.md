@@ -112,11 +112,14 @@ single authority on what is fixed inside the loop:
 Do not restate a threshold here. One concept defined in two places is how
 the two definitions drift apart.
 
-**Until the deferral path lands** (a follow-up to issue #76), the floor
-drives `pr-review-loop` §4's stop conditions and reporting *only*: every
-non-suppressed finding is still fixed or explicitly rebutted, whatever
-its band. Band findings now so the histogram is real — but do not skip a
-LOW yet, because nothing else will catch it.
+A below-floor finding is **deferred**, not dropped: `pr-review-loop` §3a
+is the exit, and it has obligations — a row in the PR's deferred-findings
+comment, a tracked issue if the finding was MEDIUM, and a reply-and-
+resolve on the thread. The thread obligation applies only to findings
+that have one: a finding from a local review round does not, and §3a
+lets a trivial one simply be fixed instead. Band accurately — the band
+decides who pays for a finding and when, so a wrong band is not a
+cosmetic error.
 
 ### Test policy by band
 
@@ -125,7 +128,7 @@ LOW yet, because nothing else will catch it.
 | CRITICAL | Required wherever the fix changes observable behavior — must fail before the fix, pass after. |
 | HIGH | Required wherever the fix changes observable behavior — must fail before the fix, pass after. |
 | MEDIUM | Required if the fix is a bug fix to calculation logic; otherwise only if cheap. |
-| LOW | Not required. LOW is fixed in-loop only at `very high`, or under the transitional rule above. |
+| LOW | Not required. Below `very high` a LOW is deferred, except a trivial one found in a local round (`pr-review-loop` §3a). |
 
 **Constitution Principle II is never overridden by this table.**
 Principle II is NON-NEGOTIABLE and requires that *every* bug fix ship a
