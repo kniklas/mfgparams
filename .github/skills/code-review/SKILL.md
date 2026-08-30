@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Repo-specific context for GitHub Copilot code review on mfgparams pull requests. Applies constitution-derived checks around calculation correctness, resource-constrained hardware limits, packaging conventions, and lint/type/test gates whenever reviewing changes in this repository.
+description: Repo-specific context for GitHub Copilot code review on mfgparams pull requests. Bands every finding CRITICAL/HIGH/MEDIUM/LOW by reachability x blast radius, then applies constitution-derived checks around calculation correctness, resource-constrained hardware limits, packaging conventions, and lint/type/test gates whenever reviewing changes in this repository.
 ---
 
 # Code Review Skill (mfgparams)
@@ -11,7 +11,131 @@ practices: this project's constitution
 (`.specify/memory/constitution.md`), CI gates, and conventions in
 `.github/instructions/python.instructions.md`.
 
-## 1. Priorities, in order
+## 0. Severity rubric — band every finding (do this first)
+
+Every finding MUST carry exactly one of four severity bands, stated as
+the first token of the finding (`CRITICAL:` / `HIGH:` / `MEDIUM:` /
+`LOW:`). The test is **reachability × blast radius** — how a real user or
+agent hits it and what it costs when they do — **not** how hard the
+finding is to fix, and not how confident you are that it is real.
+
+`pr-review-loop` §1 sets a severity floor per review intensity and uses
+these bands to decide what gets fixed inside the review loop and what is
+deferred. A finding reported without a band cannot be triaged and is
+treated as LOW.
+
+### CRITICAL
+
+The change is fundamentally broken in its own stated purpose, or breaks
+existing callers/users on an ordinary path.
+
+- Wrong calculation output on nominal, documented inputs.
+- A gate/check that cannot fail when it should (the guard is decorative).
+- Silent breaking change to a public signature or CLI contract — no
+  error, just different behavior.
+- Data loss, or destruction of a user's existing file.
+
+> **#42:** milling mode args inserted before `materials_config_path` —
+> every existing 0.3 positional caller now passes a config path as
+> `mode`, silently.
+> **#24:** the performance step stays `continue-on-error` and is excluded
+> from `quality-summary`, so the invalid-memory verdict the PR was built
+> to enforce blocks nothing.
+
+**Action:** always fix, in this PR, regardless of review intensity.
+
+### HIGH
+
+The code does not satisfy a stated requirement (a spec FR, a contract, an
+issue acceptance criterion), reachable by a normal user or agent without
+contrivance.
+
+- Documented behavior contradicted by the implementation.
+- Validation bypassed, or applied in the wrong order, on a reachable path.
+- An error or unmeasurable state fabricated into a plausible-looking
+  value (the recurring §2a pattern).
+- Destructive behavior on a plausible but non-default path.
+
+> **#42:** imperial conversion runs before validation, so `True` becomes
+> `25.4` and is accepted.
+> **#42:** `_prompt_mode()` accepts Enter as the current mode; FR-001a
+> requires a re-prompt.
+> **#30:** derived display labels collide, making a material category
+> unreachable.
+
+**Action:** fix in this PR at medium intensity and above.
+
+### MEDIUM
+
+Rare-but-real border cases, or documentation/spec inaccuracy that will
+misdirect a future agent or contributor.
+
+- Bad input reachable only via a hand-edited config or an unusual
+  platform.
+- A guard that works today but is not scoped to survive a plausible
+  future edit.
+- **Spec-kit artifact drift** where `plan.md` / `data-model.md` /
+  `tasks.md` describes a superseded mechanism — an agent reading it will
+  build the wrong thing (see §6b).
+
+> **#42:** `nan` / `inf` accepted for `cutting_speed_factor` from a
+> hand-edited TOML.
+> **#71:** `plan.md` and `data-model.md` still describe the discarded
+> 3.11-gated `coverage_pct` design.
+> **#71:** the version-consistency guard is not scoped to `jobs.test`, so
+> a matrix added above it defeats FR-008.
+
+**Action:** fix at high intensity and above; below that, defer to a
+tracked issue.
+
+### LOW
+
+Cosmetic, or a border case so remote it needs a hostile constructed
+input. No effect on any user, and no effect on how an agent builds.
+
+- Comment or prose inaccuracy with no behavioral or directive content.
+- Stale counts in a PR description.
+- Denormal/overflow edge cases at the arithmetic limits.
+
+> **#42:** `target_rpm=5e-324` underflows the feed rate.
+> **#42:** a comment in `tools.toml` says carbide-first while HSS is
+> listed first.
+> **#50:** `"Use 'for' rather than 'or'"`; a PR body claiming 17 tests
+> where the file has 21.
+
+**Action:** never fixed inside the review loop. Batched into one deferred
+-findings comment and fixed opportunistically later, or never.
+
+### Test policy by band
+
+| Band | Regression test for the fix |
+|---|---|
+| CRITICAL | Required — must fail before the fix, pass after. |
+| HIGH | Required — must fail before the fix, pass after. |
+| MEDIUM | Required if the fix is a bug fix to calculation logic (see below); otherwise only if cheap. |
+| LOW | Not applicable — LOW is never fixed in-loop. |
+
+**Constitution Principle II is never overridden by this table.**
+Principle II is NON-NEGOTIABLE and requires that *every* bug fix ship a
+regression test that fails before the fix and passes after, and that all
+calculation logic be tested. So where a finding's fix is a bug fix to
+calculation logic (`src/mfgparams/**`), a failing-first regression test is
+mandatory **whatever the band** — the "only if cheap" allowance for
+MEDIUM applies solely to findings whose fix is *not* a bug fix to
+calculation logic: documentation, spec-kit artifacts, CI/workflow wiring,
+comments, and prose. When unsure which side a fix falls on, write the
+test.
+
+The band changes *whether and when* a finding is fixed. It never changes
+what Principle II demands once you do fix it.
+
+## 1. Priorities, in order — the tiebreak *within* a severity band
+
+This list orders findings that share a band; it does not substitute for
+§0's banding. Two findings both classified HIGH are addressed
+calculation-correctness-first. A style nit does not outrank a
+resource-limit bug because it appears lower here — it is outranked
+already by being LOW. Apply §0 first, then this list inside each band.
 
 1. **Calculation correctness** — this is a metal-machining calculation
    library; a wrong number is worse than a crash or a missing feature.
@@ -22,6 +146,9 @@ practices: this project's constitution
    shared infrastructure.
 5. Style/lint/type issues (already enforced by CI; flag only if CI would
    miss them, e.g. logic hidden inside a string or comment).
+
+Before this list, §0 has already answered the question this ordering
+cannot express on its own: *is this finding worth a review round at all?*
 
 ## 2. Calculation correctness (Constitution Principles I & III)
 
