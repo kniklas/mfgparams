@@ -189,8 +189,8 @@ non-suppressed Copilot review comments remain unresolved.
 
    Band every open finding per `.github/skills/code-review/SKILL.md` §0
    as you go, and record the counts — §4's checkpoint report and the §6
-   histogram both need them, and the §1 severity floor is what §4's
-   novelty-stall check is measured against.
+   histogram both need them, and §4's novelty-stall check reads the bands
+   directly (at a fixed MEDIUM+ threshold, not the §1 floor).
 
    **The floor does not yet gate what gets fixed.** Every non-suppressed
    finding is still fixed or explicitly rebutted here, exactly as before;
@@ -304,10 +304,14 @@ non-suppressed Copilot review comments remain unresolved.
 9. Re-fetch review threads (§2) to see what's newly resolved/added.
    This closes a **review round**: snapshot this round's thread `id`s,
    band each new finding, and record the per-band counts for §4's
-   histogram. Then increment the review round count (§1) — **unless every
-   finding fixed in this round was CRITICAL**, in which case the round
-   does not consume budget (§4's critical override; without this
-   exemption the override cannot actually be executed). Finally, evaluate
+   histogram. Then increment the review round count (§1). A round is
+   exempt from that increment only when it **fixed at least one finding**
+   *and* **every finding it fixed was CRITICAL** (§4's critical
+   override). A round that fixed nothing — every item rebutted, or the
+   round spent entirely on a failing CI job — always increments: without
+   the "at least one" condition the exemption is vacuously true, the
+   round count never advances, and §4's "rounds exhausted" trigger can
+   never fire. Finally, evaluate
    §4's four triggers before starting another round — the budget is
    checked at this boundary, not mid-fix.
 
@@ -338,12 +342,26 @@ these fires:
 Snapshot the set of non-suppressed review thread `id`s (§2) after each
 round. A round is **novel** if it contains at least one thread whose `id`
 was not present in any earlier round this session **and** whose
-`code-review` §0 band is at or above the intensity floor. Otherwise the
-round is **non-novel**.
+`code-review` §0 band is **MEDIUM or above**. Otherwise the round is
+**non-novel**.
 
-Bands below the floor never make a round novel, no matter how many of
-them arrive — a round producing eleven LOW prose nits at medium intensity
-is non-novel.
+**The novelty threshold is fixed at MEDIUM+ and is deliberately not the
+severity floor.** The floor answers *is this worth fixing at this
+intensity?*; novelty answers *is the review still finding real things?*
+Those two questions come apart in both directions, and tying them
+together breaks the stall at both ends of §1's table:
+
+- At **low** (floor `HIGH+`) a MEDIUM finding sits below the floor but is
+  still a real finding. Scoring it as non-progress would stall the loop
+  after two rounds of genuine MEDIUM findings — and on a directive
+  document, where `code-review` §6b bands drift MEDIUM by design, that is
+  most of what a good review produces.
+- At **very high** (floor `LOW+`) a LOW finding sits at or above the floor
+  but is still a prose nit. Scoring it as progress would mean the stall
+  can never fire, at the one intensity with 8 rounds to burn.
+
+LOW findings never make a round novel, at any intensity — a round
+producing eleven LOW prose nits is non-novel even at very high.
 
 One judgement call is allowed on top of the mechanical rule, and it must
 be logged: Copilot sometimes re-raises a finding you already fixed as a
@@ -358,8 +376,9 @@ non-novel to reach a stall faster.
 
 A CRITICAL finding (`code-review` §0) is **always fixed**, even past an
 exhausted budget. It does not consume budget — mechanically, §3 step 9
-skips the round-count increment for a round whose fixes were all CRITICAL
-— and it resets the novelty counter to zero. Budgets bound how much
+skips the round-count increment for a round that fixed at least one
+finding and whose fixes were all CRITICAL — and it resets the novelty
+counter to zero. Budgets bound how much
 polish a PR gets; they never let a fundamentally broken change through.
 
 A round mixing CRITICAL with lower-band fixes **does** consume its round:
