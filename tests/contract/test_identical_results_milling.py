@@ -11,7 +11,7 @@ import re
 import pytest
 
 from mfgparams import calculate_end_milling, calculate_face_milling
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 _END_MILLING = {
     "answers": [

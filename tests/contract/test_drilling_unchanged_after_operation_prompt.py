@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 from mfgparams.i18n import translate
 
 _DATA = Path(__file__).parent / "data"

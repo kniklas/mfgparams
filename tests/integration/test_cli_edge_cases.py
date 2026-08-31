@@ -6,7 +6,7 @@ feasibility-warning display, invalid optional power input, and the
 import builtins
 import sys
 
-from mfgparams.cli import main, run
+from mfgparams.console.cli import main, run
 
 
 def test_invalid_unit_system_is_reprompted(monkeypatch, capsys):

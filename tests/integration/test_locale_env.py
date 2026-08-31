@@ -11,7 +11,7 @@ from __future__ import annotations
 import builtins
 
 from mfgparams import i18n
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 _REPL_INPUTS = [
     "drilling",  # machining operation (009 FR-001)

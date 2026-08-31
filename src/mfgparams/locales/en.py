@@ -9,7 +9,18 @@ Catalog) for the entity definition this module implements.
 from __future__ import annotations
 
 MESSAGES: dict[str, str] = {
-    # --- Interactive text interface (cli.py) prompts and labels ---
+    # --- Console availability (mfgparams/__main__.py, FR-011) ---
+    #
+    # MUST stay in the core catalog when slice 015 relocates the others into
+    # the console. This message exists to say the console is unavailable, so
+    # looking it up from a catalog that lives inside the console would fail
+    # exactly when it is needed and hand the user the traceback FR-011 exists
+    # to prevent (contracts/console-entry-contract.md, research.md #4).
+    "console.missing_dependency": (
+        "The interactive console is not available: its dependencies are not "
+        "installed.\nInstall them with:  pip install mfgparams[console]"
+    ),
+    # --- Interactive text interface (console/cli.py) prompts and labels ---
     "cli.prompt.unit_system": "Unit system [metric/imperial] ({default}): ",
     "cli.prompt.unit_system.invalid": "Please enter 'metric' or 'imperial'.",
     "cli.unit_system.metric": "metric",

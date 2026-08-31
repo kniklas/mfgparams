@@ -14,7 +14,8 @@ from __future__ import annotations
 import ast
 import inspect
 
-from mfgparams import cli, logging_setup
+from mfgparams import logging_setup
+from mfgparams.console import cli
 
 
 def _call_sites(source: str, func_names: set[str]) -> list[ast.Call]:

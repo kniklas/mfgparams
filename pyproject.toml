@@ -29,6 +29,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The interactive console's runtime dependencies. Empty on delivery: the
+# console needs nothing beyond the standard library today. It is declared
+# anyway because adding an extra later is a packaging change users must react
+# to, whereas populating an already-declared one is invisible to them
+# (specs/014-process-namespaces-extras contracts/installation-extras-contract.md).
+console = []
+# Every *runtime* extra the project ships, so `pip install mfgparams[all]`
+# stays correct as extras are added. Self-referential extras need pip >= 21.2 --
+# the README's `pip install --upgrade pip` step already covers that, and now
+# has a second, independent reason to stay. `test` and `dev` are development
+# extras and deliberately excluded: `all` must never pull tooling into a user
+# install.
+all = ["mfgparams[console]"]
 # Exactly what running the test suite needs, and nothing else. `tox` and CI's
 # `test` job install this rather than the full `dev` toolchain so that the
 # Python-version gate this feature exists to enforce measures *the library*:

@@ -8,7 +8,7 @@ prompt, and the result display labels the spindle speed as "user-specified"
 
 import builtins
 
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 
 def test_fixed_rpm_mode_prompts_for_target_rpm_and_labels_result(monkeypatch, capsys):

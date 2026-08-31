@@ -102,24 +102,24 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 ### Move and entry points
 
-- [ ] T021 [US2] `git mv src/mfgparams/cli.py src/mfgparams/console/cli.py`
-- [ ] T022 [US2] Create `src/mfgparams/console/__main__.py` delegating to `mfgparams.console.cli.main`
-- [ ] T023 [US2] Rewrite `src/mfgparams/__main__.py` to define its own `main()` that imports the console **inside the function body**, wrapped in the FR-011 guard exactly as specified in contracts/console-entry-contract.md § *What the guard actually wraps* — the `try` encloses the lazy console import, and any `ModuleNotFoundError` whose `exc.name` roots at `mfgparams` is re-raised rather than reported as a missing extra
-- [ ] T024 [US2] Confirm `[project.scripts] mfgparams = "mfgparams.__main__:main"` still resolves after T023, since `__main__.py` now defines `main` rather than re-exporting it
+- [X] T021 [US2] `git mv src/mfgparams/cli.py src/mfgparams/console/cli.py`
+- [X] T022 [US2] Create `src/mfgparams/console/__main__.py` delegating to `mfgparams.console.cli.main`
+- [X] T023 [US2] Rewrite `src/mfgparams/__main__.py` to define its own `main()` that imports the console **inside the function body**, wrapped in the FR-011 guard exactly as specified in contracts/console-entry-contract.md § *What the guard actually wraps* — the `try` encloses the lazy console import, and any `ModuleNotFoundError` whose `exc.name` roots at `mfgparams` is re-raised rather than reported as a missing extra
+- [X] T024 [US2] Confirm `[project.scripts] mfgparams = "mfgparams.__main__:main"` still resolves after T023, since `__main__.py` now defines `main` rather than re-exporting it
 
 ### Packaging and messages
 
-- [ ] T025 [P] [US2] Add `console = []` and `all = ["mfgparams[console]"]` to `[project.optional-dependencies]` in `pyproject.toml`, with a comment recording why the extra is declared while empty (contracts/installation-extras-contract.md). `all` is a **self-referential extra**, which pip only resolves from 21.2 onward; that is now a load-bearing floor rather than an incidental one, so keep the README's existing `python -m pip install --upgrade pip` step (README line 37, currently justified by PEP 660) and record the second reason beside it.
-- [ ] T026 [P] [US2] Add the missing-console message to `src/mfgparams/locales/en.py` under a stable ID, with a comment stating it MUST stay in the core catalogue when slice 015 relocates the others (research.md #4)
-- [ ] T027 [P] [US2] Rewrite `mfgparams.cli` imports across `tests/` to `mfgparams.console.cli`
+- [X] T025 [P] [US2] Add `console = []` and `all = ["mfgparams[console]"]` to `[project.optional-dependencies]` in `pyproject.toml`, with a comment recording why the extra is declared while empty (contracts/installation-extras-contract.md). `all` is a **self-referential extra**, which pip only resolves from 21.2 onward; that is now a load-bearing floor rather than an incidental one, so keep the README's existing `python -m pip install --upgrade pip` step (README line 37, currently justified by PEP 660) and record the second reason beside it.
+- [X] T026 [P] [US2] Add the missing-console message to `src/mfgparams/locales/en.py` under a stable ID, with a comment stating it MUST stay in the core catalogue when slice 015 relocates the others (research.md #4)
+- [X] T027 [P] [US2] Rewrite `mfgparams.cli` imports across `tests/` to `mfgparams.console.cli`
 
 ### Tests for User Story 2
 
-- [ ] T028 [P] [US2] Add `tests/static/test_core_does_not_import_console.py`: parse every module under `src/mfgparams/` except `__main__.py` with `ast` and fail on any import naming `mfgparams.console` (FR-008)
-- [ ] T029 [P] [US2] Add a runtime assertion to the same file that importing `mfgparams` and each `processes.machining.*` module leaves `mfgparams.console` absent from `sys.modules` — this is what keeps `__main__.py`'s exemption honest (FR-008)
-- [ ] T030 [P] [US2] Add a test named `test_console_missing_dependency_*` asserting the guard emits one actionable message naming `pip install mfgparams[console]` on stderr, exits non-zero, and raises no traceback. Simulate the failure by making a non-`mfgparams` module the console imports unresolvable (e.g. `monkeypatch.setitem(sys.modules, "<dep>", None)`), never by patching the guard itself. Add the companion case too: a `ModuleNotFoundError` naming an `mfgparams.*` module must propagate, not be swallowed (FR-011)
-- [ ] T031 [US2] Add a `packaging`-marked test asserting a default (no-extras) install resolves no console-only dependency (FR-009, FR-013)
-- [ ] T032 [US2] Verify FR-012 manually per quickstart.md §5: `mfgparams --help` and `python -m mfgparams --help` produce identical output and exit 0
+- [X] T028 [P] [US2] Add `tests/static/test_core_does_not_import_console.py`: parse every module under `src/mfgparams/` except `__main__.py` with `ast` and fail on any import naming `mfgparams.console` (FR-008)
+- [X] T029 [P] [US2] Add a runtime assertion to the same file that importing `mfgparams` and each `processes.machining.*` module leaves `mfgparams.console` absent from `sys.modules` — this is what keeps `__main__.py`'s exemption honest (FR-008)
+- [X] T030 [P] [US2] Add a test named `test_console_missing_dependency_*` asserting the guard emits one actionable message naming `pip install mfgparams[console]` on stderr, exits non-zero, and raises no traceback. Simulate the failure by making a non-`mfgparams` module the console imports unresolvable (e.g. `monkeypatch.setitem(sys.modules, "<dep>", None)`), never by patching the guard itself. Add the companion case too: a `ModuleNotFoundError` naming an `mfgparams.*` module must propagate, not be swallowed (FR-011)
+- [X] T031 [US2] Add a `packaging`-marked test asserting a default (no-extras) install resolves no console-only dependency (FR-009, FR-013)
+- [X] T032 [US2] Verify FR-012 manually per quickstart.md §5: `mfgparams --help` and `python -m mfgparams --help` produce identical output and exit 0
 
 **Checkpoint**: Both P1 stories complete. The package is structurally what issue #63 part 1 asked for.
 

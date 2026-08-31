@@ -237,3 +237,96 @@ def test_packaging_tests_guard_against_build_dunder_main_not_bare_build():
         'pytest.importorskip("build.__main__"), not the bare "build" -- '
         f"found {arguments!r}"
     )
+
+
+# --- Installation extras (FR-009, FR-010, FR-013) ---------------------------
+#
+# These assertions live in this module, rather than a file of their own, so
+# they share its single `built_wheel` build. A second module would mean a
+# second isolated `python -m build` -- another network round-trip inside the
+# required `build` check -- to inspect metadata the first wheel already
+# carries.
+
+
+def _wheel_metadata(wheel: Path) -> list[str]:
+    """Return the wheel's ``METADATA`` as a list of header lines."""
+    with zipfile.ZipFile(wheel) as archive:
+        name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
+        return archive.read(name).decode("utf-8").splitlines()
+
+
+def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
+    """Group the wheel's ``Requires-Dist`` entries by the extra that gates them.
+
+    ``None`` is the default install -- what ``pip install mfgparams`` pulls in
+    with no extras requested.
+    """
+    grouped: dict[str | None, set[str]] = {}
+    for line in _wheel_metadata(wheel):
+        if not line.startswith("Requires-Dist:"):
+            continue
+        value = line.split(":", 1)[1].strip()
+        requirement, _, marker = value.partition(";")
+        extra = None
+        if 'extra == "' in marker:
+            extra = marker.split('extra == "', 1)[1].split('"', 1)[0]
+        grouped.setdefault(extra, set()).add(requirement.strip())
+    return grouped
+
+
+@pytest.mark.packaging
+def test_wheel_declares_the_console_and_all_extras(built_wheel):
+    """FR-010: both extras are declared, so users can ask for them by name."""
+    provided = {
+        line.split(":", 1)[1].strip()
+        for line in _wheel_metadata(built_wheel)
+        if line.startswith("Provides-Extra:")
+    }
+
+    assert {"console", "all"} <= provided, f"declared extras were {sorted(provided)}"
+
+
+@pytest.mark.packaging
+def test_default_install_pulls_in_no_console_only_dependency(built_wheel):
+    """FR-009, FR-013: `pip install mfgparams` carries only what the
+    calculations need.
+
+    Written as a set *difference* rather than a fixed list, so it keeps its
+    teeth once the console extra is no longer empty: the day a dependency is
+    added to `[console]`, this fails if it also leaks into the default set.
+    """
+    grouped = _requirements_by_extra(built_wheel)
+    default = grouped.get(None, set())
+    console_only = grouped.get("console", set())
+
+    leaked = default & console_only
+    assert not leaked, (
+        f"{sorted(leaked)} is gated by the console extra yet also required by a "
+        "default install, so `pip install mfgparams` would carry it (FR-013)"
+    )
+    assert all(
+        requirement.startswith("tomli") for requirement in default
+    ), f"unexpected default runtime dependency: {sorted(default)}"
+
+
+@pytest.mark.packaging
+def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
+    """FR-010: `[all]` means "everything optional the project ships".
+
+    It aggregates by referring to the other extras rather than restating their
+    contents, so it cannot drift out of step with them.
+    """
+    grouped = _requirements_by_extra(built_wheel)
+    everything = grouped.get("all", set())
+
+    assert any(
+        requirement.replace(" ", "").startswith("mfgparams[") for requirement in everything
+    ), f"the `all` extra must aggregate the others by reference, found {sorted(everything)}"
+    assert "console" in " ".join(everything), "the `all` extra must include `console`"
+
+    development_only = {"pytest", "ruff", "black", "mypy", "tox", "sphinx", "bandit"}
+    named = {requirement.split()[0].split("[")[0].split(">")[0] for requirement in everything}
+    assert not (named & development_only), (
+        f"{sorted(named & development_only)} is development tooling; `all` covers "
+        "runtime extras only and must never pull it into a user install"
+    )
