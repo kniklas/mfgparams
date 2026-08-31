@@ -1,0 +1,47 @@
+# Codecov configuration.
+#
+# Until this file existed the repository inherited Codecov's defaults, where
+# both statuses use `target: auto` -- the coverage measured at the pull
+# request's base commit. For `project` that is a sensible ratchet. For `patch`
+# it meant every pull request had to clear the project's *current* coverage
+# (~98.6%) on its changed lines: a bar nobody chose, materially stricter than
+# the 90% this project actually commits to, and one that rises every time
+# coverage improves.
+#
+# The 90% figure is not invented here. Constitution Principle II sets it
+# ("Target minimum coverage for calculation modules is 90% line coverage"), and
+# `pyproject.toml` already enforces it as a hard gate in every test job via
+# `--cov-fail-under=90`. Codecov's job is to add the two things that gate
+# cannot see -- per-pull-request line attribution, and erosion over time -- not
+# to invent a second, higher standard by accident.
+
+coverage:
+  status:
+    # Guard against erosion. `auto` compares against the base commit, so
+    # coverage may not drift downward; the threshold absorbs the sub-percent
+    # noise of a line moving between files without failing a PR over it.
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+
+    # New and changed lines must meet the project's stated standard -- not the
+    # standard the project happens to have reached.
+    #
+    # Note a limitation this target also softens: Codecov does not follow file
+    # renames, so a moved file is reported as entirely new and its *existing*
+    # uncovered lines are charged to the pull request that moved it. PR #83
+    # (the process-namespace restructure) hit exactly this: it added no
+    # uncovered line, yet `patch` failed because `cli.py` -> `console/cli.py`
+    # brought six pre-existing uncovered lines with it. Under `auto` a pure
+    # rename of any imperfectly-covered file fails by construction.
+    patch:
+      default:
+        target: 90%
+
+# One consolidated comment per pull request, rewritten in place rather than
+# appended on every push.
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: true
