@@ -29,13 +29,51 @@ issue: <https://github.com/kniklas/mfgparams/issues/new>. See
 [`LICENSE.md`](LICENSE.md) for the full terms; all rights not expressly
 granted there, including all commercial rights, are reserved.
 
+## Install
+
+```bash
+pip install mfgparams                # the calculation library only
+pip install "mfgparams[console]"     # plus the interactive console
+pip install "mfgparams[all]"         # every optional runtime capability
+```
+
+A default install carries only what the calculations need. The console's
+dependencies sit behind the `console` extra, so embedding the library in another
+application does not drag the REPL's requirements in with it. The extra is
+currently empty — the console needs nothing beyond the standard library today —
+but it is declared now so that populating it later stays invisible to you.
+
+Invoking `mfgparams` without the console extra prints the exact command that
+fixes it and exits non-zero; it never shows a traceback.
+
+## Package structure
+
+Modules are grouped **process-first**: a manufacturing process contains its
+operations, and an operation may contain sub-operations.
+
+```text
+mfgparams                                          public API — import from here
+mfgparams.processes.machining.drilling
+mfgparams.processes.machining.milling.end_milling
+mfgparams.processes.machining.milling.face_milling
+mfgparams.console                                  interactive console
+```
+
+Everything in the first block is re-exported at the top level, so
+`from mfgparams import calculate` is the supported way to reach it; the
+qualified paths are there to say where a calculation sits in the manufacturing
+domain. A future process (turning, welding, joining, forming) attaches beside
+`machining` rather than reorganising it.
+
 ## Install (development)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.3),
-                                      # which predates PEP 660 editable-install support
+                                      # which predates PEP 660 editable-install support;
+                                      # also below 21.2, which predates the self-referential
+                                      # extra that `mfgparams[all]` is built from
 pip install -e ".[dev]"
 ```
 

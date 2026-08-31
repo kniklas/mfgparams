@@ -142,11 +142,41 @@ def built_wheel(tmp_path_factory) -> Path:
 
 @pytest.mark.packaging
 def test_wheel_contains_bundled_materials_and_tools_toml(built_wheel):
-    names = zipfile.ZipFile(built_wheel).namelist()
-    assert any(n.endswith("data/materials.toml") for n in names), names
-    assert any(n.endswith("drilling/data/tools.toml") for n in names), names
-    assert any(n.endswith("end_milling/data/tools.toml") for n in names), names
-    assert any(n.endswith("face_milling/data/tools.toml") for n in names), names
+    """FR-015: every bundled data file ships, at its *full* in-wheel path.
+
+    Asserted on the whole path, not a suffix. The suffixes these assertions
+    originally used -- ``drilling/data/tools.toml`` and friends -- are exactly
+    the part the process-namespace move left unchanged, so they would have kept
+    passing even if ``[tool.setuptools.package-data]`` had never been
+    repointed: the library would install, import fine from a source checkout,
+    and fail only at first use of the installed wheel. That silent failure is
+    the entire reason this test builds an artifact instead of reading the
+    source tree.
+    """
+    names = set(zipfile.ZipFile(built_wheel).namelist())
+
+    expected = {
+        "mfgparams/data/materials.toml",
+        "mfgparams/processes/machining/drilling/data/tools.toml",
+        "mfgparams/processes/machining/milling/end_milling/data/tools.toml",
+        "mfgparams/processes/machining/milling/face_milling/data/tools.toml",
+    }
+    missing = expected - names
+    assert (
+        not missing
+    ), f"missing from the wheel: {sorted(missing)}\nwheel contained: {sorted(names)}"
+
+
+@pytest.mark.packaging
+def test_wheel_ships_no_data_under_the_old_operation_first_layout(built_wheel):
+    """The negative half of FR-015: a stale glob left behind in
+    ``package-data`` would keep passing the assertion above while shipping
+    files nobody references."""
+    stale = sorted(
+        name for name in zipfile.ZipFile(built_wheel).namelist() if "mfgparams/operations/" in name
+    )
+
+    assert not stale, f"the wheel still carries the old layout: {stale}"
 
 
 @pytest.mark.packaging

@@ -2,7 +2,7 @@ Drilling API reference (developers)
 ====================================
 
 This page documents the drilling public API and the internal structure of
-``mfgparams.operations.drilling`` for contributors adding or extending
+``mfgparams.processes.machining.drilling`` for contributors adding or extending
 drilling behaviour. For end-user CLI guidance see :doc:`drilling`.
 
 Public entry points
@@ -130,7 +130,7 @@ Package layout
 
 .. code-block:: text
 
-    mfgparams/operations/drilling/
+    mfgparams/processes/machining/drilling/
         __init__.py         calculate() and its validate/convert/assemble orchestration
         formulas.py          calculate_drilling_metrics / calculate_drilling_metrics_at_rpm /
                               calculate_power_constrained_metrics

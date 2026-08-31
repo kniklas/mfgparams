@@ -2,7 +2,7 @@ Milling API reference (developers)
 ==================================
 
 This page documents the milling public API and the internal structure of
-``mfgparams.operations.milling`` for contributors adding or extending
+``mfgparams.processes.machining.milling`` for contributors adding or extending
 milling behaviour. For end-user CLI guidance see :doc:`milling`.
 
 Public entry points
@@ -125,7 +125,7 @@ Package layout
 
 .. code-block:: text
 
-    mfgparams/operations/milling/
+    mfgparams/processes/machining/milling/
         _shared.py          formulas common to both sub-operations
         _tool_registry.py   MillingTool base + build_registry()
         _calculate.py       shared validate/convert/assemble orchestration
@@ -137,7 +137,7 @@ Package layout
         face_milling/       same shape, for face milling
 
 Both sub-operations are peers: neither imports the other, and neither imports
-``operations.drilling``. Everything shared between operations lives in the
+``processes.machining.drilling``. Everything shared between operations lives in the
 top-level modules (``config``, ``models``, ``units``, ``validation``,
 ``registry``, ``i18n``). This boundary is enforced statically by
 ``tests/contract/test_library_api_milling.py``.
@@ -174,7 +174,7 @@ properties because the concrete metrics types are frozen dataclasses.
 Adding a milling sub-operation
 ------------------------------
 
-1. Create ``operations/milling/<name>/`` with ``__init__.py``,
+1. Create ``processes/machining/milling/<name>/`` with ``__init__.py``,
    ``formulas.py``, ``tools.py`` and ``data/tools.toml``.
 2. Give the TOML catalog a **table key unique across all operations**
    (drilling uses ``tools``, end milling ``end_mill_tools``, face milling

@@ -15,7 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python <3.11
 
 from mfgparams import UnitSystem, calculate
 
-_FIXTURES_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "materials"
+_FIXTURES_DIR = Path(__file__).resolve().parents[4] / "fixtures" / "materials"
 _BENCHMARK_FIXTURE = _FIXTURES_DIR / "wood-benchmark-cases.toml"
 _INVALID_FIXTURE = _FIXTURES_DIR / "wood-invalid-params.toml"
 
