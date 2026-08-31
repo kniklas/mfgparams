@@ -1,10 +1,10 @@
 """End-mill tool registry (specs/009-milling-calculations FR-004, FR-015).
 
-Structurally mirrors ``operations/drilling/tools.py``: the registry is built
-by merging the bundled ``operations/milling/end_milling/data/tools.toml``
+Structurally mirrors ``processes/machining/drilling/tools.py``: the registry is built
+by merging the bundled ``processes/machining/milling/end_milling/data/tools.toml``
 package-data file with an optional user-supplied override/addition file via
 the shared :mod:`mfgparams.registry_config` helper. The parsing and
-validation itself lives in :mod:`mfgparams.operations.milling._tool_registry`
+validation itself lives in :mod:`mfgparams.processes.machining.milling._tool_registry`
 so it is not duplicated between the two milling sub-operations.
 
 This registry reads the ``end_mill_tools`` TOML table key, **not** drilling's
@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mfgparams.operations.milling._tool_registry import MillingTool, build_registry
+from mfgparams.processes.machining.milling._tool_registry import MillingTool, build_registry
 
-_BUNDLED_PACKAGE = "mfgparams.operations.milling.end_milling.data"
+_BUNDLED_PACKAGE = "mfgparams.processes.machining.milling.end_milling.data"
 _BUNDLED_RESOURCE = "tools.toml"
 _TABLE_KEY = "end_mill_tools"
 
@@ -29,7 +29,7 @@ _TABLE_KEY = "end_mill_tools"
 class EndMillTool(MillingTool):
     """Reference data for a selectable end-mill type.
 
-    Adds no fields to :class:`~mfgparams.operations.milling._tool_registry.MillingTool`;
+    Adds no fields to :class:`~mfgparams.processes.machining.milling._tool_registry.MillingTool`;
     it exists as a distinct type so end-mill and face-mill registries remain
     independently evolvable (research.md #3).
     """

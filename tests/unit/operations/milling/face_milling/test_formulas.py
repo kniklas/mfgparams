@@ -10,12 +10,12 @@ import math
 
 import pytest
 
-from mfgparams.operations.milling._shared import calculate_milling_metrics
-from mfgparams.operations.milling.face_milling.formulas import (
+from mfgparams.processes.machining.milling._shared import calculate_milling_metrics
+from mfgparams.processes.machining.milling.face_milling.formulas import (
     FaceMillingMetrics,
     calculate_face_milling_metrics,
 )
-from mfgparams.operations.milling.face_milling.tools import get_face_mill_tool
+from mfgparams.processes.machining.milling.face_milling.tools import get_face_mill_tool
 from mfgparams.registry import get_material
 
 _MATERIAL = "Mild Steel"

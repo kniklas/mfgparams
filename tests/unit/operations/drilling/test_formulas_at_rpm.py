@@ -11,12 +11,12 @@ import math
 
 import pytest
 
-from mfgparams.operations.drilling.formulas import (
+from mfgparams.processes.machining.drilling.formulas import (
     calculate_drilling_metrics,
     calculate_drilling_metrics_at_rpm,
     calculate_power_constrained_metrics,
 )
-from mfgparams.operations.drilling.tools import get_tool
+from mfgparams.processes.machining.drilling.tools import get_tool
 from mfgparams.registry import get_material
 
 
@@ -93,7 +93,7 @@ def test_power_constrained_zero_or_negative_budget_raises_by_design():
     """calculate_power_constrained_metrics() does not itself validate
     available_power_kw (per its docstring): a zero budget produces a
     zero adjusted spindle speed, which triggers a ZeroDivisionError in
-    the shared machining-time formula. This is why the operations/drilling
+    the shared machining-time formula. This is why the processes/machining/drilling
     calculate() entry point MUST reject non-positive budgets as
     INFEASIBLE_POWER_BUDGET (FR-004) BEFORE calling this helper — this
     test documents and locks in that contract."""

@@ -37,10 +37,10 @@ from mfgparams.config import Configuration
 from mfgparams.i18n import get_locale, get_raw_locale, has_message, translate
 from mfgparams.logging_setup import configure_logging
 from mfgparams.models import ErrorInfo
-from mfgparams.operations.drilling.tools import DrillingTool, get_tool
-from mfgparams.operations.milling._tool_registry import MillingTool
-from mfgparams.operations.milling.end_milling.tools import get_end_mill_tool
-from mfgparams.operations.milling.face_milling.tools import get_face_mill_tool
+from mfgparams.processes.machining.drilling.tools import DrillingTool, get_tool
+from mfgparams.processes.machining.milling._tool_registry import MillingTool
+from mfgparams.processes.machining.milling.end_milling.tools import get_end_mill_tool
+from mfgparams.processes.machining.milling.face_milling.tools import get_face_mill_tool
 from mfgparams.registry import WorkpieceMaterial, get_material, materials_load_notice
 from mfgparams.registry_config import RegistryConfigError
 from mfgparams.units import in_to_mm

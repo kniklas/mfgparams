@@ -2,7 +2,7 @@
 
 Implements the standard milling formulas published in Sandvik Coromant's
 "Machining Formulas" reference — the same source already cited by
-``operations/drilling/formulas.py`` (see
+``processes/machining/drilling/formulas.py`` (see
 ``specs/009-milling-calculations/research.md`` #1 for the full citation and
 the derivation of each expression):
 
@@ -18,7 +18,7 @@ the derivation of each expression):
 applied, matching the drilling module's existing convention
 (``spec.md`` Assumptions).
 
-This module is internal to ``operations.milling`` and is not part of the
+This module is internal to ``processes.machining.milling`` and is not part of the
 public API. End milling and face milling each wrap it in their own named
 metrics dataclass (research.md #2) so the two sub-operations stay
 independently versionable even though the arithmetic is identical under the

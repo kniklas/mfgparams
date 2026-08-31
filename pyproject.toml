@@ -95,9 +95,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 mfgparams = [
     "data/*.toml",
-    "operations/drilling/data/*.toml",
-    "operations/milling/end_milling/data/*.toml",
-    "operations/milling/face_milling/data/*.toml",
+    "processes/machining/drilling/data/*.toml",
+    "processes/machining/milling/end_milling/data/*.toml",
+    "processes/machining/milling/face_milling/data/*.toml",
 ]
 
 [tool.pytest.ini_options]

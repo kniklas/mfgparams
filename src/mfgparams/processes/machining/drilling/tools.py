@@ -8,7 +8,7 @@ tolerates substantially higher cutting speeds than HSS, cobalt moderately
 higher.
 
 Since ``specs/005-configurable-materials-tools``, the registry is built by
-merging the bundled ``operations/drilling/data/tools.toml`` package-data
+merging the bundled ``processes/machining/drilling/data/tools.toml`` package-data
 file with an optional user-supplied override/addition file
 (``registry_config.py``), rather than from a hard-coded Python list.
 Zero-config (``config_path=None``) behavior is byte-for-byte identical to
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from mfgparams.registry_config import RawRegistryEntry, RegistryConfigError, load_and_merge
 
-_BUNDLED_PACKAGE = "mfgparams.operations.drilling.data"
+_BUNDLED_PACKAGE = "mfgparams.processes.machining.drilling.data"
 _BUNDLED_RESOURCE = "tools.toml"
 _TABLE_KEY = "tools"
 

@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from mfgparams.operations.milling.face_milling.tools import (
+from mfgparams.processes.machining.milling.face_milling.tools import (
     FACE_MILL_TOOL_REGISTRY,
     FaceMillTool,
     get_face_mill_tool,

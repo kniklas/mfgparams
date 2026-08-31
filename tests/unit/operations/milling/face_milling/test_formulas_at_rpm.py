@@ -8,8 +8,8 @@ speed, mirroring test_formulas.py's coverage of the standard wrapper.
 
 import math
 
-from mfgparams.operations.milling._shared import calculate_milling_metrics_at_rpm
-from mfgparams.operations.milling.face_milling.formulas import (
+from mfgparams.processes.machining.milling._shared import calculate_milling_metrics_at_rpm
+from mfgparams.processes.machining.milling.face_milling.formulas import (
     FaceMillingMetrics,
     calculate_face_milling_metrics_at_rpm,
 )

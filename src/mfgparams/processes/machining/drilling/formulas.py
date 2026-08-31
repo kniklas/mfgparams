@@ -5,7 +5,7 @@ industry sources (Sandvik Coromant's "Machining Formulas" reference and
 Machinery's Handbook); see ``specs/001-metal-drilling-calc/research.md`` #4
 for the full citation and rationale. All inputs/outputs here are canonical
 metric; imperial conversion happens at the operation-orchestration layer
-(``operations/drilling/__init__.py``).
+(``processes/machining/drilling/__init__.py``).
 """
 
 from __future__ import annotations

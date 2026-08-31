@@ -26,8 +26,8 @@ import math
 import pytest
 
 from mfgparams import calculate_end_milling, calculate_face_milling
-from mfgparams.operations.milling.end_milling.tools import get_end_mill_tool
-from mfgparams.operations.milling.face_milling.tools import get_face_mill_tool
+from mfgparams.processes.machining.milling.end_milling.tools import get_end_mill_tool
+from mfgparams.processes.machining.milling.face_milling.tools import get_face_mill_tool
 from mfgparams.registry import get_material
 from mfgparams.registry_config import clear_cache
 

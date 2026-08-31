@@ -62,7 +62,7 @@ MESSAGES: dict[str, str] = {
     "cli.prompt.target_rpm.invalid": (
         "Please enter a positive numeric value for target spindle speed."
     ),
-    # --- Validation / structured errors (validation.py, operations.drilling) ---
+    # --- Validation / structured errors (validation.py, machining.drilling) ---
     "error.invalid_diameter.zero": "Drill diameter must be greater than 0.",
     "error.invalid_diameter.max": "Drill diameter must not exceed {max_diameter_mm:g} mm.",
     "error.invalid_depth.zero": "Hole depth must be greater than 0.",

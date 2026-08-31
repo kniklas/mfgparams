@@ -29,8 +29,10 @@ from typing import Callable, Optional, Protocol
 from mfgparams.config import Configuration, load_configuration
 from mfgparams.i18n import translate
 from mfgparams.models import CalculationMode, CalculationResult, ErrorInfo, UnitSystem
-from mfgparams.operations.milling._shared import calculate_power_constrained_milling_metrics
-from mfgparams.operations.milling._tool_registry import MillingTool
+from mfgparams.processes.machining.milling._shared import (
+    calculate_power_constrained_milling_metrics,
+)
+from mfgparams.processes.machining.milling._tool_registry import MillingTool
 from mfgparams.registry import WorkpieceMaterial, get_material, get_material_validation
 from mfgparams.units import (
     cm3_min_to_in3_min,
@@ -277,7 +279,7 @@ def _compute_metrics(
     carrying an ``INFEASIBLE_POWER_BUDGET`` error if ``POWER_CONSTRAINED``
     mode cannot produce a feasible result. Mirrors drilling's
     ``_compute_metrics`` dispatch structure
-    (``operations/drilling/__init__.py``).
+    (``processes/machining/drilling/__init__.py``).
     """
 
     if mode is CalculationMode.POWER_CONSTRAINED:

@@ -11,11 +11,11 @@ from __future__ import annotations
 from typing import cast
 
 from mfgparams.models import CalculationMode, CalculationResult, UnitSystem
-from mfgparams.operations.milling._calculate import (
+from mfgparams.processes.machining.milling._calculate import (
     MillingMetricsLike,
     calculate_milling,
 )
-from mfgparams.operations.milling._tool_registry import MillingTool
+from mfgparams.processes.machining.milling._tool_registry import MillingTool
 from mfgparams.registry import WorkpieceMaterial
 
 from .formulas import (

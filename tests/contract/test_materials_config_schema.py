@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from mfgparams.operations.drilling.tools import get_tool, list_tools
+from mfgparams.processes.machining.drilling.tools import get_tool, list_tools
 from mfgparams.registry import get_material, get_material_validation, list_materials
 from mfgparams.registry_config import RegistryConfigError
 

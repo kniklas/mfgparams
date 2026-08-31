@@ -35,9 +35,9 @@ class MillingTool:
     """Reference data for a selectable milling cutter type.
 
     Subclassed (without adding fields) by
-    :class:`~mfgparams.operations.milling.end_milling.tools.EndMillTool`
+    :class:`~mfgparams.processes.machining.milling.end_milling.tools.EndMillTool`
     and
-    :class:`~mfgparams.operations.milling.face_milling.tools.FaceMillTool`
+    :class:`~mfgparams.processes.machining.milling.face_milling.tools.FaceMillTool`
     so the two registries stay distinct, independently evolvable types.
 
     Attributes:

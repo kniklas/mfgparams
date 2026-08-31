@@ -4,7 +4,7 @@ Implements the TOML parse / fallback / duplicate-detection / merge logic
 described in ``specs/005-configurable-materials-tools/data-model.md``
 ("Merge Algorithm") and ``research.md`` #1, #2, #4, #6, #9. Reused by both
 ``mfgparams.registry`` (materials) and
-``mfgparams.operations.drilling.tools`` (tools) so that any future
+``mfgparams.processes.machining.drilling.tools`` (tools) so that any future
 operation-specific registry can reuse this module unchanged (Constitution
 Principle VI).
 

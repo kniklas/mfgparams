@@ -1,7 +1,7 @@
 """End-milling formulas (specs/009-milling-calculations FR-005).
 
 A thin wrapper over the shared milling formula core
-(:func:`mfgparams.operations.milling._shared.calculate_milling_metrics`),
+(:func:`mfgparams.processes.machining.milling._shared.calculate_milling_metrics`),
 which implements the standard Sandvik Coromant "Machining Formulas"
 expressions cited in ``specs/009-milling-calculations/research.md`` #1.
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mfgparams.operations.milling._shared import (
+from mfgparams.processes.machining.milling._shared import (
     calculate_milling_metrics,
     calculate_milling_metrics_at_rpm,
 )
@@ -111,7 +111,7 @@ def calculate_end_milling_metrics_at_rpm(
     """Compute end-milling parameters for an explicit spindle speed.
 
     Thin wrapper over
-    :func:`mfgparams.operations.milling._shared.calculate_milling_metrics_at_rpm`,
+    :func:`mfgparams.processes.machining.milling._shared.calculate_milling_metrics_at_rpm`,
     preserving the per-sub-operation module boundary (FR-014 of
     ``specs/010-milling-calculation-modes``) exactly as
     :func:`calculate_end_milling_metrics` does for the standard path. Used

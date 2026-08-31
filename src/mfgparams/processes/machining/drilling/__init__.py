@@ -3,7 +3,7 @@
 Re-exported at the top level as ``mfgparams.calculate`` since drilling is
 currently the module's only operation (contracts/library-api.md). Future
 operations (turning, milling, ...) add their own sibling
-``mfgparams.operations.<operation>`` module with an analogous
+``mfgparams.processes.machining.<operation>`` module with an analogous
 ``calculate()`` without changing this contract.
 """
 
@@ -68,7 +68,7 @@ def _compute_metrics(
 ):
     """Dispatch to the mode-specific metrics calculation.
 
-    Returns a :class:`~mfgparams.operations.drilling.formulas.DrillingMetrics`
+    Returns a :class:`~mfgparams.processes.machining.drilling.formulas.DrillingMetrics`
     on success, or a :class:`CalculationResult` carrying an
     ``INFEASIBLE_POWER_BUDGET`` error if ``POWER_CONSTRAINED`` mode cannot
     produce a feasible result. Extracted from ``calculate()`` to keep that

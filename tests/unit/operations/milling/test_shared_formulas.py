@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from mfgparams.operations.milling._shared import (
+from mfgparams.processes.machining.milling._shared import (
     MM3_PER_CM3,
     POWER_SCALE,
     TORQUE_POWER_CONSTANT,

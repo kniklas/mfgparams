@@ -10,7 +10,12 @@ import math
 
 import pytest
 
-from mfgparams.operations.drilling.tools import TOOL_REGISTRY, DrillingTool, get_tool, list_tools
+from mfgparams.processes.machining.drilling.tools import (
+    TOOL_REGISTRY,
+    DrillingTool,
+    get_tool,
+    list_tools,
+)
 from mfgparams.registry_config import RegistryConfigError
 
 _EXPECTED_BUNDLED_TOOLS = {

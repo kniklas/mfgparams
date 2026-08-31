@@ -55,7 +55,7 @@ import math
 
 import pytest
 
-from mfgparams.operations.milling._shared import calculate_milling_metrics
+from mfgparams.processes.machining.milling._shared import calculate_milling_metrics
 from mfgparams.registry import WorkpieceMaterial
 
 #: SC-002: each reported value must be within 5% of the reference value.

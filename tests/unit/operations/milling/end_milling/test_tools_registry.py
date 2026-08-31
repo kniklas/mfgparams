@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from mfgparams.operations.milling.end_milling.tools import (
+from mfgparams.processes.machining.milling.end_milling.tools import (
     END_MILL_TOOL_REGISTRY,
     EndMillTool,
     get_end_mill_tool,
