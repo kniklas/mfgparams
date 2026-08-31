@@ -17,8 +17,8 @@ MESSAGES: dict[str, str] = {
     # exactly when it is needed and hand the user the traceback FR-011 exists
     # to prevent (contracts/console-entry-contract.md, research.md #4).
     "console.missing_dependency": (
-        "The interactive console is not available: its dependencies are not "
-        "installed.\nInstall them with:  pip install mfgparams[console]"
+        "The interactive console is not available: it needs {module}, which is "
+        "not installed.\nInstall it with:  pip install mfgparams[console]"
     ),
     # --- Interactive text interface (console/cli.py) prompts and labels ---
     "cli.prompt.unit_system": "Unit system [metric/imperial] ({default}): ",

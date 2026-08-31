@@ -1130,8 +1130,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main() -> None:
-    """Console-script entry point (``mfgparams`` / ``python -m mfgparams``)."""
+def main() -> int:
+    """Console-script entry point (``mfgparams`` / ``python -m mfgparams``).
+
+    Returns the process exit status. ``0`` covers both a completed session and
+    an interrupted one: Ctrl-C and EOF are how a user *leaves* this REPL, not
+    failures, and both exited 0 before this became an explicit return.
+    """
 
     configure_logging()
     args = _parse_args()
@@ -1139,7 +1144,8 @@ def main() -> None:
         run(materials_config_path=args.materials_config)
     except (KeyboardInterrupt, EOFError):
         print()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

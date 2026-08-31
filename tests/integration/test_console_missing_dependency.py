@@ -86,20 +86,55 @@ def test_console_missing_dependency_message_comes_from_the_catalog(simulate_miss
     simulate_missing("some_console_dependency")
     entry_point.main()
 
-    expected = en.MESSAGES[entry_point._MISSING_CONSOLE_MESSAGE_ID]
+    expected = en.MESSAGES[entry_point._MISSING_CONSOLE_MESSAGE_ID].format(
+        module=repr("some_console_dependency")
+    )
     assert capsys.readouterr().err.strip() == expected.strip()
 
 
-def test_console_missing_dependency_does_not_mask_a_broken_core(simulate_missing):
-    """A ``ModuleNotFoundError`` rooted at ``mfgparams`` is a broken install,
-    not a missing extra, and must propagate."""
+@pytest.mark.parametrize(
+    "missing",
+    [
+        # Inside our own distribution.
+        "mfgparams.console.cli",
+        "mfgparams.registry",
+        # A *core runtime requirement*, which a default install was supposed to
+        # bring in. Not an `mfgparams.*` name, so a guard checking only for that
+        # prefix reports it as a missing console extra -- and the user installs
+        # `mfgparams[console]`, which cannot fix it (contracts/
+        # console-entry-contract.md: "a genuinely broken core install must still
+        # surface its own error").
+        "tomli",
+    ],
+)
+def test_console_missing_dependency_does_not_mask_a_broken_core(simulate_missing, missing):
+    """A damaged install must surface its own error, not the friendly message."""
 
-    simulate_missing("mfgparams.console.cli")
+    simulate_missing(missing)
 
     with pytest.raises(ModuleNotFoundError) as excinfo:
         entry_point.main()
 
-    assert excinfo.value.name == "mfgparams.console.cli"
+    assert excinfo.value.name == missing
+
+
+def test_core_requirement_roots_are_read_from_metadata_not_restated():
+    """The core set must track `pyproject.toml`, not a hand-kept copy of it."""
+
+    roots = entry_point._core_requirement_roots()
+
+    assert "tomli" in roots, roots
+    # Extras are excluded by construction -- they are what the friendly path is for.
+    assert "pytest" not in roots and "ruff" not in roots, roots
+
+
+def test_the_message_names_the_module_that_is_actually_missing(simulate_missing, capsys):
+    """Without the name, a misdirected message is undiagnosable."""
+
+    simulate_missing("some_console_dependency")
+    entry_point.main()
+
+    assert "some_console_dependency" in capsys.readouterr().err
 
 
 def test_console_starts_normally_when_its_dependencies_are_present(monkeypatch):
@@ -108,7 +143,24 @@ def test_console_starts_normally_when_its_dependencies_are_present(monkeypatch):
     import mfgparams.console.cli as console_cli
 
     called = []
-    monkeypatch.setattr(console_cli, "main", lambda: called.append(True))
+    monkeypatch.setattr(console_cli, "main", lambda: called.append(True) or 0)
 
     assert entry_point.main() == 0
     assert called == [True]
+
+
+@pytest.mark.parametrize(
+    "returned,expected",
+    [(0, 0), (3, 3), (None, 0)],
+    ids=["success", "console-reports-failure", "console-returns-nothing"],
+)
+def test_the_console_exit_status_is_passed_through(monkeypatch, returned, expected):
+    """Swallowing the console's status would turn a future failure into a
+    silent success, and this entry point documents itself as returning the
+    process exit status."""
+
+    import mfgparams.console.cli as console_cli
+
+    monkeypatch.setattr(console_cli, "main", lambda: returned)
+
+    assert entry_point.main() == expected

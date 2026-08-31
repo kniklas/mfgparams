@@ -11,6 +11,7 @@ in the console. Both halves are enforced by
 
 from __future__ import annotations
 
+import re
 import sys
 
 #: Message ID for the FR-011 guard. Its English text lives in the **core**
@@ -21,29 +22,92 @@ import sys
 _MISSING_CONSOLE_MESSAGE_ID = "console.missing_dependency"
 
 
+def _is_broken_core(module: str | None) -> bool:
+    """Is a failure to import ``module`` a broken install rather than a missing extra?
+
+    Two kinds of failure reach the guard below, and telling the user the wrong
+    one wastes their time on a fix that cannot work:
+
+    * a module inside our own distribution -- the install is damaged;
+    * a **core runtime requirement**, i.e. something a default
+      ``pip install mfgparams`` was supposed to bring in (``tomli`` below
+      Python 3.11). Its absence is equally a damaged install, and it is *not*
+      a third-party name, so a check that only looked for the ``mfgparams``
+      prefix would misreport it as a missing console extra and send the user
+      to install something they already have.
+
+    Anything else is a genuine console dependency, so the friendly path applies.
+    """
+    if not module:
+        return False
+
+    root = module.split(".")[0]
+    if root == "mfgparams":
+        return True
+
+    return _normalise(root) in _core_requirement_roots()
+
+
+def _normalise(name: str) -> str:
+    return name.replace("-", "_").lower()
+
+
+def _core_requirement_roots() -> frozenset:
+    """Distribution names a default (no-extras) install pulls in.
+
+    Read from installed metadata rather than restated here, so the set cannot
+    drift from ``pyproject.toml``. Requirements carrying an ``extra ==`` marker
+    are excluded: those are exactly the ones the guard's friendly path is for.
+    """
+    try:
+        from importlib.metadata import requires
+
+        declared = requires("mfgparams") or []
+    except Exception:  # pragma: no cover - metadata missing (a source-tree run)
+        return frozenset()
+
+    roots = set()
+    for requirement in declared:
+        head, _, marker = requirement.partition(";")
+        if "extra ==" in marker:
+            continue
+        name = re.split(r"[^A-Za-z0-9._-]", head.strip(), maxsplit=1)[0]
+        if name:
+            roots.add(_normalise(name))
+    return frozenset(roots)
+
+
 def main() -> int:
     """Start the interactive console, or explain how to install it (FR-011).
 
-    Returns the process exit status: ``0`` once the console has run to
-    completion, ``1`` if the console's dependencies are unavailable.
+    Returns the process exit status: whatever the console returns once it has
+    run to completion (``0`` when it returns nothing), or ``1`` if the console's
+    dependencies are unavailable.
     """
 
     try:
         from mfgparams.console.cli import main as _console_main
     except ModuleNotFoundError as exc:
-        # A module inside our own distribution failing to import is a broken
-        # install, not a missing extra. Re-raise it rather than sending the
-        # user to fix something that is not wrong.
-        if exc.name is not None and exc.name.split(".")[0] == "mfgparams":
+        # A damaged install must surface its own error rather than being
+        # misreported as a missing extra -- the user cannot fix a missing core
+        # dependency by installing `mfgparams[console]`.
+        if _is_broken_core(exc.name):
             raise
 
         from mfgparams.i18n import get_locale, translate
 
-        print(translate(get_locale(), _MISSING_CONSOLE_MESSAGE_ID), file=sys.stderr)
+        message = translate(
+            get_locale(), _MISSING_CONSOLE_MESSAGE_ID, module=repr(exc.name or "a dependency")
+        )
+        print(message, file=sys.stderr)
         return 1
 
-    _console_main()
-    return 0
+    # Pass the console's exit status through rather than assuming success. The
+    # console returns None today, but swallowing a future non-zero return is a
+    # silent failure, and this function documents itself as returning the
+    # process exit status.
+    status = _console_main()
+    return 0 if status is None else int(status)
 
 
 if __name__ == "__main__":
