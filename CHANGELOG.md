@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: calculation modules are grouped **process-first**. A
+  manufacturing process now contains its operations, replacing the
+  operation-first grouping (issue #63, part 1 of 4):
+
+  | Before | After |
+  |---|---|
+  | `mfgparams.operations.drilling` | `mfgparams.processes.machining.drilling` |
+  | `mfgparams.operations.milling.end_milling` | `mfgparams.processes.machining.milling.end_milling` |
+  | `mfgparams.operations.milling.face_milling` | `mfgparams.processes.machining.milling.face_milling` |
+  | `mfgparams.cli` | `mfgparams.console.cli` |
+
+  Milling keeps its sub-operation level, so end milling and face milling stay
+  *within* milling rather than becoming siblings of drilling. The old paths are
+  gone with **no alias, shim, or deprecation period** — nothing has been
+  published to PyPI, so there is no consumer for a compatibility layer, and the
+  import path now tells you where a calculation sits in the manufacturing
+  domain. A future process (turning, welding, joining, forming) attaches beside
+  `machining` rather than reorganising it.
+
+  **Code importing only the documented public surface is unaffected**: every
+  name in `mfgparams.__all__` is unchanged, so `from mfgparams import calculate`
+  and its 13 siblings keep working exactly as before. No calculation input,
+  output, formula, or bundled reference-data value changed.
+
+- The interactive console moved into its own `mfgparams.console` sub-package,
+  separate from the calculation core. The core never imports it, enforced by an
+  ast scan plus a clean-interpreter `sys.modules` check rather than by
+  convention.
+
+### Added
+
+- Installation extras. `pip install mfgparams` now installs only what the
+  calculations require; `pip install "mfgparams[console]"` adds the console's
+  dependencies, and `pip install "mfgparams[all]"` takes every optional runtime
+  capability the project ships. The `console` extra is empty on delivery — the
+  console needs nothing beyond the standard library today — and is declared now
+  because adding an extra later is a packaging change users must react to,
+  whereas populating a declared one is invisible to them. Self-referential
+  extras need pip >= 21.2.
+- Invoking the console when its dependencies are unavailable prints one
+  actionable message naming `pip install mfgparams[console]` and exits
+  non-zero, instead of a traceback. A failure rooted inside `mfgparams` itself
+  still surfaces as itself: a broken install is not a missing extra.
+
+### Note on versioning
+
+This change cuts **no release**. Issue #63's four slices accumulate here and
+publish together as a single major version once the last one lands, so that a
+package with no users does not burn a major version per slice.
+
 ## [1.0.0]
 
 ### Changed

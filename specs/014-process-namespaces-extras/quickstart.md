@@ -156,10 +156,25 @@ check would pass even with broken packaging metadata, which is the whole point o
 
 ```bash
 tox                # py39-py312, excluding packaging assertions
-ruff check . && black --check . && mypy
+ruff check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+black --check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+mypy src/mfgparams scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py
+bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll
+pip-audit
+python scripts/setup_skill_symlinks.py --check
 ```
 
 **Expected**: all pass; coverage at or above 90%.
+
+These are copied verbatim from `.github/workflows/ci.yml` so a local run and CI
+measure the same thing. The earlier `ruff check . && black --check . && mypy` did not:
+it scanned a wider tree than CI does and left `pip-audit`, the maintainability gate and
+the skill-symlink check out entirely (corrected during T040).
+
+`tox` reports `py311: SKIP` on a machine whose `python3.11` is not on `PATH`
+(`skip_missing_interpreters = true`). CI runs that leg, so a local skip is not a gap --
+but it does mean a local `tox` alone is not proof of the full matrix.
 
 ---
 

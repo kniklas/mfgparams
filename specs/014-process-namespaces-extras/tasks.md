@@ -144,11 +144,11 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T039 Add the `## [Unreleased]` CHANGELOG entry describing the restructure as breaking, explicitly noting no version bump is cut by this feature (FR-018)
-- [ ] T040 Run every section of [quickstart.md](./quickstart.md) end to end and fix any drift between it and the delivered code
-- [ ] T041 Run the full gate set: `tox` (py39–py312), `tox -e packaging`, `ruff check .`, `black --check .`, `mypy`, `python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`, `bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll` (invocations copied from `.github/workflows/ci.yml`, so local runs match CI)
-- [ ] T042 Confirm coverage is at or above 90% and update the README coverage badge/number if it moved (Principle VII, SC-006)
-- [ ] T043 Self-review the diff against the Development Workflow checklist in `.specify/memory/constitution.md` — in particular that the move commits contain no content edits beyond import lines
+- [X] T039 Add the `## [Unreleased]` CHANGELOG entry describing the restructure as breaking, explicitly noting no version bump is cut by this feature (FR-018)
+- [X] T040 Run every section of [quickstart.md](./quickstart.md) end to end and fix any drift between it and the delivered code
+- [X] T041 Run the full gate set: `tox` (py39–py312), `tox -e packaging`, `ruff check .`, `black --check .`, `mypy`, `python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`, `bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll` (invocations copied from `.github/workflows/ci.yml`, so local runs match CI)
+- [X] T042 Confirm coverage is at or above 90% and update the README coverage badge/number if it moved (Principle VII, SC-006)
+- [X] T043 Self-review the diff against the Development Workflow checklist in `.specify/memory/constitution.md` — in particular that the move commits contain no content edits beyond import lines
 - [ ] T044 Run `/speckit-analyze` to cross-check spec, plan and tasks before opening the pull request
 
 ---
