@@ -76,7 +76,7 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 - [X] T012 [US1] Update the four operation imports in `src/mfgparams/__init__.py` (lines 37-43) **and the module docstring** (line 22 names `mfgparams.operations.<operation>`; lines 18-20 and 24 name `operations.drilling` and `operations.milling.*` without the package prefix, so T037 will not flag them but they teach the wrong path), keeping `__all__` byte-identical (FR-005)
 - [X] T013 [US1] Update the four operation imports in `src/mfgparams/cli.py` (lines importing `operations.drilling.tools`, `operations.milling._tool_registry`, and both milling sub-operation tool modules)
 - [X] T013a [US1] Update the old-layout references in the docstrings of the two **unmoved** core modules: `src/mfgparams/models.py` (lines 3, 58, 76) and `src/mfgparams/registry_config.py` (line 7). data-model.md correctly lists both under *Unmoved*, so no move task touches them — but T037's FR-017 check scans the *content* of every tracked file, so leaving them fails T037 and T041 at the end of the run.
-- [X] T014 [US1] Update the four `operations/**/data/*.toml` globs in `[tool.setuptools.package-data]` in `pyproject.toml` to their `processes/machining/**` paths
+- [X] T014 [US1] Update the **three** `operations/**/data/*.toml` globs in `[tool.setuptools.package-data]` in `pyproject.toml` to their `processes/machining/**` paths. The fourth entry, `data/*.toml`, is core `materials.toml` and does not move — the original "four" miscounted it as relocating.
 
 ### Test import rewrites
 
@@ -136,7 +136,7 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 - [X] T035 [P] [US3] Update **both** old-path references in `docs/source/milling-api.rst` — the prose at line 5 and the directory-tree block at line 128 — to `mfgparams.processes.machining.milling` / `mfgparams/processes/machining/milling/` (FR-016)
 - [X] T036 [US3] Extend `tests/integration/test_packaging_bundled_data.py` to assert all four `.toml` files are present at their new paths in the built wheel **and** that no `.toml` remains under any `mfgparams/operations/` path (FR-015). Tighten the existing assertions (lines 146-149) from suffix matches such as `endswith("drilling/data/tools.toml")` to the full in-wheel path: those suffixes are unchanged by the move, so as written they keep passing even if `[tool.setuptools.package-data]` is never updated - which is precisely the silent failure this test exists to catch.
 - [X] T037 [US3] Add `tests/static/test_no_old_layout.py` modelled on `tests/static/test_no_old_package_name.py`: scan every git-tracked file's content *and its tracked path* for `mfgparams.operations` / `mfgparams/operations`, excluding prior specs, `specs/014-*/`, the constitution, `CHANGELOG.md`, and the check's own source (FR-017, research.md #5)
-- [X] T038 [P] [US3] Update the README's structure and installation sections to show the process-qualified paths and the three install commands (FR-016)
+- [X] T038 [P] [US3] Give the README an end-user install section with the three commands (`pip install mfgparams`, `"mfgparams[console]"`, `"mfgparams[all]"`) and a package-structure block showing the process-qualified paths (FR-016). This *adds* content rather than correcting stale paths: the README had no structure section and no `mfgparams.operations` reference at all, only `## Install (development)`. The original wording named two sections that did not exist.
 
 **Checkpoint**: All three stories complete; nothing points at the old layout.
 
@@ -146,7 +146,18 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 - [X] T039 Add the `## [Unreleased]` CHANGELOG entry describing the restructure as breaking, explicitly noting no version bump is cut by this feature (FR-018)
 - [X] T040 Run every section of [quickstart.md](./quickstart.md) end to end and fix any drift between it and the delivered code
-- [X] T041 Run the full gate set: `tox` (py39–py312), `tox -e packaging`, `ruff check .`, `black --check .`, `mypy`, `python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`, `bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll` (invocations copied from `.github/workflows/ci.yml`, so local runs match CI)
+- [X] T041 Run the full gate set, each invocation copied verbatim from `.github/workflows/ci.yml` so a local run and CI measure the same thing:
+  - `tox` (py39–py312) and `tox -e packaging`
+  - `ruff check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`
+  - `black --check src/ tests/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`
+  - `mypy src/mfgparams scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`
+  - `python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`
+  - `bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll`
+  - `pip-audit`
+  - `python scripts/setup_skill_symlinks.py --check`
+  - `sphinx-build -b html docs/source docs/_build/html -W` — this feature edits both Sphinx pages, and `-W` turns any warning into a failure
+
+  The original list claimed CI parity it did not have: `ruff check .` and `black --check .` scan a wider tree than CI does, bare `mypy` a narrower one, and `pip-audit`, the docs build and the skill-symlink check were missing outright.
 - [X] T042 Confirm coverage is at or above 90% and update the README coverage badge/number if it moved (Principle VII, SC-006)
 - [X] T043 Self-review the diff against the Development Workflow checklist in `.specify/memory/constitution.md` — in particular that the move commits contain no content edits beyond import lines
 - [X] T044 Cross-checked spec, plan and tasks before opening the pull request. `/speckit-analyze` ran in full **before** implementation (2026-08-31) and its blocking findings were applied; the post-implementation pass was the same cross-check run against the delivered tree, not a second skill invocation. Note for the reviewer: `/speckit-converge` is the check that belongs at this point in the list — analyze only compares the three artifacts to each other and cannot detect implementation work that never happened (constitution, Principle XII).

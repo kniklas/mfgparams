@@ -75,8 +75,9 @@ one-line change rather than a rediscovery of this whole design.
 (`tests/integration/test_packaging_bundled_data.py`) to the new data paths, and additionally assert
 that **no** `data/*.toml` file exists under the old paths in the built artifact.
 
-**Rationale**: `[tool.setuptools.package-data]` lists four explicit `operations/**/data/*.toml`
-globs. Every one is invalidated by this move, and the failure mode is silent in the worst possible
+**Rationale**: `[tool.setuptools.package-data]` lists three explicit `operations/**/data/*.toml`
+globs — a fourth entry, `data/*.toml`, is core `materials.toml` and is unaffected. Every one of the
+three is invalidated by this move, and the failure mode is silent in the worst possible
 way: the library imports fine from a source checkout, passes the whole suite there, and fails only
 at first use of an installed wheel. The repository already learned this lesson once — those
 assertions were `importorskip`-ed in every environment until spec 013 made `build` a real test
@@ -174,7 +175,7 @@ contains no content edits beyond import lines.
 
 ## 7. Configuration surfaces that reference module paths
 
-**Decision**: Audit and update, in the same PR: `[tool.setuptools.package-data]` (four globs),
+**Decision**: Audit and update, in the same PR: `[tool.setuptools.package-data]` (three moving globs),
 `[project.scripts]`, the Sphinx pages `docs/source/drilling-api.rst` and `docs/source/milling-api.rst`,
 and the README's structure/installation sections.
 

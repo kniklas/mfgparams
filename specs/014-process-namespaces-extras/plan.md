@@ -49,8 +49,9 @@ import cost; no budget is expected to move.
 **Constraints**: No behaviour change of any kind (FR-003, FR-012); coverage stays ≥90%; every
 Principle IX gate must pass; no release cut by this feature (FR-018).
 
-**Scale/Scope**: ~31 source modules and ~65 test modules move or have imports rewritten; 4 bundled
-data directories relocate; 2 Sphinx pages and the README need path updates.
+**Scale/Scope**: ~31 source modules and ~65 test modules move or have imports rewritten; 3 bundled
+data directories relocate (`mfgparams/data/`, holding `materials.toml`, stays at the package root);
+2 Sphinx pages need path updates and the README gains install and structure content.
 
 ## Constitution Check
 
@@ -68,7 +69,7 @@ data directories relocate; 2 Sphinx pages and the README need path updates.
 | VIII. Internationalization | Catalogs stay in core this slice. FR-011 introduces one new user-facing string, which must be catalogued, not inlined — with a forward-compatibility trap documented in research.md #4. | PASS (with constraint) |
 | IX. Automated Gates | No gate is added, removed, or reconfigured. `ci-ok`'s composition is untouched. | PASS |
 | X. Licensing & Author Rights | Unaffected. | PASS |
-| XI. Multi-Agent Consistency | No skill or agent-integration file changes. | PASS |
+| XI. Multi-Agent Consistency | No agent-integration file changes. **Corrected during implementation**: this originally read "no skill or agent-integration file changes", which under-scoped FR-017 — that requirement reaches every tracked file, and two files under `.github/skills/` still described the operation-first layout. `/speckit-converge` found them; T045-T047 fixed them and widened the guard that missed them. Skill *documentation* corrections are direct edits, not generated-artifact syncs, so Principle XI's no-hand-syncing rule is untouched. | PASS (see T045-T047) |
 | XII. Long-Lived Feature Branches | Not triggered: this slice is independently releasable and targets `main` as a single PR, per the agreed decomposition on issue #63. | N/A |
 
 **Post-Phase 1 re-check**: PASS. The Phase 1 design introduces no new module with mixed
