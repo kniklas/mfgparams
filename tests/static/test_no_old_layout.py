@@ -52,8 +52,30 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: ``mfgparams.operations`` (import form) or ``mfgparams/operations`` (path form).
-_OLD_LAYOUT_PATTERN = re.compile(r"mfgparams[./]operations")
+#: Three shapes the old layout appears in:
+#:
+#: * ``mfgparams.operations`` -- the import form;
+#: * ``mfgparams/operations`` -- the fully-qualified path form;
+#: * ``operations/<segment>/`` -- the *bare* path form, which documentation and
+#:   agent-facing guidance use when writing a path relative to the package root;
+#: * ``mfgparams.cli`` / ``mfgparams/cli`` -- the console's old home, before it
+#:   moved into ``mfgparams.console`` (FR-007). ``\b`` keeps this from firing on
+#:   the *new* ``mfgparams.console.cli``, which does not contain the substring.
+#:
+#: The third alternative was added by T047. Its absence is why two files under
+#: ``.github/skills/`` kept describing the operation-first layout through a run
+#: that this check reported clean: they wrote ``operations/*/formulas.py`` and
+#: ``operations/<name>/``, neither of which carries the ``mfgparams`` prefix.
+#:
+#: The trailing slash is what keeps the bare form from swallowing prose. English
+#: uses "operations" freely here -- drilling and milling *are* operations, and
+#: that vocabulary survives the restructure -- so a pattern matching the bare
+#: word would fire on every one of them. Requiring ``operations/<something>/``
+#: matches a path and not a sentence: verified against the tree, it catches all
+#: four real occurrences and leaves alternatives such as ``new operations/units
+#: must not require rewriting`` (``.github/skills/code-review/SKILL.md``) alone,
+#: since that has no closing slash.
+_OLD_LAYOUT_PATTERN = re.compile(r"mfgparams[./]operations|operations/[^\s]+/|mfgparams[./]cli\b")
 
 _EXCLUDED_FILES = {
     "CHANGELOG.md",
@@ -63,6 +85,15 @@ _EXCLUDED_FILES = {
     "tests/static/test_no_old_layout.py",
     "tests/contract/test_library_api_milling.py",
     "tests/integration/test_packaging_bundled_data.py",
+    # Bundled reference data. Both carry a comment naming an old path, and both
+    # MUST stay byte-identical: spec.md's Edge Cases require reference-data
+    # files to move with their module without a single byte changing, so that no
+    # calculation input can shift as a side effect of the restructure, and so
+    # the move stays a reviewable pure rename. A comment is not a value and
+    # nothing reads it -- this is a deliberate carve-out, not an oversight, and
+    # it is the one place where "no stale reference" yields to a stronger rule.
+    "src/mfgparams/processes/machining/drilling/data/tools.toml",
+    "src/mfgparams/processes/machining/milling/end_milling/data/tools.toml",
 }
 
 _EXCLUDED_PREFIXES = (
@@ -141,9 +172,28 @@ def test_the_pattern_still_matches_what_it_claims_to():
     ):
         assert _OLD_LAYOUT_PATTERN.search(forbidden), forbidden
 
+    for forbidden in (
+        # The bare path form (T047). Both are verbatim from the two
+        # `.github/skills/` files this alternative was added to catch.
+        "especially `operations/*/formulas.py`",
+        "a per-operation module/interface (`operations/<name>/`)",
+        # The console's old home (T046). Verbatim from
+        # `.github/skills/pypi-package-builder/SKILL.md` before it was fixed.
+        'mfgparams = "mfgparams.cli:main"',
+        "from mfgparams.cli import main",
+    ):
+        assert _OLD_LAYOUT_PATTERN.search(forbidden), forbidden
+
     for allowed in (
         "from mfgparams.processes.machining.drilling import calculate",
         "the two milling sub-operations",
         "tests/unit/processes/machining/",
+        # Prose, not a path: no closing slash. Matching this would make the
+        # bare-path alternative unusable, since drilling and milling are still
+        # operations and the word is used throughout.
+        "new operations/units must not require rewriting",
+        # The console's *current* home must not trip the alternative above.
+        "from mfgparams.console.cli import main",
+        "src/mfgparams/console/cli.py",
     ):
         assert not _OLD_LAYOUT_PATTERN.search(allowed), allowed
