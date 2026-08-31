@@ -28,11 +28,45 @@ behaviour.
 | Stream | stderr |
 | Exit status | Non-zero |
 | Traceback | MUST NOT be shown |
-| Trigger | Failure to import the console's **dependencies** — never a check for the console module, which always exists (see [installation-extras-contract.md](./installation-extras-contract.md)) |
+| Trigger | A dependency of the console failing to import — never a check for the console module, which always exists (see [installation-extras-contract.md](./installation-extras-contract.md)). The concrete construct is specified below. |
 
 The guard MUST catch the import failure at the point of the lazy import inside `main()`, and MUST
 NOT catch import failures originating from the core package — a genuinely broken core install must
 still surface its own error rather than being misreported as a missing console.
+
+## What the guard actually wraps
+
+The `console` extra is empty on delivery, so there is no third-party import statement to wrap. The
+guard is therefore written around the lazy console import itself, and separates a missing
+*dependency* from a broken *core* by inspecting the exception:
+
+```python
+def main() -> int:
+    try:
+        from mfgparams.console.cli import main as _console_main
+    except ModuleNotFoundError as exc:
+        # A module inside our own distribution failing to import is a broken
+        # install, not a missing extra — let it surface as itself.
+        if exc.name is not None and exc.name.split(".")[0] == "mfgparams":
+            raise
+        print(get_message("console.missing_dependency"), file=sys.stderr)
+        return 1
+    return _console_main()
+```
+
+This keeps the guard keyed on dependency availability while remaining implementable today: the
+`try` encloses the statement that will pull the first console dependency the moment one is added to
+`mfgparams/console/cli.py`, so populating the extra requires no change here. The `exc.name` check
+is what satisfies the "MUST NOT catch import failures originating from the core package" rule
+above, and it is a rule with teeth — without it, a genuine `ImportError` inside `console/cli.py`
+would be reported to the user as "install the console extra", sending them to fix something that
+is not broken.
+
+Only `ModuleNotFoundError` is caught. A bare `ImportError` (a module that exists but fails while
+executing) is a real fault and MUST propagate.
+
+The test for this path MUST simulate the failure at the dependency, not at the guard: patching the
+guard's own condition would assert nothing about the behaviour FR-011 specifies.
 
 ## Message catalogue constraint (Principle VIII, and a constraint on slice 015)
 

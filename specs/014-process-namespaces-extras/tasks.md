@@ -35,8 +35,8 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 **Purpose**: Establish the pre-move baseline that FR-003 ("no calculation result changes") is verified against. Without this, "identical results" is unfalsifiable after the move.
 
-- [ ] T001 Capture the pre-move baseline in `specs/014-process-namespaces-extras/baseline.md`: full `pytest` pass/skip counts, the coverage percentage, and the computed output of one drilling, one end-milling and one face-milling calculation at fixed inputs
-- [ ] T002 [P] Confirm the unmodified tree is green before any change: `pip install -e ".[dev]"`, then `tox` and `tox -e packaging` both pass
+- [X] T001 Capture the pre-move baseline in `specs/014-process-namespaces-extras/baseline.md`: full `pytest` pass/skip counts, the coverage percentage, and the computed output of one drilling, one end-milling and one face-milling calculation at fixed inputs
+- [X] T002 [P] Confirm the unmodified tree is green before any change: `pip install -e ".[dev]"`, then `tox` and `tox -e packaging` both pass
 
 **Checkpoint**: A recorded baseline exists to compare against.
 
@@ -48,8 +48,8 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Create `src/mfgparams/processes/__init__.py` with a docstring naming the process→operation grouping and the deferred processes (turning, welding, joining, forming)
-- [ ] T004 [P] Create `src/mfgparams/console/__init__.py` with a docstring stating that the console is presentation-only and that core must never import it (FR-008)
+- [X] T003 Create `src/mfgparams/processes/__init__.py` with a docstring naming the process→operation grouping and the deferred processes (turning, welding, joining, forming), **and create the `src/mfgparams/processes/machining/` directory itself** — `git mv` into a destination whose parent does not exist fails outright (`fatal: renaming ... failed: No such file or directory`, exit 128), so T005 and T006 cannot run until it is there. Its `__init__.py` still lands in T007, with the docstring carried over from the old `operations/__init__.py`.
+- [X] T004 [P] Create `src/mfgparams/console/__init__.py` with a docstring stating that the console is presentation-only and that core must never import it (FR-008)
 
 **Checkpoint**: Destination packages exist; US1 and US2 can proceed in parallel.
 
@@ -63,31 +63,32 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 ### Move (one commit, no content edits beyond imports — research.md #6)
 
-- [ ] T005 [US1] `git mv src/mfgparams/operations/drilling src/mfgparams/processes/machining/drilling`
-- [ ] T006 [US1] `git mv src/mfgparams/operations/milling src/mfgparams/processes/machining/milling`
-- [ ] T007 [US1] Create `src/mfgparams/processes/machining/__init__.py`, rewriting the registry docstring from the old `src/mfgparams/operations/__init__.py` so it describes the process-first grouping (the one file whose content legitimately changes — data-model.md footnote 1)
-- [ ] T008 [US1] Delete the now-empty `src/mfgparams/operations/` directory and confirm `git status` shows the moves as renames, not add/delete pairs
+- [X] T005 [US1] `git mv src/mfgparams/operations/drilling src/mfgparams/processes/machining/drilling`
+- [X] T006 [US1] `git mv src/mfgparams/operations/milling src/mfgparams/processes/machining/milling`
+- [X] T007 [US1] Create `src/mfgparams/processes/machining/__init__.py`, rewriting the registry docstring from the old `src/mfgparams/operations/__init__.py` so it describes the process-first grouping (the one file whose content legitimately changes — data-model.md footnote 1)
+- [X] T008 [US1] Delete the now-empty `src/mfgparams/operations/` directory and confirm `git status` shows the moves as renames, not add/delete pairs
 
 ### Import rewrites
 
-- [ ] T009 [US1] Rewrite intra-package imports in `src/mfgparams/processes/machining/drilling/{__init__,formulas,tools}.py`
-- [ ] T010 [US1] Rewrite intra-package imports in `src/mfgparams/processes/machining/milling/{__init__,_shared,_calculate,_tool_registry}.py`
-- [ ] T011 [US1] Rewrite intra-package imports in `src/mfgparams/processes/machining/milling/{end_milling,face_milling}/{__init__,formulas,tools}.py`
-- [ ] T012 [US1] Update the four operation imports in `src/mfgparams/__init__.py`, keeping `__all__` byte-identical (FR-005)
-- [ ] T013 [US1] Update the four operation imports in `src/mfgparams/cli.py` (lines importing `operations.drilling.tools`, `operations.milling._tool_registry`, and both milling sub-operation tool modules)
-- [ ] T014 [US1] Update the four `operations/**/data/*.toml` globs in `[tool.setuptools.package-data]` in `pyproject.toml` to their `processes/machining/**` paths
+- [X] T009 [US1] Rewrite intra-package imports in `src/mfgparams/processes/machining/drilling/{__init__,formulas,tools}.py`
+- [X] T010 [US1] Rewrite intra-package imports in `src/mfgparams/processes/machining/milling/{__init__,_shared,_calculate,_tool_registry}.py`
+- [X] T011 [US1] Rewrite intra-package imports in `src/mfgparams/processes/machining/milling/{end_milling,face_milling}/{__init__,formulas,tools}.py`
+- [X] T012 [US1] Update the four operation imports in `src/mfgparams/__init__.py` (lines 37-43) **and the module docstring** (line 22 names `mfgparams.operations.<operation>`; lines 18-20 and 24 name `operations.drilling` and `operations.milling.*` without the package prefix, so T037 will not flag them but they teach the wrong path), keeping `__all__` byte-identical (FR-005)
+- [X] T013 [US1] Update the four operation imports in `src/mfgparams/cli.py` (lines importing `operations.drilling.tools`, `operations.milling._tool_registry`, and both milling sub-operation tool modules)
+- [X] T013a [US1] Update the old-layout references in the docstrings of the two **unmoved** core modules: `src/mfgparams/models.py` (lines 3, 58, 76) and `src/mfgparams/registry_config.py` (line 7). data-model.md correctly lists both under *Unmoved*, so no move task touches them — but T037's FR-017 check scans the *content* of every tracked file, so leaving them fails T037 and T041 at the end of the run.
+- [X] T014 [US1] Update the four `operations/**/data/*.toml` globs in `[tool.setuptools.package-data]` in `pyproject.toml` to their `processes/machining/**` paths
 
 ### Test import rewrites
 
-- [ ] T015 [P] [US1] Rewrite `mfgparams.operations` imports across `tests/contract/`
-- [ ] T016 [P] [US1] Rewrite `mfgparams.operations` imports across `tests/integration/`
-- [ ] T017 [P] [US1] Rewrite `mfgparams.operations` imports across `tests/unit/` and `tests/performance/`
+- [X] T015 [P] [US1] Rewrite `mfgparams.operations` imports across `tests/contract/`
+- [X] T016 [P] [US1] Rewrite `mfgparams.operations` imports across `tests/integration/`
+- [X] T017 [P] [US1] Rewrite `mfgparams.operations` imports across `tests/unit/` and `tests/performance/`
 
 ### Tests for User Story 1
 
-- [ ] T018 [US1] Extend the public-surface test in `tests/contract/test_library_api_milling.py` from the two milling entry points to all 14 names in `mfgparams.__all__`, asserting each is present, exported and of the expected kind (FR-005)
-- [ ] T019 [P] [US1] Add a test asserting `importlib.import_module("mfgparams.operations")` raises `ModuleNotFoundError`, in `tests/contract/test_library_api_milling.py` or a sibling (FR-004)
-- [ ] T020 [US1] Verify FR-003: re-run `pytest tests/contract tests/integration` and diff pass/skip counts and the three golden calculations against `baseline.md`
+- [X] T018 [US1] Extend the public-surface test in `tests/contract/test_library_api_milling.py` from the two milling entry points to all 14 names in `mfgparams.__all__`, asserting each is present, exported and of the expected kind (FR-005)
+- [X] T019 [P] [US1] Add a test asserting `importlib.import_module("mfgparams.operations")` raises `ModuleNotFoundError`, in `tests/contract/test_library_api_milling.py` or a sibling (FR-004)
+- [X] T020 [US1] Verify FR-003: re-run `pytest tests/contract tests/integration` and diff pass/skip counts and the three golden calculations against `baseline.md`
 
 **Checkpoint**: Process-qualified paths work, old paths are gone, results are provably unchanged. This alone is a coherent, releasable increment.
 
@@ -103,12 +104,12 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 - [ ] T021 [US2] `git mv src/mfgparams/cli.py src/mfgparams/console/cli.py`
 - [ ] T022 [US2] Create `src/mfgparams/console/__main__.py` delegating to `mfgparams.console.cli.main`
-- [ ] T023 [US2] Rewrite `src/mfgparams/__main__.py` to define its own `main()` that imports the console **inside the function body** and wraps the console's dependency import in the FR-011 guard (contracts/console-entry-contract.md)
+- [ ] T023 [US2] Rewrite `src/mfgparams/__main__.py` to define its own `main()` that imports the console **inside the function body**, wrapped in the FR-011 guard exactly as specified in contracts/console-entry-contract.md § *What the guard actually wraps* — the `try` encloses the lazy console import, and any `ModuleNotFoundError` whose `exc.name` roots at `mfgparams` is re-raised rather than reported as a missing extra
 - [ ] T024 [US2] Confirm `[project.scripts] mfgparams = "mfgparams.__main__:main"` still resolves after T023, since `__main__.py` now defines `main` rather than re-exporting it
 
 ### Packaging and messages
 
-- [ ] T025 [P] [US2] Add `console = []` and `all = ["mfgparams[console]"]` to `[project.optional-dependencies]` in `pyproject.toml`, with a comment recording why the extra is declared while empty (contracts/installation-extras-contract.md)
+- [ ] T025 [P] [US2] Add `console = []` and `all = ["mfgparams[console]"]` to `[project.optional-dependencies]` in `pyproject.toml`, with a comment recording why the extra is declared while empty (contracts/installation-extras-contract.md). `all` is a **self-referential extra**, which pip only resolves from 21.2 onward; that is now a load-bearing floor rather than an incidental one, so keep the README's existing `python -m pip install --upgrade pip` step (README line 37, currently justified by PEP 660) and record the second reason beside it.
 - [ ] T026 [P] [US2] Add the missing-console message to `src/mfgparams/locales/en.py` under a stable ID, with a comment stating it MUST stay in the core catalogue when slice 015 relocates the others (research.md #4)
 - [ ] T027 [P] [US2] Rewrite `mfgparams.cli` imports across `tests/` to `mfgparams.console.cli`
 
@@ -116,7 +117,7 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 - [ ] T028 [P] [US2] Add `tests/static/test_core_does_not_import_console.py`: parse every module under `src/mfgparams/` except `__main__.py` with `ast` and fail on any import naming `mfgparams.console` (FR-008)
 - [ ] T029 [P] [US2] Add a runtime assertion to the same file that importing `mfgparams` and each `processes.machining.*` module leaves `mfgparams.console` absent from `sys.modules` — this is what keeps `__main__.py`'s exemption honest (FR-008)
-- [ ] T030 [P] [US2] Add a test named `test_console_missing_dependency_*` asserting the guard emits one actionable message naming `pip install mfgparams[console]` on stderr, exits non-zero, and raises no traceback, by simulating the dependency import failure (FR-011)
+- [ ] T030 [P] [US2] Add a test named `test_console_missing_dependency_*` asserting the guard emits one actionable message naming `pip install mfgparams[console]` on stderr, exits non-zero, and raises no traceback. Simulate the failure by making a non-`mfgparams` module the console imports unresolvable (e.g. `monkeypatch.setitem(sys.modules, "<dep>", None)`), never by patching the guard itself. Add the companion case too: a `ModuleNotFoundError` naming an `mfgparams.*` module must propagate, not be swallowed (FR-011)
 - [ ] T031 [US2] Add a `packaging`-marked test asserting a default (no-extras) install resolves no console-only dependency (FR-009, FR-013)
 - [ ] T032 [US2] Verify FR-012 manually per quickstart.md §5: `mfgparams --help` and `python -m mfgparams --help` produce identical output and exit 0
 
@@ -130,10 +131,10 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 
 **Independent Test**: Search the repository for old-layout references and find none outside the documented exclusions; build the distribution and confirm every bundled data file is at its new path.
 
-- [ ] T033 [P] [US3] `git mv tests/unit/operations tests/unit/processes/machining`, creating `tests/unit/processes/__init__.py` if the package markers require it (FR-014)
-- [ ] T034 [P] [US3] Update the module path referenced in `docs/source/drilling-api.rst` (line 5) to `mfgparams.processes.machining.drilling` (FR-016)
-- [ ] T035 [P] [US3] Update the module path referenced in `docs/source/milling-api.rst` (line 5) to `mfgparams.processes.machining.milling` (FR-016)
-- [ ] T036 [US3] Extend `tests/integration/test_packaging_bundled_data.py` to assert all four `.toml` files are present at their new paths in the built wheel **and** that no `.toml` remains under any `mfgparams/operations/` path (FR-015)
+- [ ] T033 [P] [US3] `mkdir -p tests/unit/processes` **first** (the `git mv` fails without it, as in T003), then `git mv tests/unit/operations tests/unit/processes/machining`. Add `tests/unit/processes/__init__.py` only if the existing partial markers require it — today only `tests/unit/operations/milling/` and its two sub-operation directories carry one; `tests/unit/`, `tests/unit/operations/` and `tests/unit/operations/drilling/` do not. (FR-014)
+- [ ] T034 [P] [US3] Update **both** old-path references in `docs/source/drilling-api.rst` — the prose at line 5 and the directory-tree block at line 133 — to `mfgparams.processes.machining.drilling` / `mfgparams/processes/machining/drilling/` (FR-016)
+- [ ] T035 [P] [US3] Update **both** old-path references in `docs/source/milling-api.rst` — the prose at line 5 and the directory-tree block at line 128 — to `mfgparams.processes.machining.milling` / `mfgparams/processes/machining/milling/` (FR-016)
+- [ ] T036 [US3] Extend `tests/integration/test_packaging_bundled_data.py` to assert all four `.toml` files are present at their new paths in the built wheel **and** that no `.toml` remains under any `mfgparams/operations/` path (FR-015). Tighten the existing assertions (lines 146-149) from suffix matches such as `endswith("drilling/data/tools.toml")` to the full in-wheel path: those suffixes are unchanged by the move, so as written they keep passing even if `[tool.setuptools.package-data]` is never updated - which is precisely the silent failure this test exists to catch.
 - [ ] T037 [US3] Add `tests/static/test_no_old_layout.py` modelled on `tests/static/test_no_old_package_name.py`: scan every git-tracked file's content *and its tracked path* for `mfgparams.operations` / `mfgparams/operations`, excluding prior specs, `specs/014-*/`, the constitution, `CHANGELOG.md`, and the check's own source (FR-017, research.md #5)
 - [ ] T038 [P] [US3] Update the README's structure and installation sections to show the process-qualified paths and the three install commands (FR-016)
 

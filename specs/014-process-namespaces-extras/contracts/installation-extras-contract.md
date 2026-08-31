@@ -13,6 +13,13 @@
 `test` and `dev` are pre-existing development extras and are outside this contract; `all` covers
 *runtime* extras only, and MUST NOT pull development tooling into a user install.
 
+`all` is expressed as a **self-referential extra** (`all = ["mfgparams[console]"]`) so that it
+cannot drift out of step with the extras it aggregates. pip resolves that form only from **21.2**
+onward. The project already instructs users to upgrade pip before installing, because Python 3.9
+ships a pip predating PEP 660 editable installs (README line 37) - so no new instruction is needed,
+but that step is now load-bearing for a second, independent reason and MUST NOT be dropped as
+obsolete when the 3.9 floor eventually rises.
+
 **The `console` extra is empty on delivery.** The console currently needs nothing beyond the
 standard library. It is declared anyway: adding an extra later is a packaging change users must
 react to, whereas populating a declared one is invisible to them.
