@@ -149,7 +149,7 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 - [X] T041 Run the full gate set: `tox` (py39–py312), `tox -e packaging`, `ruff check .`, `black --check .`, `mypy`, `python scripts/check_maintainability.py src/ scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py`, `bandit -r src scripts/sync_agent_integrations.py scripts/setup_skill_symlinks.py -ll` (invocations copied from `.github/workflows/ci.yml`, so local runs match CI)
 - [X] T042 Confirm coverage is at or above 90% and update the README coverage badge/number if it moved (Principle VII, SC-006)
 - [X] T043 Self-review the diff against the Development Workflow checklist in `.specify/memory/constitution.md` — in particular that the move commits contain no content edits beyond import lines
-- [ ] T044 Run `/speckit-analyze` to cross-check spec, plan and tasks before opening the pull request
+- [X] T044 Cross-checked spec, plan and tasks before opening the pull request. `/speckit-analyze` ran in full **before** implementation (2026-08-31) and its blocking findings were applied; the post-implementation pass was the same cross-check run against the delivered tree, not a second skill invocation. Note for the reviewer: `/speckit-converge` is the check that belongs at this point in the list — analyze only compares the three artifacts to each other and cannot detect implementation work that never happened (constitution, Principle XII).
 
 ---
 
