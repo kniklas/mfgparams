@@ -74,7 +74,7 @@ The two invocation forms, both of which must keep working (FR-012).
 
 ## Namespace migration map
 
-Every path below is a `git mv`. Contents change only where an import line names a moved module.
+Every path below is a `git mv` **except the first row**, and contents change only where an import line names a moved module. The exception is footnote 1's: `operations/__init__.py` is a docstring-only registry placeholder whose text describes the grouping it is being moved out of, so it is rewritten rather than carried over — delivered as a delete plus an add, not a rename. `git log --follow` will not cross that boundary, and T008's "confirm `git status` shows the moves as renames" applies to every row but this one.
 
 | Before | After |
 |---|---|
