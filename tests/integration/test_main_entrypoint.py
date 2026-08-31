@@ -56,6 +56,33 @@ def test_console_module_form_matches_the_package_root_help():
     assert direct.stdout == via_package.stdout
 
 
+def test_package_module_form_propagates_the_exit_status(monkeypatch):
+    """`python -m mfgparams` must pass the console's status to the interpreter.
+
+    The in-process twin of the subprocess checks above, and the only thing that
+    measures `mfgparams/__main__.py`'s own `raise SystemExit(main())`. That line
+    *is* the fix for "the console's exit status was discarded" -- a shim calling
+    `main()` bare exits 0 no matter what the console reported. Its sibling
+    `mfgparams/console/__main__.py` already has this test; the top-level entry
+    point, which is the one users actually reach, did not.
+    """
+
+    import runpy
+
+    import mfgparams.console.cli as console_cli
+
+    monkeypatch.setattr(console_cli, "main", lambda: 5)
+    # Other tests import this module by name; leaving it in sys.modules makes
+    # runpy warn that it is re-executing an already-imported module. Dropping it
+    # is what makes the re-execution the clean one the warning asks for.
+    monkeypatch.delitem(sys.modules, "mfgparams.__main__", raising=False)
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_module("mfgparams", run_name="__main__")
+
+    assert excinfo.value.code == 5
+
+
 def test_console_module_form_propagates_the_exit_status(monkeypatch):
     """Executed in-process, so this measures the shim's own lines rather than a
     child interpreter's -- the subprocess tests above prove it works end to end

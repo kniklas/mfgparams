@@ -31,11 +31,12 @@ _CONSOLE_MODULES = ("mfgparams.console", "mfgparams.console.cli")
 class _FailOnConsoleImport(importlib.abc.MetaPathFinder):
     """Raise ``ModuleNotFoundError(name=...)`` when the console is imported."""
 
-    def __init__(self, missing: str) -> None:
+    def __init__(self, missing: str | None) -> None:
         self._missing = missing
 
     def find_spec(self, fullname, path=None, target=None):
         if fullname == "mfgparams.console.cli":
+            # `name=None` is legitimate: an import hook may omit it.
             raise ModuleNotFoundError(f"No module named {self._missing!r}", name=self._missing)
         return None
 
@@ -44,7 +45,7 @@ class _FailOnConsoleImport(importlib.abc.MetaPathFinder):
 def simulate_missing(monkeypatch):
     """Make the console's import fail as though ``missing`` were absent."""
 
-    def _install(missing: str) -> None:
+    def _install(missing: str | None) -> None:
         for name in _CONSOLE_MODULES:
             monkeypatch.delitem(sys.modules, name, raising=False)
         monkeypatch.setattr(sys, "meta_path", [_FailOnConsoleImport(missing), *sys.meta_path])
@@ -116,6 +117,27 @@ def test_console_missing_dependency_does_not_mask_a_broken_core(simulate_missing
         entry_point.main()
 
     assert excinfo.value.name == missing
+
+
+def test_an_unnamed_import_failure_takes_the_friendly_path(simulate_missing, capsys):
+    """``ModuleNotFoundError`` does not always carry a ``name``.
+
+    Raised by hand, or by an import hook that omits it, ``exc.name`` is
+    ``None`` -- and with no name there is nothing to identify as core, so the
+    friendly path is the only honest answer: say the console is unavailable
+    without inventing a culprit. The guard has a fallback phrase for precisely
+    this, which until now was never reached.
+    """
+
+    simulate_missing(None)
+
+    status = entry_point.main()
+    stderr = capsys.readouterr().err
+
+    assert status == 1
+    assert "pip install mfgparams[console]" in stderr
+    assert "a dependency" in stderr
+    assert "None" not in stderr, "a missing name must not leak into the message"
 
 
 def test_core_requirement_roots_are_read_from_metadata_not_restated():
