@@ -103,7 +103,7 @@ land in US3 (T036) where spec.md places them. Neither story is complete without 
 ### Move and entry points
 
 - [X] T021 [US2] `git mv src/mfgparams/cli.py src/mfgparams/console/cli.py`
-- [X] T022 [US2] Create `src/mfgparams/console/__main__.py` delegating to `mfgparams.console.cli.main`
+- [X] T022 [US2] Create `src/mfgparams/console/__main__.py` delegating to `mfgparams.__main__.main` — **delivered differently from as written**: it first delegated to `mfgparams.console.cli.main`, which made `python -m mfgparams.console` the one invocation form that bypassed the FR-011 guard and answered a missing dependency with a traceback. Copilot review banded that HIGH; FR-011 is unqualified, and this is a form a user reaches by guessing. It now routes through the guarded entry point like the other two, `console/cli.py`'s own `if __name__ == "__main__"` block is gone (it was an unguarded *fourth* form), and `tests/static/test_entry_points_are_guarded.py` fails if a new runnable module appears
 - [X] T023 [US2] Rewrite `src/mfgparams/__main__.py` to define its own `main()` that imports the console **inside the function body**, wrapped in the FR-011 guard exactly as specified in contracts/console-entry-contract.md § *What the guard actually wraps* — the `try` encloses the lazy console import, and any `ModuleNotFoundError` whose `exc.name` roots at `mfgparams` is re-raised rather than reported as a missing extra
 - [X] T024 [US2] Confirm `[project.scripts] mfgparams = "mfgparams.__main__:main"` still resolves after T023, since `__main__.py` now defines `main` rather than re-exporting it
 

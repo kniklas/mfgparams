@@ -313,14 +313,28 @@ def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
     return grouped
 
 
+#: Declared extras that are deliberately outside `all`. `all` itself would be
+#: self-referential, and `test`/`dev` are development toolchains -- `all` must
+#: never pull tooling into a user install. Add a new *development* extra here;
+#: a new *runtime* extra belongs in `all` instead. See
+#: `test_all_extra_is_a_superset_of_every_runtime_extra` for why the split
+#: cannot be derived from the wheel.
+_NOT_RUNTIME_EXTRAS = frozenset({"all", "test", "dev"})
+
+
+def _declared_extras(wheel: Path) -> set[str]:
+    """Every extra the wheel declares, from its ``Provides-Extra`` lines."""
+    return {
+        line.split(":", 1)[1].strip()
+        for line in _wheel_metadata(wheel)
+        if line.startswith("Provides-Extra:")
+    }
+
+
 @pytest.mark.packaging
 def test_wheel_declares_the_console_and_all_extras(built_wheel):
     """FR-010: both extras are declared, so users can ask for them by name."""
-    provided = {
-        line.split(":", 1)[1].strip()
-        for line in _wheel_metadata(built_wheel)
-        if line.startswith("Provides-Extra:")
-    }
+    provided = _declared_extras(built_wheel)
 
     assert {"console", "all"} <= provided, f"declared extras were {sorted(provided)}"
 
@@ -352,8 +366,20 @@ def test_default_install_pulls_in_no_console_only_dependency(built_wheel):
 def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
     """FR-010: `[all]` means "everything optional the project ships".
 
-    It aggregates by referring to the other extras rather than restating their
-    contents, so it cannot drift out of step with them.
+    Two separate claims, and the weaker one is the easy one to test. Referring
+    to each extra by name rather than restating its contents means `all` cannot
+    drift from what those extras *hold* -- but it does not make `all` grow by
+    itself, and checking only that `console` is referenced would keep passing
+    the day an `api` extra is added and `all` is left behind. So the list is
+    checked against every runtime extra the wheel declares, which is what turns
+    the omission into a build failure instead of an incomplete install.
+
+    Which extras are *runtime* extras is a project decision that metadata does
+    not record, so it has to be written down somewhere; `_NOT_RUNTIME_EXTRAS`
+    is that somewhere. Deriving the rest from the wheel does not remove that
+    list, it just makes the default safe: a newly declared extra counts as
+    runtime until someone says otherwise, so the failure is a loud one either
+    way rather than a silently incomplete `mfgparams[all]`.
     """
     grouped = _requirements_by_extra(built_wheel)
     everything = grouped.get("all", set())
@@ -373,9 +399,19 @@ def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
     assert (
         referenced
     ), f"the `all` extra must aggregate the others by reference, found {sorted(everything)}"
-    assert (
-        "console" in referenced
-    ), f"the `all` extra must include `console`; it references {sorted(referenced)}"
+    # Every declared extra except `all` itself and the development ones.
+    runtime_extras = _declared_extras(built_wheel) - _NOT_RUNTIME_EXTRAS
+
+    assert runtime_extras, "the wheel declares no runtime extra; `all` has nothing to aggregate"
+    missing = runtime_extras - referenced
+    assert not missing, (
+        f"`all` omits the extra(s) {sorted(missing)}. Two remedies, and which one is "
+        f"right depends on what the extra is for: add it to `all` in pyproject.toml if "
+        f"it is a runtime capability users should get from `mfgparams[all]`, or add it "
+        f"to `_NOT_RUNTIME_EXTRAS` in this file if it is development tooling that must "
+        f"never reach a user install. Declared runtime extras: {sorted(runtime_extras)}; "
+        f"referenced by `all`: {sorted(referenced)}"
+    )
 
     development_only = {"pytest", "ruff", "black", "mypy", "tox", "sphinx", "bandit"}
     named = {requirement.split()[0].split("[")[0].split(">")[0] for requirement in everything}

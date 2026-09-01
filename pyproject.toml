@@ -35,8 +35,13 @@ dependencies = [
 # to, whereas populating an already-declared one is invisible to them
 # (specs/014-process-namespaces-extras contracts/installation-extras-contract.md).
 console = []
-# Every *runtime* extra the project ships, so `pip install mfgparams[all]`
-# stays correct as extras are added. Self-referential extras need pip >= 21.2 --
+# Every *runtime* extra the project ships. Referring to each extra by name
+# rather than restating its contents means `all` cannot drift from what those
+# extras hold -- but it does NOT make `all` grow by itself: adding a new
+# runtime extra means adding a line here too, and forgetting to leaves `all`
+# quietly incomplete. `tests/integration/test_packaging_bundled_data.py`
+# enforces the list against the wheel's declared extras so that omission fails
+# the build rather than shipping. Self-referential extras need pip >= 21.2 --
 # the README's `pip install --upgrade pip` step already covers that, and now
 # has a second, independent reason to stay. `test` and `dev` are development
 # extras and deliberately excluded: `all` must never pull tooling into a user

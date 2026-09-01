@@ -344,6 +344,107 @@ def test_provenance_looks_past_importlib_s_own_frames(monkeypatch, capsys):
     assert "pip install mfgparams[console]" in capsys.readouterr().err
 
 
+def test_the_console_extra_wins_over_a_core_declaration_of_the_same_name(monkeypatch):
+    """A name can be declared both without an extra and under `console`.
+
+    A core requirement carrying an environment marker that does not apply to
+    the running interpreter (`tomli; python_version < "3.11"` on 3.12) is not
+    installed there, so if the console re-declares it, the extra is exactly
+    what supplies it. Ranking the core declaration first would re-raise for a
+    module `pip install mfgparams[console]` would genuinely have fixed.
+
+    Simulated by declaring different metadata, not by patching the predicate:
+    `_declared_requirements` is the reader this guard consults, and swapping
+    what it reads is the same kind of substitution as `simulate_missing`.
+    """
+
+    monkeypatch.setattr(
+        entry_point,
+        "_declared_requirements",
+        lambda: [("tomli", None), ("tomli", "console")],
+    )
+
+    assert not entry_point._is_broken_core(
+        "tomli"
+    ), "the console extra declares tomli, so installing it is a fix that works"
+
+
+@pytest.mark.parametrize(
+    "declared,module,broken",
+    [
+        # `PyYAML` installs `yaml`. Neither lookup matches the import name, so
+        # the fall-through decides -- and the friendly path is already correct,
+        # since a name we do not recognise is most likely the missing extra.
+        ([("pyyaml", None), ("pyyaml", "console")], "yaml", False),
+        ([("pyyaml", None)], "yaml", False),
+        ([("pillow", "console")], "PIL", False),
+        # The residual gap, recorded rather than engineered around: two
+        # *different* distributions supplying the same import name. That is an
+        # install conflict, not a packaging arrangement worth supporting.
+        ([("foo", None), ("foo_bar", "console")], "foo", True),
+    ],
+    ids=["both-declared", "core-only", "console-only", "residual-gap"],
+)
+def test_a_distribution_name_that_is_not_the_import_name(monkeypatch, declared, module, broken):
+    """The import-vs-distribution mismatch is harmless *here*, unlike in the
+    execution-time guard, because both lookups miss together and the
+    fall-through is the friendly path.
+
+    This is the case a reader is most likely to mistake for a bug, so it is
+    pinned rather than argued in a comment alone.
+    """
+
+    monkeypatch.setattr(entry_point, "_declared_requirements", lambda: declared)
+
+    assert entry_point._is_broken_core(module) is broken
+
+
+def test_a_core_only_requirement_is_still_a_broken_install(monkeypatch):
+    """The tie-break must not swallow the case it was carved out of."""
+
+    monkeypatch.setattr(entry_point, "_declared_requirements", lambda: [("tomli", None)])
+
+    assert entry_point._is_broken_core("tomli")
+
+
+@pytest.mark.parametrize(
+    "module,broken",
+    [
+        ("mfgparams", True),
+        ("mfgparams.registry", True),
+        # A separate distribution whose name merely starts the same way. It is
+        # not part of our install, so its absence is not our damage.
+        ("mfgparams_plugin", False),
+        ("mfgparams_plugin.thing", False),
+    ],
+)
+def test_only_our_own_package_counts_as_ours(monkeypatch, module, broken):
+    monkeypatch.setattr(entry_point, "_declared_requirements", list)
+
+    assert entry_point._is_broken_core(module) is broken
+
+
+def test_the_console_module_form_is_guarded_too(simulate_missing, capsys):
+    """FR-011 is unqualified: it covers *invoking the console*, not one entry
+    point. `python -m mfgparams.console` is a form a user reaches by guessing,
+    so it must not be the one that answers with a stack trace."""
+
+    import runpy
+
+    simulate_missing("some_console_dependency")
+    monkeypatch_free_modules = ("mfgparams.console.__main__",)
+    for name in monkeypatch_free_modules:
+        sys.modules.pop(name, None)
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_module("mfgparams.console", run_name="__main__")
+
+    stderr = capsys.readouterr().err
+    assert excinfo.value.code == 1
+    assert "Traceback" not in stderr
+    assert "pip install mfgparams[console]" in stderr
+
+
 def test_an_exception_with_no_traceback_is_not_attributed_to_the_console():
     """A hand-raised error carries no frames, so there is no requester to
     attribute -- and an unattributable failure must not be blamed on the extra."""

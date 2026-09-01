@@ -22,9 +22,14 @@ def test_module_entrypoint_runs_and_exits_cleanly():
 #
 # Added by local review (L1). This module shim was manually exercised during
 # T040 but had no test, leaving it the only 0%-covered file in the package.
-# It is four lines, but they are the four that decide whether a user who
-# bypasses the package-root guard gets a working console and an honest exit
-# status.
+#
+# It originally called `console.cli.main` directly, deliberately bypassing the
+# package-root guard. Copilot review banded that HIGH: FR-011 is unqualified,
+# so the one invocation form a user reaches by guessing must not be the one
+# that answers a missing dependency with a traceback. It now delegates to the
+# guarded `mfgparams.__main__:main`, which is what the tests below exercise --
+# that this form reaches a working console and reports an honest exit status,
+# by the same route as the other two.
 
 
 def _run_module(module: str, *args: str, stdin: str = "") -> "subprocess.CompletedProcess[str]":

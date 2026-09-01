@@ -39,6 +39,25 @@ def _is_broken_core(module: str | None) -> bool:
       to install something they already have.
 
     Anything else is a genuine console dependency, so the friendly path applies.
+
+    The console extra wins a tie. A requirement can be declared *both* without
+    an extra and under ``console`` -- a core dependency carrying an environment
+    marker that does not apply to the running interpreter, say, re-declared for
+    the console. Ranking core first there would re-raise for a module
+    ``pip install mfgparams[console]`` would genuinely have supplied, which is
+    the one case where the friendly message is not just kind but correct. The
+    question this function really answers is *"is this something the console
+    extra cannot fix?"*, and that ordering is what keeps the answer honest.
+
+    Both lookups compare an **import** name against **distribution** names, and
+    those differ for a large class of packages (``PyYAML``/``yaml``). Here --
+    unlike in :func:`_requested_by_the_console`, where the same mismatch is
+    disqualifying -- it is harmless, because the two lookups miss *together*:
+    a name that does not match the console extra does not match the core set
+    either, so the fall-through is the friendly path, which is already the
+    right answer. The one residual gap needs two *different* distributions
+    supplying the same import name, one core and one console-gated; that is a
+    genuine install conflict rather than a case worth engineering around.
     """
     if not module:
         return False
@@ -46,6 +65,9 @@ def _is_broken_core(module: str | None) -> bool:
     root = module.split(".")[0]
     if root == "mfgparams":
         return True
+
+    if _normalise(root) in _console_extra_roots():
+        return False
 
     return _normalise(root) in _core_requirement_roots()
 
@@ -94,6 +116,22 @@ def _core_requirement_roots() -> frozenset:
     guard's friendly path is for.
     """
     return frozenset(root for root, extra in _declared_requirements() if extra is None)
+
+
+def _console_extra_roots() -> frozenset:
+    """Distribution names the ``console`` extra would install.
+
+    Empty on delivery, because the extra is (``pyproject.toml`` explains why).
+    Read from metadata rather than restated, so it starts covering a dependency
+    the day one is added with no second place to remember to update.
+
+    Used only by :func:`_is_broken_core`, to decide whether the extra could
+    supply a name that is *also* declared as a core requirement. It is
+    deliberately **not** how a run-time failure is attributed to the console --
+    see :func:`_requested_by_the_console` for why matching a distribution name
+    against an import name cannot work there.
+    """
+    return frozenset(root for root, extra in _declared_requirements() if extra == "console")
 
 
 #: The console package, as an absolute path. Used to attribute a run-time

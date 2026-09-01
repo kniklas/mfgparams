@@ -4,15 +4,25 @@
 
 ## Invocation forms
 
-Both MUST work, with identical behaviour (FR-012):
+All three MUST work, with identical behaviour (FR-012):
 
 | Form | Resolution |
 |---|---|
 | `mfgparams` | `[project.scripts]` → `mfgparams.__main__:main` |
 | `python -m mfgparams` | `mfgparams/__main__.py` executed as `__main__` |
+| `python -m mfgparams.console` | `mfgparams/console/__main__.py`, which delegates to `mfgparams.__main__:main` |
 
 `mfgparams/__main__.py` therefore defines `main()` itself rather than re-exporting it, so the
 console script and the module form resolve to the same function.
+
+The third form exists because `mfgparams.console` is a package with a `cli` module in it, so
+`python -m mfgparams.console` is a form a user reaches by guessing. **It MUST route through the
+same guarded `main()`**, not call `console.cli.main` directly. FR-011 is unqualified — it is about
+*invoking the console*, not about one entry point — so a bypass here would make one of the three
+ways to start the console answer a missing dependency with a stack trace, with nothing to tell a
+user which one they had picked. A maintainer who wants the raw import error has an explicit route
+that does not need a second entry point: `python -c "from mfgparams.console.cli import main;
+main()"`.
 
 ## Behaviour with console dependencies present
 
