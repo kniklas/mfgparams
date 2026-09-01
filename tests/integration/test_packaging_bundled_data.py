@@ -40,6 +40,7 @@ import ast
 import glob
 import importlib.machinery
 import inspect
+import re
 import shutil
 import subprocess
 import sys
@@ -142,11 +143,41 @@ def built_wheel(tmp_path_factory) -> Path:
 
 @pytest.mark.packaging
 def test_wheel_contains_bundled_materials_and_tools_toml(built_wheel):
-    names = zipfile.ZipFile(built_wheel).namelist()
-    assert any(n.endswith("data/materials.toml") for n in names), names
-    assert any(n.endswith("drilling/data/tools.toml") for n in names), names
-    assert any(n.endswith("end_milling/data/tools.toml") for n in names), names
-    assert any(n.endswith("face_milling/data/tools.toml") for n in names), names
+    """FR-015: every bundled data file ships, at its *full* in-wheel path.
+
+    Asserted on the whole path, not a suffix. The suffixes these assertions
+    originally used -- ``drilling/data/tools.toml`` and friends -- are exactly
+    the part the process-namespace move left unchanged, so they would have kept
+    passing even if ``[tool.setuptools.package-data]`` had never been
+    repointed: the library would install, import fine from a source checkout,
+    and fail only at first use of the installed wheel. That silent failure is
+    the entire reason this test builds an artifact instead of reading the
+    source tree.
+    """
+    names = set(zipfile.ZipFile(built_wheel).namelist())
+
+    expected = {
+        "mfgparams/data/materials.toml",
+        "mfgparams/processes/machining/drilling/data/tools.toml",
+        "mfgparams/processes/machining/milling/end_milling/data/tools.toml",
+        "mfgparams/processes/machining/milling/face_milling/data/tools.toml",
+    }
+    missing = expected - names
+    assert (
+        not missing
+    ), f"missing from the wheel: {sorted(missing)}\nwheel contained: {sorted(names)}"
+
+
+@pytest.mark.packaging
+def test_wheel_ships_no_data_under_the_old_operation_first_layout(built_wheel):
+    """The negative half of FR-015: a stale glob left behind in
+    ``package-data`` would keep passing the assertion above while shipping
+    files nobody references."""
+    stale = sorted(
+        name for name in zipfile.ZipFile(built_wheel).namelist() if "mfgparams/operations/" in name
+    )
+
+    assert not stale, f"the wheel still carries the old layout: {stale}"
 
 
 @pytest.mark.packaging
@@ -236,4 +267,263 @@ def test_packaging_tests_guard_against_build_dunder_main_not_bare_build():
         "_build_wheel must guard with "
         'pytest.importorskip("build.__main__"), not the bare "build" -- '
         f"found {arguments!r}"
+    )
+
+
+# --- Installation extras (FR-009, FR-010, FR-013) ---------------------------
+#
+# These assertions live in this module, rather than a file of their own, so
+# they share its single `built_wheel` build. A second module would mean a
+# second isolated `python -m build` -- another network round-trip inside the
+# required `build` check -- to inspect metadata the first wheel already
+# carries.
+
+
+def _wheel_metadata(wheel: Path) -> list[str]:
+    """Return the wheel's ``METADATA`` as a list of header lines."""
+    with zipfile.ZipFile(wheel) as archive:
+        name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
+        return archive.read(name).decode("utf-8").splitlines()
+
+
+#: The gating extra in a ``Requires-Dist`` marker. Shared with the guard in
+#: ``mfgparams/__main__.py``, which parses the same field for the same reason:
+#: quoting and spacing around ``==`` are not guaranteed, and older setuptools
+#: emits single quotes. A fixed ``'extra == "'`` substring test would group
+#: every console-gated requirement under ``None`` on such a wheel, emptying
+#: ``grouped["all"]`` and failing the assertions below with a message blaming
+#: `pyproject.toml` rather than the parser.
+_EXTRA_MARKER = re.compile(r"""extra\s*==\s*['"]([^'"]+)['"]""")
+
+
+def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
+    """Group the wheel's ``Requires-Dist`` entries by the extra that gates them.
+
+    ``None`` is the default install -- what ``pip install mfgparams`` pulls in
+    with no extras requested.
+    """
+    grouped: dict[str | None, set[str]] = {}
+    for line in _wheel_metadata(wheel):
+        if not line.startswith("Requires-Dist:"):
+            continue
+        value = line.split(":", 1)[1].strip()
+        requirement, _, marker = value.partition(";")
+        found = _EXTRA_MARKER.search(marker)
+        grouped.setdefault(found.group(1) if found else None, set()).add(requirement.strip())
+    return grouped
+
+
+def _distribution_name(requirement: str) -> str:
+    """The PEP 503-normalised distribution name a requirement string names.
+
+    Everything after the name -- version specifiers, extras, whitespace -- is
+    dropped, so `rich>=13` and `Rich >= 14` compare equal.
+    """
+    name = re.split(r"[^A-Za-z0-9._-]", requirement.strip(), maxsplit=1)[0]
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _referenced_extras(requirements: set[str]) -> set[str]:
+    """The extras named by ``mfgparams[...]`` self-references in ``requirements``.
+
+    Parsed rather than substring-matched: asking whether the word "console"
+    appears anywhere in the joined requirements also passes on a third-party
+    `console-tools`, so it would keep passing after the aggregation it exists
+    to prove had been removed.
+    """
+    referenced: set[str] = set()
+    for requirement in requirements:
+        name, bracket, rest = requirement.replace(" ", "").partition("[")
+        if bracket and name == "mfgparams":
+            referenced |= set(rest.split("]", 1)[0].split(","))
+    return referenced
+
+
+#: Declared extras that are deliberately outside `all`. `all` itself would be
+#: self-referential, and `test`/`dev` are development toolchains -- `all` must
+#: never pull tooling into a user install. Add a new *development* extra here;
+#: a new *runtime* extra belongs in `all` instead. See
+#: `test_all_extra_is_a_superset_of_every_runtime_extra` for why the split
+#: cannot be derived from the wheel.
+_NOT_RUNTIME_EXTRAS = frozenset({"all", "test", "dev"})
+
+
+def _declared_extras(wheel: Path) -> set[str]:
+    """Every extra the wheel declares, from its ``Provides-Extra`` lines."""
+    return {
+        line.split(":", 1)[1].strip()
+        for line in _wheel_metadata(wheel)
+        if line.startswith("Provides-Extra:")
+    }
+
+
+@pytest.mark.packaging
+def test_wheel_declares_the_console_and_all_extras(built_wheel):
+    """FR-010: both extras are declared, so users can ask for them by name."""
+    provided = _declared_extras(built_wheel)
+
+    assert {"console", "all"} <= provided, f"declared extras were {sorted(provided)}"
+
+
+@pytest.mark.packaging
+def test_default_install_pulls_in_no_console_only_dependency(built_wheel):
+    """FR-009, FR-013: `pip install mfgparams` carries only what the
+    calculations need.
+
+    Written as a set *difference* rather than a fixed list, so it keeps its
+    teeth once the console extra is no longer empty: the day a dependency is
+    added to `[console]`, this fails if it also leaks into the default set.
+    """
+    grouped = _requirements_by_extra(built_wheel)
+    default = grouped.get(None, set())
+    console_only = grouped.get("console", set())
+
+    # Intersected on the *distribution name*, not the whole requirement string.
+    # `rich>=13` by default and `rich>=14` under `console` are the same leak,
+    # but as strings they do not intersect, so the check would pass while the
+    # default install carried a console dependency -- the exact thing FR-013
+    # forbids. Names are normalised (PEP 503) so casing and `-`/`_` cannot hide
+    # it either. The original strings are kept for the failure message.
+    by_name: dict[str, list[str]] = {}
+    for requirement in default:
+        # A malformed entry normalises to "", and two of them would pair up as
+        # a leak that does not exist. It takes a corrupt wheel to reach, but a
+        # false FR-013 failure is a bad way to find that out.
+        name = _distribution_name(requirement)
+        assert name, f"unparseable Requires-Dist in the built wheel: {requirement!r}"
+        by_name.setdefault(name, []).append(requirement)
+    leaked = sorted(
+        (requirement, other)
+        for other in console_only
+        for requirement in by_name.get(_distribution_name(other), [])
+    )
+    assert not leaked, (
+        f"{leaked} names a distribution gated by the console extra that a default install "
+        "also requires, so `pip install mfgparams` would carry it (FR-013)"
+    )
+    assert all(
+        requirement.startswith("tomli") for requirement in default
+    ), f"unexpected default runtime dependency: {sorted(default)}"
+
+
+@pytest.mark.packaging
+def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
+    """FR-010: `[all]` means "everything optional the project ships".
+
+    Two separate claims, and the weaker one is the easy one to test. Referring
+    to each extra by name rather than restating its contents means `all` cannot
+    drift from what those extras *hold* -- but it does not make `all` grow by
+    itself, and checking only that `console` is referenced would keep passing
+    the day an `api` extra is added and `all` is left behind. So the list is
+    checked against every runtime extra the wheel declares, which is what turns
+    the omission into a build failure instead of an incomplete install.
+
+    Which extras are *runtime* extras is a project decision that metadata does
+    not record, so it has to be written down somewhere; `_NOT_RUNTIME_EXTRAS`
+    is that somewhere. Deriving the rest from the wheel does not remove that
+    list, it just makes the default safe: a newly declared extra counts as
+    runtime until someone says otherwise, so the failure is a loud one either
+    way rather than a silently incomplete `mfgparams[all]`.
+    """
+    grouped = _requirements_by_extra(built_wheel)
+    everything = grouped.get("all", set())
+
+    referenced = _referenced_extras(everything)
+
+    assert (
+        referenced
+    ), f"the `all` extra must aggregate the others by reference, found {sorted(everything)}"
+
+    # ...and *only* by reference. A requirement restated here rather than named
+    # through its extra is the drift this arrangement exists to prevent, and it
+    # would sail past every check below: it contributes no entry to `referenced`,
+    # so it neither satisfies nor violates the coverage assertion.
+    restated = {r for r in everything if not r.replace(" ", "").startswith("mfgparams[")}
+    assert not restated, (
+        f"`all` must name each extra rather than restate its contents; "
+        f"{sorted(restated)} is spelled out and will drift from the extra it duplicates"
+    )
+    # Every declared extra except `all` itself and the development ones.
+    runtime_extras = _declared_extras(built_wheel) - _NOT_RUNTIME_EXTRAS
+
+    assert runtime_extras, "the wheel declares no runtime extra; `all` has nothing to aggregate"
+    missing = runtime_extras - referenced
+    assert not missing, (
+        f"`all` omits the extra(s) {sorted(missing)}. Two remedies, and which one is "
+        f"right depends on what the extra is for: add it to `all` in pyproject.toml if "
+        f"it is a runtime capability users should get from `mfgparams[all]`, or add it "
+        f"to `_NOT_RUNTIME_EXTRAS` in this file if it is development tooling that must "
+        f"never reach a user install. Declared runtime extras: {sorted(runtime_extras)}; "
+        f"referenced by `all`: {sorted(referenced)}"
+    )
+
+    # Tooling named *directly* in `all` is already rejected by `restated` above
+    # -- after it, every entry is an `mfgparams[...]` self-reference, so a
+    # direct-name check against a list of tool names could never fire again and
+    # would be a guard in name only. What is left to check is the reference
+    # side, and it is checked transitively rather than here: see
+    # `test_no_runtime_extra_reaches_the_development_toolchain`.
+
+
+@pytest.mark.packaging
+def test_no_runtime_extra_reaches_the_development_toolchain(built_wheel):
+    """`all` must not reach `dev`/`test` *through* another extra either.
+
+    The superset test above checks only what `all` names directly, so
+    `console = ["mfgparams[dev]"]` leaves every one of its assertions green
+    while `pip install mfgparams[all]` -- and `pip install mfgparams[console]`
+    -- installs ruff, black, mypy, sphinx, bandit and pytest. Verified: with
+    that line in `pyproject.toml`, the whole extras suite still passed.
+
+    So the closure is walked rather than the first hop. A development extra
+    reachable from `all` by any path is the same failure at any depth.
+    """
+    grouped = _requirements_by_extra(built_wheel)
+    development = _NOT_RUNTIME_EXTRAS - {"all"}
+
+    reached: set[str] = set()
+    pending = ["all"]
+    while pending:
+        for extra in _referenced_extras(grouped.get(pending.pop(), set())):
+            if extra not in reached:
+                reached.add(extra)
+                pending.append(extra)
+
+    offending = reached & development
+    assert not offending, (
+        f"`mfgparams[all]` reaches the development extra(s) {sorted(offending)} through "
+        f"{sorted(reached)}; `all` covers runtime extras only and must never pull tooling "
+        f"into a user install"
+    )
+
+
+@pytest.mark.packaging
+def test_the_all_extra_is_not_gated_by_an_environment_marker(built_wheel):
+    """A marker on `all`'s self-references can empty the aggregate silently.
+
+    `_requirements_by_extra` reads the `extra ==` clause and discards the rest
+    of the marker, so `all = ["mfgparams[console]; python_version < '2.0'"]`
+    satisfies every assertion above while `pip install mfgparams[all]` resolves
+    to nothing on any interpreter. `all` is a pure aggregate; a condition on it
+    belongs on the extra being aggregated, where it is visible.
+    """
+    conditional = []
+    for line in _wheel_metadata(built_wheel):
+        if not line.startswith("Requires-Dist:"):
+            continue
+        requirement, _, marker = line.split(":", 1)[1].strip().partition(";")
+        found = _EXTRA_MARKER.search(marker)
+        if not found or found.group(1) != "all":
+            continue
+        # `str.strip("and")` would strip the *characters* a/n/d, which quietly
+        # empties a leftover bare `and` -- exactly what a second `extra ==`
+        # clause leaves behind, and that is a case this test must catch.
+        remainder = re.sub(r"^\s*and\b|\band\s*$", "", _EXTRA_MARKER.sub("", marker)).strip()
+        if remainder:
+            conditional.append(f"{requirement.strip()} ;{marker.strip()}")
+
+    assert not conditional, (
+        f"`all` carries the extra condition(s) {conditional}; a marker here can make the "
+        f"aggregate resolve to nothing without failing any coverage check. Put the "
+        f"condition on the aggregated extra's own requirements instead"
     )

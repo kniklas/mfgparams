@@ -12,7 +12,10 @@ independently.
 """
 
 import ast
+import importlib
 import inspect
+from dataclasses import is_dataclass
+from enum import Enum
 from pathlib import Path
 
 import pytest
@@ -62,19 +65,50 @@ _EXPECTED_SIGNATURES = {
 }
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "calculate_end_milling",
-        "calculate_face_milling",
-        "list_end_mill_tools",
-        "list_face_mill_tools",
-    ],
-)
-def test_entry_point_is_importable_from_the_package_root(name):
-    assert hasattr(mfgparams, name)
-    assert name in mfgparams.__all__
-    assert callable(getattr(mfgparams, name))
+#: Every name ``mfgparams`` publishes, and the kind of object it must be.
+#:
+#: FR-005 requires the top-level surface to be *unchanged* by the
+#: process-namespace restructure, so this is deliberately the whole of
+#: ``__all__`` rather than the four milling entry points this file originally
+#: covered: a name silently dropped, renamed, or degraded from a class to
+#: something else while modules moved underneath is exactly the regression the
+#: restructure could introduce, and nothing else would catch it.
+_PUBLIC_SURFACE = {
+    "calculate": "function",
+    "calculate_end_milling": "function",
+    "calculate_face_milling": "function",
+    "list_end_mill_tools": "function",
+    "list_face_mill_tools": "function",
+    "list_material_types": "function",
+    "list_materials": "function",
+    "list_tools": "function",
+    "UnitSystem": "enum",
+    "CalculationMode": "enum",
+    "CalculationResult": "dataclass",
+    "ErrorInfo": "dataclass",
+    "MachiningOperation": "enum",
+    "MillingSubOperation": "enum",
+}
+
+
+def test_public_surface_is_exactly_the_documented_set():
+    """``__all__`` itself must not drift -- in either direction (FR-005)."""
+
+    assert sorted(mfgparams.__all__) == sorted(_PUBLIC_SURFACE)
+
+
+@pytest.mark.parametrize("name,kind", sorted(_PUBLIC_SURFACE.items()))
+def test_entry_point_is_importable_from_the_package_root(name, kind):
+    assert hasattr(mfgparams, name), f"{name} is no longer importable from mfgparams"
+    assert name in mfgparams.__all__, f"{name} is no longer exported"
+
+    obj = getattr(mfgparams, name)
+    if kind == "function":
+        assert callable(obj) and not isinstance(obj, type), f"{name} is no longer a function"
+    elif kind == "enum":
+        assert isinstance(obj, type) and issubclass(obj, Enum), f"{name} is no longer an Enum"
+    else:
+        assert isinstance(obj, type) and is_dataclass(obj), f"{name} is no longer a dataclass"
 
 
 @pytest.mark.parametrize(
@@ -157,8 +191,8 @@ def _python_files(relative: str) -> list[Path]:
 @pytest.mark.parametrize(
     "package,forbidden",
     [
-        ("operations/milling", "mfgparams.operations.drilling"),
-        ("operations/drilling", "mfgparams.operations.milling"),
+        ("processes/machining/milling", "mfgparams.processes.machining.drilling"),
+        ("processes/machining/drilling", "mfgparams.processes.machining.milling"),
     ],
     ids=["milling_does_not_import_drilling", "drilling_does_not_import_milling"],
 )
@@ -177,7 +211,7 @@ def test_operations_do_not_import_each_other(package, forbidden):
 def test_operations_depend_only_on_shared_top_level_modules():
     """Anything an operation imports from the package must be a shared module."""
 
-    for package in ("operations/milling", "operations/drilling"):
+    for package in ("processes/machining/milling", "processes/machining/drilling"):
         own_prefix = f"mfgparams.{package.replace('/', '.')}"
         for path in _python_files(package):
             for module in _imported_modules(path):
@@ -190,3 +224,31 @@ def test_operations_depend_only_on_shared_top_level_modules():
                     f"{path.relative_to(_SRC)} imports {module}, which is neither its own "
                     "package nor a shared top-level module (FR-014, Constitution VI)"
                 )
+
+
+# --- FR-004: the operation-first namespace is gone, with no alias ---
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "mfgparams.operations",
+        "mfgparams.operations.drilling",
+        "mfgparams.operations.milling",
+        "mfgparams.operations.milling.end_milling",
+        "mfgparams.operations.milling.face_milling",
+    ],
+)
+def test_old_operation_first_namespace_is_unreachable(module):
+    """There is exactly one path to each calculation (FR-004).
+
+    No alias, shim or deprecation period: nothing was ever published under the
+    old paths, so the restructure took the clean break rather than carrying a
+    compatibility layer. A future contributor re-adding one to "help" would
+    make both paths live, which is what this test exists to prevent -- the
+    companion static check (``tests/static/test_no_old_layout.py``) catches the
+    same mistake at the file level.
+    """
+
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(module)

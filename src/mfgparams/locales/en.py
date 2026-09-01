@@ -9,7 +9,31 @@ Catalog) for the entity definition this module implements.
 from __future__ import annotations
 
 MESSAGES: dict[str, str] = {
-    # --- Interactive text interface (cli.py) prompts and labels ---
+    # --- Console availability (mfgparams/__main__.py, FR-011) ---
+    #
+    # MUST stay in the core catalog when slice 015 relocates the others into
+    # the console. This message exists to say the console is unavailable, so
+    # looking it up from a catalog that lives inside the console would fail
+    # exactly when it is needed and hand the user the traceback FR-011 exists
+    # to prevent (contracts/console-entry-contract.md, research.md #4).
+    # `{command}` is built by the guard rather than written here, and both of
+    # its peculiarities are load-bearing (contracts/console-entry-contract.md):
+    # the requirement is *quoted*, because zsh -- the default shell on macOS --
+    # globs `[console]` and aborts with `no matches found` before pip runs; and
+    # it names the *running interpreter* rather than a bare `pip`, which on a
+    # machine with several Pythons installs into the wrong one and reproduces
+    # this very message. FR-011 promises "the exact command that fixes it", so
+    # neither is cosmetic -- and neither is left where a translation could
+    # break it.
+    "console.missing_dependency": (
+        "The interactive console is not available: it needs {module}, which is "
+        "not installed.\nInstall it with:  {command}"
+    ),
+    # Substituted for `{module}` above when the exception carried no name.
+    # Prose, so it is catalogued rather than inlined at the call site: a
+    # literal there would stay English inside a translated sentence.
+    "console.missing_dependency.unnamed": "a dependency",
+    # --- Interactive text interface (console/cli.py) prompts and labels ---
     "cli.prompt.unit_system": "Unit system [metric/imperial] ({default}): ",
     "cli.prompt.unit_system.invalid": "Please enter 'metric' or 'imperial'.",
     "cli.unit_system.metric": "metric",
@@ -62,7 +86,7 @@ MESSAGES: dict[str, str] = {
     "cli.prompt.target_rpm.invalid": (
         "Please enter a positive numeric value for target spindle speed."
     ),
-    # --- Validation / structured errors (validation.py, operations.drilling) ---
+    # --- Validation / structured errors (validation.py, machining.drilling) ---
     "error.invalid_diameter.zero": "Drill diameter must be greater than 0.",
     "error.invalid_diameter.max": "Drill diameter must not exceed {max_diameter_mm:g} mm.",
     "error.invalid_depth.zero": "Hole depth must be greater than 0.",

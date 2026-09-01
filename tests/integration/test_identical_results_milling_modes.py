@@ -11,7 +11,7 @@ import builtins
 import re
 
 from mfgparams import CalculationMode, calculate_end_milling, calculate_face_milling
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 #: Displayed label -> (result attribute, decimal places used by the CLI).
 _DISPLAYED = {

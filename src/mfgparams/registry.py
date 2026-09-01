@@ -4,7 +4,7 @@ Reference cutting-speed/feed values are canonical-metric, HSS-baseline
 figures drawn from widely published machining data (Machinery's Handbook /
 Sandvik Coromant general-purpose reference ranges for twist drilling); see
 ``specs/001-metal-drilling-calc/research.md`` #4. Drilling-tool factors
-(``operations/drilling/tools.py``) multiply these baseline values.
+(``processes/machining/drilling/tools.py``) multiply these baseline values.
 
 Since ``specs/005-configurable-materials-tools``, the registry is built by
 merging the bundled ``data/materials.toml`` package-data file with an

@@ -6,7 +6,7 @@ rather than crash or proceed with bad input.
 
 import builtins
 
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 
 def test_invalid_diameter_is_reprompted(monkeypatch, capsys):

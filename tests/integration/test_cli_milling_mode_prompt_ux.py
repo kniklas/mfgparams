@@ -11,7 +11,7 @@ T015, T016.
 
 import builtins
 
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 
 def test_invalid_mode_choice_is_reprompted(monkeypatch, capsys):

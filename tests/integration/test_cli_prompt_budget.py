@@ -22,7 +22,7 @@ import builtins
 
 import pytest
 
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 #: SC-001's ceiling for the standard mode (unchanged, SC-004).
 SC001_MAX_PROMPTS = 14

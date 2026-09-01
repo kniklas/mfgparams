@@ -29,13 +29,65 @@ issue: <https://github.com/kniklas/mfgparams/issues/new>. See
 [`LICENSE.md`](LICENSE.md) for the full terms; all rights not expressly
 granted there, including all commercial rights, are reserved.
 
+## Install
+
+```bash
+pip install mfgparams                # core dependencies only
+pip install "mfgparams[console]"     # adds the console's dependencies
+pip install "mfgparams[all]"         # adds every optional runtime dependency
+```
+
+`[all]` names the other extras rather than restating them, and pip only
+understands that form from **21.2** onward — older pips (including the one
+Python 3.9 ships) reject it. `python -m pip install --upgrade pip` first if
+you are on one.
+
+An extra gates **dependencies, not modules**: every install ships the same
+wheel, `mfgparams.console` included. What `[console]` adds is what the console
+*needs*, so embedding the library in another application does not drag the
+REPL's requirements in with it. The extra is currently empty — the console
+needs nothing beyond the standard library today — so a default install can in
+fact run the console; the extra is declared now so that populating it later
+stays invisible to you.
+
+If a console dependency is ever unavailable, invoking `mfgparams` prints the
+exact command that fixes it and exits non-zero rather than showing a traceback.
+A failure inside `mfgparams` itself — a damaged install, a missing *core*
+dependency — still raises normally, because `pip install "mfgparams[console]"`
+would not fix it.
+
+## Package structure
+
+Modules are grouped **process-first**: a manufacturing process contains its
+operations, and an operation may contain sub-operations.
+
+```text
+mfgparams                                          public API — import from here
+mfgparams.processes.machining.drilling
+mfgparams.processes.machining.milling.end_milling
+mfgparams.processes.machining.milling.face_milling
+mfgparams.console                                  interactive console
+```
+
+The calculation modules are re-exported at the top level, so
+`from mfgparams import calculate` is the supported way to reach them; the
+qualified paths are there to say where a calculation sits in the manufacturing
+domain. `mfgparams.console` is *not* part of that surface — the console is
+reached through the `mfgparams` command, `python -m mfgparams`, or
+`python -m mfgparams.console`. All three behave identically.
+
+A future process (turning, welding, joining, forming) attaches beside
+`machining` rather than reorganising it.
+
 ## Install (development)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.3),
-                                      # which predates PEP 660 editable-install support
+                                      # which predates PEP 660 editable-install support;
+                                      # also below 21.2, which predates the self-referential
+                                      # extra that `mfgparams[all]` is built from
 pip install -e ".[dev]"
 ```
 

@@ -8,7 +8,7 @@ warning behaviour with and without a supplied power rating.
 
 import builtins
 
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 _ANSWERS = [
     "milling",

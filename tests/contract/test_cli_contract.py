@@ -6,7 +6,7 @@ mfgparams.calculate() and must not reimplement any drilling formulas
 import ast
 from pathlib import Path
 
-CLI_PATH = Path(__file__).resolve().parents[2] / "src" / "mfgparams" / "cli.py"
+CLI_PATH = Path(__file__).resolve().parents[2] / "src" / "mfgparams" / "console" / "cli.py"
 
 # Formula-bearing operators/functions that would indicate the CLI is
 # performing its own calculation instead of delegating to calculate().

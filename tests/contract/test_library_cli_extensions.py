@@ -8,7 +8,7 @@ from __future__ import annotations
 import inspect
 
 from mfgparams import calculate
-from mfgparams.operations.drilling.tools import get_tool, list_tools
+from mfgparams.processes.machining.drilling.tools import get_tool, list_tools
 from mfgparams.registry import get_material, list_materials
 
 

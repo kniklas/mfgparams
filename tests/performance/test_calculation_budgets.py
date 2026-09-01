@@ -21,12 +21,12 @@ from __future__ import annotations
 import pytest
 
 from mfgparams import calculate, calculate_end_milling, calculate_face_milling
-from mfgparams.operations.drilling.formulas import (
+from mfgparams.processes.machining.drilling.formulas import (
     calculate_drilling_metrics,
     calculate_drilling_metrics_at_rpm,
     calculate_power_constrained_metrics,
 )
-from mfgparams.operations.drilling.tools import get_tool
+from mfgparams.processes.machining.drilling.tools import get_tool
 from mfgparams.registry import get_material
 
 from . import budgets, harness, results
@@ -37,7 +37,7 @@ _TOOL = get_tool("Carbide")
 # One representative, realistic input set per measured function (T011): a
 # 10mm-diameter, 25mm-deep mild-steel/carbide drilling case, matching the
 # examples already used across the existing unit-test suite (e.g.
-# tests/unit/operations/drilling/test_calculate.py, test_formulas_at_rpm.py).
+# tests/unit/processes/machining/drilling/test_calculate.py, test_formulas_at_rpm.py).
 CASES: list[harness.PerformanceTestCase] = [
     harness.PerformanceTestCase(
         name="calculate() (standard mode)",

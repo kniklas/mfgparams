@@ -197,7 +197,8 @@ def validate_feed_per_tooth_mm(
     overflow a downstream calculation (e.g. ``feed_rate_mm_min = rpm *
     feed_per_tooth_mm * number_of_teeth``) is instead rejected post-hoc as
     ``CALCULATION_OVERFLOW`` by
-    ``operations.milling._calculate._reject_if_overflowed()``, rather than
+    ``processes.machining.milling._calculate._reject_if_overflowed()``,
+    rather than
     being bounded here.
     """
 

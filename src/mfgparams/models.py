@@ -1,7 +1,7 @@
 """Shared, operation-agnostic data structures.
 
-These types are used by every `mfgparams.operations.*` module (currently
-only drilling) and by the CLI layer. See
+These types are used by every `mfgparams.processes.*` calculation module and by
+the console layer. See
 ``specs/001-metal-drilling-calc/data-model.md`` for the authoritative field
 definitions this module implements.
 """
@@ -55,11 +55,12 @@ class MachiningOperation(Enum):
 
     Drives CLI dispatch only (specs/009-milling-calculations FR-001); it is
     not an input to any calculation function. Each member routes to its own
-    ``mfgparams.operations.<operation>`` package.
+    ``mfgparams.processes.machining.<operation>`` package.
 
     Attributes:
-        DRILLING: The existing drilling flow (``operations.drilling``),
-            unchanged by the introduction of this enum (FR-002).
+        DRILLING: The existing drilling flow
+            (``processes.machining.drilling``), unchanged by the
+            introduction of this enum (FR-002).
         MILLING: The milling flow, which prompts for a
             :class:`MillingSubOperation` before any material/tool prompt.
     """
@@ -73,7 +74,7 @@ class MillingSubOperation(Enum):
 
     Drives CLI dispatch only (specs/009-milling-calculations FR-003).
     Each member routes to its own sibling package under
-    ``mfgparams.operations.milling`` with its own tool registry, input
+    ``mfgparams.processes.machining.milling`` with its own tool registry, input
     labelling and validation.
 
     Attributes:

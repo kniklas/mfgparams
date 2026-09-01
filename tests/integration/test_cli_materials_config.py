@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from mfgparams import i18n
-from mfgparams.cli import run
+from mfgparams.console.cli import run
 
 
 def _feed_inputs(monkeypatch, inputs):

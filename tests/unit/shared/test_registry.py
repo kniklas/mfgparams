@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mfgparams.operations.drilling.tools import TOOL_REGISTRY, get_tool, list_tools
+from mfgparams.processes.machining.drilling.tools import TOOL_REGISTRY, get_tool, list_tools
 from mfgparams.registry import (
     MATERIAL_REGISTRY,
     WorkpieceMaterial,
@@ -97,8 +97,8 @@ def test_material_validate_rejects_non_positive_fields():
 
 
 def test_tool_validate_rejects_non_positive_fields():
-    from mfgparams.operations.drilling.tools import DrillingTool
-    from mfgparams.operations.drilling.tools import _validate as validate_tool
+    from mfgparams.processes.machining.drilling.tools import DrillingTool
+    from mfgparams.processes.machining.drilling.tools import _validate as validate_tool
 
     with pytest.raises(RegistryConfigError):
         validate_tool(DrillingTool("Bad", 0, 1.0))

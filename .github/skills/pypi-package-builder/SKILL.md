@@ -97,7 +97,7 @@ If the package needs a CLI entry point, add:
 
 ```toml
 [project.scripts]
-mfgparams = "mfgparams.cli:main"
+mfgparams = "mfgparams.__main__:main"
 ```
 
 ## 4. Versioning

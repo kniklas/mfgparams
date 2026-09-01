@@ -14,7 +14,9 @@ from __future__ import annotations
 import ast
 import inspect
 
-from mfgparams import cli, logging_setup
+from mfgparams import __main__ as entry_point
+from mfgparams import logging_setup
+from mfgparams.console import cli
 
 
 def _call_sites(source: str, func_names: set[str]) -> list[ast.Call]:
@@ -38,6 +40,34 @@ def test_cli_has_no_hardcoded_user_facing_strings():
         for arg in call.args:
             assert not isinstance(arg, ast.Constant) or not isinstance(arg.value, str), (
                 "cli.py must source user-facing text from the message catalog "
+                f"(translate()), found a literal string argument at line {call.lineno}"
+            )
+
+
+def test_the_entry_point_has_no_hardcoded_user_facing_strings():
+    """`__main__.py` prints too, and Principle VIII does not stop at `cli.py`.
+
+    The FR-011 message and the console's own error status both reach the user
+    from here, so a literal added to either `print()` is untranslated output in
+    the same sense `cli.py` is scanned for.
+
+    This scan reads *direct* arguments only, which is the shape it can judge
+    without guessing: `__main__.py` legitimately holds string literals that are
+    not user-facing (message IDs, a marker regex). A literal buried inside a
+    nested call is invisible to it -- that hole is covered at runtime by
+    `test_the_unnamed_fallback_is_looked_up_rather_than_inlined`, which asserts
+    editing the catalog changes the output.
+    """
+
+    source = inspect.getsource(entry_point)
+    calls = _call_sites(source, {"input", "print"})
+
+    assert calls, "expected at least one print() call site in __main__.py"
+
+    for call in calls:
+        for arg in call.args:
+            assert not isinstance(arg, ast.Constant) or not isinstance(arg.value, str), (
+                "__main__.py must source user-facing text from the message catalog "
                 f"(translate()), found a literal string argument at line {call.lineno}"
             )
 

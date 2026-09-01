@@ -183,7 +183,7 @@ cannot express on its own: *is this finding worth a review round at all?*
 ## 2. Calculation correctness (Constitution Principles I & III)
 
 Flag any of the following in changed calculation code
-(`src/mfgparams/**`, especially `operations/*/formulas.py`):
+(`src/mfgparams/**`, especially `processes/**/formulas.py`):
 
 - Floating-point equality checks using `==` instead of `math.isclose` (or
   an explicit tolerance).
@@ -278,8 +278,9 @@ that hardware profile (enforced by the opt-in suite under
 
 - Operation-specific logic (e.g. drilling's spindle speed/feed/torque/power
   formulas) must live behind a per-operation module/interface
-  (`operations/<name>/`), not be hard-coded into shared infrastructure
-  (CLI, config loading, unit conversion, material/tool registries).
+  (`processes/<process>/<operation>/`), not be hard-coded into shared
+  infrastructure (the console, config loading, unit conversion, material/tool
+  registries).
 - Shared cross-cutting concerns (validation, unit conversion, error
   reporting) belong in shared components, not duplicated per operation.
 

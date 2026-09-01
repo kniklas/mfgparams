@@ -29,6 +29,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The interactive console's runtime dependencies. Empty on delivery: the
+# console needs nothing beyond the standard library today. It is declared
+# anyway because adding an extra later is a packaging change users must react
+# to, whereas populating an already-declared one is invisible to them
+# (specs/014-process-namespaces-extras contracts/installation-extras-contract.md).
+console = []
+# Every *runtime* extra the project ships. Referring to each extra by name
+# rather than restating its contents means `all` cannot drift from what those
+# extras hold -- but it does NOT make `all` grow by itself: adding a new
+# runtime extra means adding a line here too, and forgetting to leaves `all`
+# quietly incomplete. `tests/integration/test_packaging_bundled_data.py`
+# enforces the list against the wheel's declared extras so that omission fails
+# the build rather than shipping. Self-referential extras need pip >= 21.2 --
+# the README's `pip install --upgrade pip` step already covers that, and now
+# has a second, independent reason to stay. `test` and `dev` are development
+# extras and deliberately excluded: `all` must never pull tooling into a user
+# install.
+all = ["mfgparams[console]"]
 # Exactly what running the test suite needs, and nothing else. `tox` and CI's
 # `test` job install this rather than the full `dev` toolchain so that the
 # Python-version gate this feature exists to enforce measures *the library*:
@@ -95,9 +113,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 mfgparams = [
     "data/*.toml",
-    "operations/drilling/data/*.toml",
-    "operations/milling/end_milling/data/*.toml",
-    "operations/milling/face_milling/data/*.toml",
+    "processes/machining/drilling/data/*.toml",
+    "processes/machining/milling/end_milling/data/*.toml",
+    "processes/machining/milling/face_milling/data/*.toml",
 ]
 
 [tool.pytest.ini_options]
