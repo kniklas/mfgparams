@@ -126,7 +126,8 @@ pytest -q -k "console_missing_dependency"
 ```
 
 **Expected**: passes, asserting a single actionable message on stderr naming
-`pip install mfgparams[console]`, a non-zero exit status, and **no traceback**.
+`pip install "mfgparams[console]"` (quoted — unquoted, zsh globs it and aborts before pip runs), a
+non-zero exit status, and **no traceback**.
 
 ---
 

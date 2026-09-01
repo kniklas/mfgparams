@@ -34,10 +34,11 @@ behaviour.
 
 | Aspect | Requirement |
 |---|---|
-| Output | One short message naming the exact command that fixes it: `pip install mfgparams[console]` |
+| Output | One short message naming the exact command that fixes it: `pip install "mfgparams[console]"` |
 | Stream | stderr |
 | Exit status | Non-zero |
 | Traceback | MUST NOT be shown |
+| Shell safety | The command MUST be **quoted**, and MUST run as printed in the user's shell |
 | Trigger | A dependency of the console failing to import — never a check for the console module, which always exists (see [installation-extras-contract.md](./installation-extras-contract.md)). The concrete construct is specified below. |
 
 The guard MUST cover the lazy console import inside `main()` **and the console's own execution**,
@@ -48,6 +49,17 @@ Execution is covered because a console dependency need not be imported at the co
 scope. #63 explicitly permits a heavy dependency to be imported lazily, inside the call; such an
 import fails *after* `main()` has committed to running, so a guard wrapped around the import alone
 emits exactly the raw traceback FR-011 forbids, on precisely the path the extra exists to describe.
+
+### The command must survive being pasted into a shell
+
+"The exact command that fixes it" is a claim about something the user will paste, so an unrunnable
+command fails FR-011 as surely as a traceback would — worse, arguably, since it tells the user the
+fix does not exist. Unquoted, `mfgparams[console]` is a glob: zsh, the default shell on macOS,
+matches nothing and aborts the whole line with `no matches found` before pip is ever invoked. The
+requirement is therefore quoted in the catalogue entry, and the test asserts it by running the
+emitted command under `zsh` with a stub `pip` on `PATH`, checking pip receives
+`mfgparams[console]` intact. The unquoted form's failure is pinned by its own test, so the quoting
+cannot later be mistaken for a style preference and removed.
 
 ## What the guard actually wraps
 

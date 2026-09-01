@@ -20,7 +20,11 @@ from __future__ import annotations
 import importlib
 import importlib.abc
 import os
+import shlex
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -29,6 +33,11 @@ import mfgparams
 import mfgparams.__main__ as entry_point
 
 _CONSOLE_MODULES = ("mfgparams.console", "mfgparams.console.cli")
+
+#: The command FR-011 promises is "the exact command that fixes it". Stated
+#: once here rather than inline at each assertion, so the shell-safety rule
+#: below governs every one of them.
+_FIX_COMMAND = 'pip install "mfgparams[console]"'
 
 
 class _FailOnConsoleImport(importlib.abc.MetaPathFinder):
@@ -63,7 +72,7 @@ def test_console_missing_dependency_reports_the_install_command(simulate_missing
     captured = capsys.readouterr()
 
     assert status != 0, "a console that could not start must not report success"
-    assert "pip install mfgparams[console]" in captured.err
+    assert _FIX_COMMAND in captured.err
     assert captured.out == "", "the guidance belongs on stderr, not stdout"
 
 
@@ -74,7 +83,7 @@ def test_console_missing_dependency_emits_one_message_and_no_traceback(simulate_
     stderr = capsys.readouterr().err
 
     assert "Traceback" not in stderr
-    assert stderr.count("pip install mfgparams[console]") == 1, "say it once"
+    assert stderr.count(_FIX_COMMAND) == 1, "say it once"
 
 
 def test_console_missing_dependency_message_comes_from_the_catalog(simulate_missing, capsys):
@@ -138,7 +147,7 @@ def test_an_unnamed_import_failure_takes_the_friendly_path(simulate_missing, cap
     stderr = capsys.readouterr().err
 
     assert status == 1
-    assert "pip install mfgparams[console]" in stderr
+    assert _FIX_COMMAND in stderr
     assert "a dependency" in stderr
     assert "None" not in stderr, "a missing name must not leak into the message"
 
@@ -237,7 +246,7 @@ def test_a_lazy_console_dependency_still_gets_the_friendly_message(monkeypatch, 
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert "pip install mfgparams[console]" in stderr
+    assert _FIX_COMMAND in stderr
     assert _ABSENT in stderr
 
 
@@ -250,7 +259,7 @@ def test_a_lazy_import_deeper_inside_the_console_is_also_attributed(monkeypatch,
     monkeypatch.setattr(console_cli, "main", _console_main_that_imports(_ABSENT, from_file=deeper))
 
     assert entry_point.main() == 1
-    assert "pip install mfgparams[console]" in capsys.readouterr().err
+    assert _FIX_COMMAND in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -303,7 +312,7 @@ def test_the_import_name_never_has_to_match_a_distribution_name(monkeypatch, cap
     )
 
     assert entry_point.main() == 1
-    assert "pip install mfgparams[console]" in capsys.readouterr().err
+    assert _FIX_COMMAND in capsys.readouterr().err
 
 
 def test_the_console_frame_is_found_past_the_import_machinery():
@@ -375,7 +384,7 @@ def test_provenance_looks_past_importlib_s_own_frames(monkeypatch, capsys):
     monkeypatch.setattr(console_cli, "main", namespace["main"])
 
     assert entry_point.main() == 1
-    assert "pip install mfgparams[console]" in capsys.readouterr().err
+    assert _FIX_COMMAND in capsys.readouterr().err
 
 
 def test_the_console_extra_wins_over_a_core_declaration_of_the_same_name(monkeypatch):
@@ -476,7 +485,7 @@ def test_the_console_module_form_is_guarded_too(simulate_missing, capsys):
     stderr = capsys.readouterr().err
     assert excinfo.value.code == 1
     assert "Traceback" not in stderr
-    assert "pip install mfgparams[console]" in stderr
+    assert _FIX_COMMAND in stderr
 
 
 def test_an_exception_with_no_traceback_is_not_attributed_to_the_console():
@@ -583,7 +592,7 @@ def test_a_console_library_s_own_missing_dependency_is_attributed_to_the_console
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert "pip install mfgparams[console]" in stderr
+    assert _FIX_COMMAND in stderr
 
 
 def test_a_library_that_imports_via_a_helper_is_still_the_console_s_dependency(
@@ -618,7 +627,7 @@ def test_a_library_that_imports_via_a_helper_is_still_the_console_s_dependency(
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert "pip install mfgparams[console]" in stderr
+    assert _FIX_COMMAND in stderr
 
 
 def test_a_library_s_lazy_import_inside_a_call_is_still_its_own_bug(tmp_path, monkeypatch, capsys):
@@ -729,7 +738,7 @@ def test_a_pep_562_lazy_submodule_is_still_the_console_s_dependency(tmp_path, mo
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert "pip install mfgparams[console]" in stderr
+    assert _FIX_COMMAND in stderr
 
 
 def test_the_innermost_console_frame_is_what_counts_not_the_first(tmp_path, monkeypatch, capsys):
@@ -758,7 +767,7 @@ def test_the_innermost_console_frame_is_what_counts_not_the_first(tmp_path, monk
     monkeypatch.setattr(console_cli, "main", namespace["main"])
 
     assert entry_point.main() == 1
-    assert "pip install mfgparams[console]" in capsys.readouterr().err
+    assert _FIX_COMMAND in capsys.readouterr().err
 
 
 def test_machinery_frames_are_skipped_before_the_console_directory_test(tmp_path, monkeypatch):
@@ -790,3 +799,75 @@ def test_machinery_frames_are_skipped_before_the_console_directory_test(tmp_path
         entry_point.main()
 
     assert excinfo.value.name == _ABSENT
+
+
+def test_the_advertised_command_survives_the_user_s_shell(simulate_missing, capsys):
+    """FR-011 promises *the exact command that fixes it*, so it has to run.
+
+    Unquoted, `pip install mfgparams[console]` is a glob. zsh -- the default
+    shell on macOS -- finds no match and aborts the whole command with
+    `no matches found`, before pip is ever invoked. The user is then told the
+    fix does not exist, which is worse than the traceback the guard replaced.
+
+    Checked two ways: the portable one, which runs everywhere, and an actual
+    zsh invocation where zsh exists.
+    """
+
+    simulate_missing("some_console_dependency")
+    entry_point.main()
+    stderr = capsys.readouterr().err
+
+    line = next(line for line in stderr.splitlines() if "pip install" in line)
+    command = line[line.index("pip install") :].strip()
+    assert command == _FIX_COMMAND
+
+    # Portable, so it runs on every CI leg: the shell must hand pip the
+    # requirement intact, brackets and all, and the bracketed word must not
+    # reach the shell bare.
+    assert shlex.split(command) == ["pip", "install", "mfgparams[console]"]
+    assert "mfgparams[console]" not in command.replace('"mfgparams[console]"', "")
+
+    zsh = shutil.which("zsh")
+    if zsh is None:  # pragma: no cover - zsh is not installed everywhere
+        pytest.skip("zsh not available to check the globbing behaviour end to end")
+
+    with tempfile.TemporaryDirectory() as fake_bin:
+        stub = Path(fake_bin) / "pip"
+        stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        stub.chmod(0o755)
+        completed = subprocess.run(
+            [zsh, "-c", command],
+            capture_output=True,
+            text=True,
+            env={"PATH": f"{fake_bin}:/usr/bin:/bin"},
+        )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.split() == ["install", "mfgparams[console]"], completed.stdout
+
+
+def test_the_unquoted_command_really_would_have_failed():
+    """The premise of the test above, pinned separately.
+
+    Without this, quoting looks like a style preference. It is not: the bare
+    form aborts before pip runs, and that is what makes the finding a defect
+    rather than a nit.
+    """
+
+    zsh = shutil.which("zsh")
+    if zsh is None:  # pragma: no cover - zsh is not installed everywhere
+        pytest.skip("zsh not available to check the globbing behaviour end to end")
+
+    with tempfile.TemporaryDirectory() as fake_bin:
+        stub = Path(fake_bin) / "pip"
+        stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        stub.chmod(0o755)
+        completed = subprocess.run(
+            [zsh, "-c", "pip install mfgparams[console]"],
+            capture_output=True,
+            text=True,
+            env={"PATH": f"{fake_bin}:/usr/bin:/bin"},
+        )
+
+    assert completed.returncode != 0
+    assert "no matches found" in completed.stderr

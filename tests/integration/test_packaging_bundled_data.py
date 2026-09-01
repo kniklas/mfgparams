@@ -313,6 +313,16 @@ def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
     return grouped
 
 
+def _distribution_name(requirement: str) -> str:
+    """The PEP 503-normalised distribution name a requirement string names.
+
+    Everything after the name -- version specifiers, extras, whitespace -- is
+    dropped, so `rich>=13` and `Rich >= 14` compare equal.
+    """
+    name = re.split(r"[^A-Za-z0-9._-]", requirement.strip(), maxsplit=1)[0]
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
 def _referenced_extras(requirements: set[str]) -> set[str]:
     """The extras named by ``mfgparams[...]`` self-references in ``requirements``.
 
@@ -368,10 +378,23 @@ def test_default_install_pulls_in_no_console_only_dependency(built_wheel):
     default = grouped.get(None, set())
     console_only = grouped.get("console", set())
 
-    leaked = default & console_only
+    # Intersected on the *distribution name*, not the whole requirement string.
+    # `rich>=13` by default and `rich>=14` under `console` are the same leak,
+    # but as strings they do not intersect, so the check would pass while the
+    # default install carried a console dependency -- the exact thing FR-013
+    # forbids. Names are normalised (PEP 503) so casing and `-`/`_` cannot hide
+    # it either. The original strings are kept for the failure message.
+    by_name = {}
+    for requirement in default:
+        by_name.setdefault(_distribution_name(requirement), []).append(requirement)
+    leaked = sorted(
+        (requirement, other)
+        for other in console_only
+        for requirement in by_name.get(_distribution_name(other), [])
+    )
     assert not leaked, (
-        f"{sorted(leaked)} is gated by the console extra yet also required by a "
-        "default install, so `pip install mfgparams` would carry it (FR-013)"
+        f"{leaked} names a distribution gated by the console extra that a default install "
+        "also requires, so `pip install mfgparams` would carry it (FR-013)"
     )
     assert all(
         requirement.startswith("tomli") for requirement in default
