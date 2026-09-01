@@ -37,6 +37,11 @@ pip install "mfgparams[console]"     # adds the console's dependencies
 pip install "mfgparams[all]"         # adds every optional runtime dependency
 ```
 
+`[all]` names the other extras rather than restating them, and pip only
+understands that form from **21.2** onward — older pips (including the one
+Python 3.9 ships) reject it. `python -m pip install --upgrade pip` first if
+you are on one.
+
 An extra gates **dependencies, not modules**: every install ships the same
 wheel, `mfgparams.console` included. What `[console]` adds is what the console
 *needs*, so embedding the library in another application does not drag the
@@ -46,7 +51,10 @@ fact run the console; the extra is declared now so that populating it later
 stays invisible to you.
 
 If a console dependency is ever unavailable, invoking `mfgparams` prints the
-exact command that fixes it and exits non-zero; it never shows a traceback.
+exact command that fixes it and exits non-zero rather than showing a traceback.
+A failure inside `mfgparams` itself — a damaged install, a missing *core*
+dependency — still raises normally, because `pip install mfgparams[console]`
+would not fix it.
 
 ## Package structure
 
@@ -65,7 +73,8 @@ The calculation modules are re-exported at the top level, so
 `from mfgparams import calculate` is the supported way to reach them; the
 qualified paths are there to say where a calculation sits in the manufacturing
 domain. `mfgparams.console` is *not* part of that surface — the console is
-reached through the `mfgparams` command or `python -m mfgparams`.
+reached through the `mfgparams` command, `python -m mfgparams`, or
+`python -m mfgparams.console`. All three behave identically.
 
 A future process (turning, welding, joining, forming) attaches beside
 `machining` rather than reorganising it.

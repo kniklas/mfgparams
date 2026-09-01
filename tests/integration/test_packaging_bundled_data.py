@@ -313,6 +313,22 @@ def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
     return grouped
 
 
+def _referenced_extras(requirements: set[str]) -> set[str]:
+    """The extras named by ``mfgparams[...]`` self-references in ``requirements``.
+
+    Parsed rather than substring-matched: asking whether the word "console"
+    appears anywhere in the joined requirements also passes on a third-party
+    `console-tools`, so it would keep passing after the aggregation it exists
+    to prove had been removed.
+    """
+    referenced: set[str] = set()
+    for requirement in requirements:
+        name, bracket, rest = requirement.replace(" ", "").partition("[")
+        if bracket and name == "mfgparams":
+            referenced |= set(rest.split("]", 1)[0].split(","))
+    return referenced
+
+
 #: Declared extras that are deliberately outside `all`. `all` itself would be
 #: self-referential, and `test`/`dev` are development toolchains -- `all` must
 #: never pull tooling into a user install. Add a new *development* extra here;
@@ -384,21 +400,21 @@ def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
     grouped = _requirements_by_extra(built_wheel)
     everything = grouped.get("all", set())
 
-    # Parse the extras out of each self-reference rather than asking whether the
-    # word appears anywhere in the joined requirements: a substring check passes
-    # on any requirement that merely *contains* "console" -- a third-party
-    # `console-tools`, say -- so it would keep passing after the aggregation it
-    # exists to prove had been removed.
-    referenced = set()
-    for requirement in everything:
-        head = requirement.replace(" ", "")
-        name, bracket, rest = head.partition("[")
-        if bracket and name == "mfgparams":
-            referenced |= set(rest.split("]", 1)[0].split(","))
+    referenced = _referenced_extras(everything)
 
     assert (
         referenced
     ), f"the `all` extra must aggregate the others by reference, found {sorted(everything)}"
+
+    # ...and *only* by reference. A requirement restated here rather than named
+    # through its extra is the drift this arrangement exists to prevent, and it
+    # would sail past every check below: it contributes no entry to `referenced`,
+    # so it neither satisfies nor violates the coverage assertion.
+    restated = {r for r in everything if not r.replace(" ", "").startswith("mfgparams[")}
+    assert not restated, (
+        f"`all` must name each extra rather than restate its contents; "
+        f"{sorted(restated)} is spelled out and will drift from the extra it duplicates"
+    )
     # Every declared extra except `all` itself and the development ones.
     runtime_extras = _declared_extras(built_wheel) - _NOT_RUNTIME_EXTRAS
 
@@ -413,9 +429,73 @@ def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
         f"referenced by `all`: {sorted(referenced)}"
     )
 
-    development_only = {"pytest", "ruff", "black", "mypy", "tox", "sphinx", "bandit"}
-    named = {requirement.split()[0].split("[")[0].split(">")[0] for requirement in everything}
-    assert not (named & development_only), (
-        f"{sorted(named & development_only)} is development tooling; `all` covers "
-        "runtime extras only and must never pull it into a user install"
+    # Tooling named *directly* in `all` is already rejected by `restated` above
+    # -- after it, every entry is an `mfgparams[...]` self-reference, so a
+    # direct-name check against a list of tool names could never fire again and
+    # would be a guard in name only. What is left to check is the reference
+    # side, and it is checked transitively rather than here: see
+    # `test_no_runtime_extra_reaches_the_development_toolchain`.
+
+
+@pytest.mark.packaging
+def test_no_runtime_extra_reaches_the_development_toolchain(built_wheel):
+    """`all` must not reach `dev`/`test` *through* another extra either.
+
+    The superset test above checks only what `all` names directly, so
+    `console = ["mfgparams[dev]"]` leaves every one of its assertions green
+    while `pip install mfgparams[all]` -- and `pip install mfgparams[console]`
+    -- installs ruff, black, mypy, sphinx, bandit and pytest. Verified: with
+    that line in `pyproject.toml`, the whole extras suite still passed.
+
+    So the closure is walked rather than the first hop. A development extra
+    reachable from `all` by any path is the same failure at any depth.
+    """
+    grouped = _requirements_by_extra(built_wheel)
+    development = _NOT_RUNTIME_EXTRAS - {"all"}
+
+    reached: set[str] = set()
+    pending = ["all"]
+    while pending:
+        for extra in _referenced_extras(grouped.get(pending.pop(), set())):
+            if extra not in reached:
+                reached.add(extra)
+                pending.append(extra)
+
+    offending = reached & development
+    assert not offending, (
+        f"`mfgparams[all]` reaches the development extra(s) {sorted(offending)} through "
+        f"{sorted(reached)}; `all` covers runtime extras only and must never pull tooling "
+        f"into a user install"
+    )
+
+
+@pytest.mark.packaging
+def test_the_all_extra_is_not_gated_by_an_environment_marker(built_wheel):
+    """A marker on `all`'s self-references can empty the aggregate silently.
+
+    `_requirements_by_extra` reads the `extra ==` clause and discards the rest
+    of the marker, so `all = ["mfgparams[console]; python_version < '2.0'"]`
+    satisfies every assertion above while `pip install mfgparams[all]` resolves
+    to nothing on any interpreter. `all` is a pure aggregate; a condition on it
+    belongs on the extra being aggregated, where it is visible.
+    """
+    conditional = []
+    for line in _wheel_metadata(built_wheel):
+        if not line.startswith("Requires-Dist:"):
+            continue
+        requirement, _, marker = line.split(":", 1)[1].strip().partition(";")
+        found = _EXTRA_MARKER.search(marker)
+        if not found or found.group(1) != "all":
+            continue
+        # `str.strip("and")` would strip the *characters* a/n/d, which quietly
+        # empties a leftover bare `and` -- exactly what a second `extra ==`
+        # clause leaves behind, and that is a case this test must catch.
+        remainder = re.sub(r"^\s*and\b|\band\s*$", "", _EXTRA_MARKER.sub("", marker)).strip()
+        if remainder:
+            conditional.append(f"{requirement.strip()} ;{marker.strip()}")
+
+    assert not conditional, (
+        f"`all` carries the extra condition(s) {conditional}; a marker here can make the "
+        f"aggregate resolve to nothing without failing any coverage check. Put the "
+        f"condition on the aggregated extra's own requirements instead"
     )

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.abc
+import os
 import sys
 from pathlib import Path
 
@@ -305,22 +306,55 @@ def test_the_import_name_never_has_to_match_a_distribution_name(monkeypatch, cap
     assert "pip install mfgparams[console]" in capsys.readouterr().err
 
 
-def test_provenance_ignores_the_import_machinery_frames(monkeypatch):
-    """`_requesting_file` must skip `<frozen importlib._bootstrap>` and friends,
-    or it would attribute every failure to the interpreter and never fire."""
+def test_the_console_frame_is_found_past_the_import_machinery():
+    """`importlib.import_module` puts the standard library between the console
+    and the failure, and those frames must not hide the console's.
+
+    Locating the console by the *innermost non-machinery* frame is what makes
+    the two-step rule work; scanning without skipping machinery would stop at
+    `importlib/__init__.py` and never see the console at all.
+    """
 
     import mfgparams.console.cli as console_cli
 
     console_file = Path(console_cli.__file__)
-    raising = _console_main_that_imports(_ABSENT, from_file=console_file)
+    namespace: dict = {}
+    source = f"import importlib\n\n\ndef main():\n    importlib.import_module({_ABSENT!r})\n"
+    exec(compile(source, str(console_file), "exec"), namespace)  # noqa: S102
 
     try:
-        raising()
+        namespace["main"]()
     except ModuleNotFoundError as exc:
-        assert entry_point._requesting_file(exc) == str(console_file)
+        frames = []
+        traceback = exc.__traceback__
+        while traceback is not None:
+            frames.append(traceback.tb_frame.f_code.co_filename)
+            traceback = traceback.tb_next
+
+        # The premise: machinery frames really are present, and really are
+        # below the console's. Without this the assertion below is vacuous.
+        console_at = frames.index(str(console_file))
+        assert any(entry_point._is_import_machinery(f) for f in frames[console_at + 1 :]), frames
         assert entry_point._requested_by_the_console(exc)
     else:  # pragma: no cover - the import above cannot succeed
         pytest.fail(f"{_ABSENT} is installed; pick a name that is not")
+
+
+@pytest.mark.parametrize(
+    "filename,machinery",
+    [
+        ("<frozen importlib._bootstrap>", True),
+        (os.path.join(os.path.dirname(importlib.__file__), "__init__.py"), True),
+        (os.path.join(os.path.dirname(importlib.__file__), "util.py"), True),
+        # A *vendored* package that happens to be called `importlib`. Matching
+        # on the directory's name rather than its path would skip its frames
+        # and attribute its failures to whoever imported it.
+        (os.path.join("somelib", "importlib", "compat.py"), False),
+        (os.path.join("site-packages", "rich", "__init__.py"), False),
+    ],
+)
+def test_import_machinery_is_recognised_by_path_not_by_name(filename, machinery):
+    assert entry_point._is_import_machinery(filename) is machinery
 
 
 def test_provenance_looks_past_importlib_s_own_frames(monkeypatch, capsys):
@@ -449,7 +483,6 @@ def test_an_exception_with_no_traceback_is_not_attributed_to_the_console():
     """A hand-raised error carries no frames, so there is no requester to
     attribute -- and an unattributable failure must not be blamed on the extra."""
 
-    assert entry_point._requesting_file(ModuleNotFoundError("no traceback")) is None
     assert not entry_point._requested_by_the_console(ModuleNotFoundError("no traceback"))
 
 
@@ -477,3 +510,283 @@ def test_the_extra_marker_is_parsed_not_substring_matched(marker, expected):
     found = entry_point._EXTRA_MARKER.search(marker)
 
     assert (found.group(1) if found else None) == expected
+
+
+def test_a_lazy_import_of_our_own_module_is_still_a_broken_install(monkeypatch):
+    """Provenance is necessary at execution time, but it is not sufficient.
+
+    "Did the console ask for this?" and "could the extra supply it?" are
+    different questions, and a module of *ours* that the console imported
+    lazily answers *yes* to the first while remaining a damaged install. Asking
+    only about provenance answers it with `pip install mfgparams[console]` --
+    advice that cannot work, and exactly what the contract's "MUST NOT catch
+    import failures originating from the core package" rule forbids. So the
+    import-time question is asked here too.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    monkeypatch.setattr(
+        console_cli,
+        "main",
+        _console_main_that_imports(
+            "mfgparams.processes.machining.no_such_process",
+            from_file=Path(console_cli.__file__),
+        ),
+    )
+
+    with pytest.raises(ModuleNotFoundError):
+        entry_point.main()
+
+
+def _installed_package(tmp_path, monkeypatch, name: str, body: str) -> None:
+    """Put a real, importable package called ``name`` on ``sys.path``.
+
+    A real package is the point: these tests are about which *frame* raises,
+    and only genuinely executing an import produces the frames the guard reads.
+    """
+
+    package = tmp_path / name
+    package.mkdir()
+    (package / "__init__.py").write_text(body)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    monkeypatch.delitem(sys.modules, name, raising=False)
+
+
+def test_a_console_library_s_own_missing_dependency_is_attributed_to_the_console(
+    tmp_path, monkeypatch, capsys
+):
+    """A half-installed extra must not produce the traceback FR-011 forbids.
+
+    Once `[console]` is non-empty, the likely failure is not "the extra was
+    never installed" but "it is installed and something under it is missing":
+    `rich` present, its own `pygments` absent. The deepest frame belonging to
+    anyone's code is then the *library's* module body, and blaming it re-raises
+    -- on precisely the path `pip install mfgparams[console]` repairs.
+
+    A module body did not choose to be there; something imported it. Skipping
+    it lands on the console frame that asked, which is the honest answer.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    _installed_package(tmp_path, monkeypatch, "console_library_pkg", f"import {_ABSENT}\n")
+    monkeypatch.setattr(
+        console_cli,
+        "main",
+        _console_main_that_imports("console_library_pkg", from_file=Path(console_cli.__file__)),
+    )
+
+    status = entry_point.main()
+    stderr = capsys.readouterr().err
+
+    assert status == 1
+    assert "Traceback" not in stderr
+    assert "pip install mfgparams[console]" in stderr
+
+
+def test_a_library_that_imports_via_a_helper_is_still_the_console_s_dependency(
+    tmp_path, monkeypatch, capsys
+):
+    """The import cascade is what matters, not the shape of the frame at its end.
+
+    A library need not spell its dependencies as bare module-scope `import`
+    statements: `matplotlib` resolves its own in `_check_versions()`, and a
+    hoisted check loop or a module-scope comprehension does the same. That puts
+    an ordinary *call* frame at the bottom of what is still the console's
+    import, so a rule that merely skipped module bodies would re-raise here --
+    the raw traceback FR-011 forbids, on a half-installed extra.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    _installed_package(
+        tmp_path,
+        monkeypatch,
+        "helper_importing_pkg",
+        f"def _setup():\n    import {_ABSENT}\n\n\n_setup()\n",
+    )
+    monkeypatch.setattr(
+        console_cli,
+        "main",
+        _console_main_that_imports("helper_importing_pkg", from_file=Path(console_cli.__file__)),
+    )
+
+    status = entry_point.main()
+    stderr = capsys.readouterr().err
+
+    assert status == 1
+    assert "Traceback" not in stderr
+    assert "pip install mfgparams[console]" in stderr
+
+
+def test_a_library_s_lazy_import_inside_a_call_is_still_its_own_bug(tmp_path, monkeypatch, capsys):
+    """The other side of the same rule, and the reason it is about *frames*
+    rather than about "is it third-party".
+
+    Skipping module bodies must not become "blame the console for anything a
+    library does". A library that imports something missing from inside one of
+    its own *functions* is not resolving a dependency of its import; it is
+    running, and that is its bug. It re-raises, as before.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    _installed_package(
+        tmp_path,
+        monkeypatch,
+        "calling_library_pkg",
+        f"def go():\n    import {_ABSENT}\n",
+    )
+    namespace: dict = {}
+    source = "def main():\n    import calling_library_pkg\n    calling_library_pkg.go()\n"
+    exec(compile(source, str(Path(console_cli.__file__)), "exec"), namespace)  # noqa: S102
+    monkeypatch.setattr(console_cli, "main", namespace["main"])
+
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        entry_point.main()
+
+    assert excinfo.value.name == _ABSENT
+
+
+@pytest.mark.parametrize(
+    "returned", ["could not open the report file", ""], ids=["message", "empty-string"]
+)
+def test_a_non_integer_status_is_reported_rather_than_coerced(monkeypatch, capsys, returned):
+    """`return "message"` / `sys.exit("message")` is a common convention.
+
+    `int()` on such a status raises `ValueError` *inside the entry point*,
+    replacing whatever the console was trying to say with the traceback this
+    whole module exists to prevent -- and on the failure path, where the user
+    can least afford it. Print it and report failure, as `sys.exit` does.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    monkeypatch.setattr(console_cli, "main", lambda: returned)
+
+    status = entry_point.main()
+    stderr = capsys.readouterr().err
+
+    assert status == 1
+    assert "Traceback" not in stderr
+    # Compared exactly rather than with `in`: `"" in stderr` is true of every
+    # string, so the empty-string case would assert nothing about the output.
+    assert stderr == f"{returned}\n"
+
+
+def test_the_unnamed_fallback_is_looked_up_rather_than_inlined(
+    simulate_missing, monkeypatch, capsys
+):
+    """Principle VIII covers the fallback phrase too.
+
+    Editing the catalog must change the output; if it does not, the phrase is
+    spliced in as an English literal and a translated run would emit it
+    verbatim inside an otherwise translated sentence.
+    """
+
+    from mfgparams.locales import en
+
+    monkeypatch.setitem(en.MESSAGES, entry_point._UNNAMED_DEPENDENCY_MESSAGE_ID, "jakas zaleznosc")
+
+    simulate_missing(None)
+    entry_point.main()
+
+    assert "jakas zaleznosc" in capsys.readouterr().err
+
+
+def test_a_pep_562_lazy_submodule_is_still_the_console_s_dependency(tmp_path, monkeypatch, capsys):
+    """The cascade's evidence need not sit directly below the console.
+
+    PEP 562 lazy submodules are how a heavy library keeps its import cheap:
+    `from lib import thing` runs `lib.__getattr__("thing")`, an ordinary *call*
+    frame, and the import happens beneath *that*. A rule looking only at the
+    frame directly below the console sees a call and re-raises -- the traceback
+    FR-011 forbids, on the same half-installed extra as the other two shapes.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    package = tmp_path / "lazy_attr_pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        "import importlib\n\n\ndef __getattr__(name):\n"
+        "    return importlib.import_module(f'lazy_attr_pkg.{name}')\n"
+    )
+    (package / "screen.py").write_text(f"import {_ABSENT}\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    monkeypatch.delitem(sys.modules, "lazy_attr_pkg", raising=False)
+
+    namespace: dict = {}
+    source = "def main():\n    from lazy_attr_pkg import screen\n"
+    exec(compile(source, str(Path(console_cli.__file__)), "exec"), namespace)  # noqa: S102
+    monkeypatch.setattr(console_cli, "main", namespace["main"])
+
+    status = entry_point.main()
+    stderr = capsys.readouterr().err
+
+    assert status == 1
+    assert "Traceback" not in stderr
+    assert "pip install mfgparams[console]" in stderr
+
+
+def test_the_innermost_console_frame_is_what_counts_not_the_first(tmp_path, monkeypatch, capsys):
+    """The console can appear twice in one traceback, and only the deeper one
+    describes what was actually attempted.
+
+    A library invoked by the console calls back into it -- a formatter hook, a
+    completion callback -- and *that* frame runs the import. Anchoring on the
+    first console frame puts the library's own call frame inside the scanned
+    region, which then reads as "the console called a function" and re-raises.
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    (tmp_path / "callback_lib.py").write_text("def run(callback):\n    return callback()\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    monkeypatch.delitem(sys.modules, "callback_lib", raising=False)
+
+    namespace: dict = {}
+    source = (
+        "import callback_lib\n\n\ndef main():\n"
+        f"    return callback_lib.run(lambda: __import__({_ABSENT!r}))\n"
+    )
+    exec(compile(source, str(Path(console_cli.__file__)), "exec"), namespace)  # noqa: S102
+    monkeypatch.setattr(console_cli, "main", namespace["main"])
+
+    assert entry_point.main() == 1
+    assert "pip install mfgparams[console]" in capsys.readouterr().err
+
+
+def test_machinery_frames_are_skipped_before_the_console_directory_test(tmp_path, monkeypatch):
+    """`Path("<frozen importlib._bootstrap>").resolve()` is *relative to cwd*.
+
+    Run from inside the console directory it resolves to a path under it, so a
+    machinery frame would pass the "is this the console?" test and be taken for
+    the innermost console frame. Skipping machinery first is what stops that;
+    without it, a library's own failed `import_module` is answered with
+    "install the console extra".
+    """
+
+    import mfgparams.console.cli as console_cli
+
+    (tmp_path / "importing_lib.py").write_text(
+        f"import importlib\n\n\ndef go():\n    importlib.import_module({_ABSENT!r})\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    monkeypatch.delitem(sys.modules, "importing_lib", raising=False)
+    monkeypatch.chdir(Path(console_cli.__file__).parent)
+
+    namespace: dict = {}
+    source = "import importing_lib\n\n\ndef main():\n    importing_lib.go()\n"
+    exec(compile(source, str(Path(console_cli.__file__)), "exec"), namespace)  # noqa: S102
+    monkeypatch.setattr(console_cli, "main", namespace["main"])
+
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        entry_point.main()
+
+    assert excinfo.value.name == _ABSENT

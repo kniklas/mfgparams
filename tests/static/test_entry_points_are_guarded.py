@@ -99,3 +99,43 @@ def test_the_declared_shims_all_exist():
 )
 def test_the_detector_recognises_the_block(source, runnable):
     assert _has_main_block(source) is runnable
+
+
+def test_the_console_package_init_imports_nothing():
+    """`python -m mfgparams.console` runs the guard *second*, not first.
+
+    `runpy` imports the parent package `mfgparams.console` before it executes
+    `console/__main__.py`, so anything `console/__init__.py` imports at module
+    scope fails outside `mfgparams.__main__:main` -- before the guard exists to
+    catch it. Verified by appending `import a_console_dependency_xyz` to that
+    file: `python -m mfgparams` printed the friendly message, while
+    `python -m mfgparams.console` printed a raw traceback.
+
+    No guard can be placed ahead of that import; the interpreter gets there
+    first. So the contract's "all three forms behave identically" rests on this
+    file importing nothing, which is a property worth pinning rather than
+    rediscovering the day someone adds a convenience re-export here.
+
+    Docstring-only is the intended state: the console's public surface is
+    `mfgparams.console.cli`, and a re-export would also pull the console's
+    dependencies in at package-import time, which is what the extra exists to
+    avoid.
+    """
+
+    # `ast.walk`, not `.body`: the likeliest way this gets broken is a guarded
+    # re-export (`try: from .cli import main / except ImportError: pass`), and a
+    # top-level-only scan cannot see an import nested in `try`/`if`/`with`. The
+    # sibling FR-008 scan walks for the same reason.
+    init = _SRC / "console" / "__init__.py"
+    imports = [
+        node
+        for node in ast.walk(ast.parse(init.read_text()))
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    ]
+
+    assert not imports, (
+        f"{init.relative_to(_SRC).as_posix()} imports (line(s) "
+        f"{[node.lineno for node in imports]}). `python -m mfgparams.console` runs those "
+        f"before the FR-011 guard, so a missing dependency there escapes as a raw "
+        f"traceback. Import it inside `console/cli.py` instead, which the guard covers."
+    )

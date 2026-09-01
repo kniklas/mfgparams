@@ -71,13 +71,25 @@ def main() -> int:
     try:
         status = _console_main()
     except ModuleNotFoundError as exc:
-        # A different question, for a different reason (see below).
-        if not _requested_by_the_console(exc):
+        # A different question, for a different reason (see below) — asked
+        # *in addition to* the import-time one, which still applies.
+        if _is_broken_core(exc.name) or not _requested_by_the_console(exc):
             raise
         return _report_missing_console(exc.name)
 
-    return 0 if status is None else int(status)
+    if status is None:
+        return 0
+    if isinstance(status, int):
+        return status
+    print(status, file=sys.stderr)   # `sys.exit("message")` semantics
+    return 1
 ```
+
+Both guards run `_is_broken_core`, because the two questions are independent rather than
+alternative. Provenance asks *did the console request this*; a module of **ours** that the console
+lazily imported answers yes and is still a damaged install, so provenance alone would answer it
+with `pip install mfgparams[console]` — advice that cannot work, and precisely what the "MUST NOT
+catch import failures originating from the core package" rule above forbids.
 
 This keeps the guard keyed on dependency availability while remaining implementable today: the
 first `try` encloses the statement that will pull the first console dependency imported at module
@@ -91,7 +103,7 @@ They are not the same check applied twice. Each is the only one that works where
 | | Import-time | Execution-time |
 |---|---|---|
 | Question | *what* is missing | *who asked for* what is missing |
-| Predicate | `_is_broken_core(exc.name)` → re-raise | `_requested_by_the_console(exc)` → friendly |
+| Predicate | `_is_broken_core(exc.name)` → re-raise | `_is_broken_core(exc.name)` → re-raise, **then** `_requested_by_the_console(exc)` → friendly |
 | Default | friendly message | re-raise |
 
 At import time the failure is by construction on the console's own import path, so the only thing
@@ -110,10 +122,54 @@ requires the distribution's own metadata, which is by definition *not installed*
 import fails. A name comparison therefore misses every such package, and since this guard's default
 is to re-raise, every miss fails in the direction FR-011 forbids.
 
-Provenance — the deepest traceback frame that belongs to someone's code rather than to the import
-machinery — sidesteps the mapping entirely. Whatever it is called, a module the console itself
-imported is the console's dependency. A failure raised from inside a third-party library the console
-merely *called* is that library's bug, and still re-raises.
+Provenance sidesteps the mapping entirely, and it is read in two steps:
+
+1. **Find the innermost frame belonging to the console**, skipping the import machinery's own
+   frames. No console frame means the console had no part in this, and it re-raises. *Innermost*,
+   not first: a library the console called can call back into the console, and only the deeper
+   frame describes what was actually attempted.
+2. **Classify the frame directly below it.** Exactly three things appear there when the console's
+   own statement asks the import system for a name: the **machinery**, a **module body**, or a
+   module-level **`__getattr__`** (PEP 562, how a library spells a lazy submodule). Anything else
+   is an ordinary call frame — the console called a function, and the failure belongs to that
+   function.
+
+The rule is narrow in both directions on purpose, and every neighbouring version of it is wrong:
+
+| Rule | Shape it misreads |
+|---|---|
+| deepest non-machinery frame | `rich` installed with its own `pygments` missing: the deepest code frame is inside `rich`, so it blames `rich` and re-raises |
+| ...and not a module body | a library resolving imports in a helper (`def _setup(): import pygments` at module scope, as `matplotlib` does) puts a *call* frame at the bottom of the console's own import |
+| directly below, without the `__getattr__` marker | PEP 562: `from lib import thing` where `lib.__getattr__` does the import puts that call frame directly below, with the cascade beneath *it* |
+| any import evidence *anywhere* below | over-corrects: a library the console **called** that runs its own `importlib.import_module` leaves a machinery frame down there, and its bug becomes "install the extra" |
+
+The first three shapes are one failure — a **half-installed extra**, which `pip install
+mfgparams[console]` repairs and FR-011 exists to describe. All three markers are load-bearing:
+CPython elides the `importlib._bootstrap` frames from a plain failing `import`, so a module body is
+often the only evidence an import ran, while `importlib.import_module` leaves machinery frames and
+no module body.
+
+**Skipping machinery in step 1 is not cosmetic.** `Path("<frozen importlib._bootstrap>").resolve()`
+is interpreted relative to the working directory, so a process started *inside* the console
+directory resolves a machinery frame to a path under it, and it would be taken for the innermost
+console frame.
+
+**One case is unresolvable and is decided deliberately.** A library whose import is simply wrong —
+a typo, or an undeclared dependency imported unconditionally — produces a traceback identical in
+shape to the half-installed one, both being "the console imported X; something under X was
+missing". No rule reading frames can separate them. It is decided in favour of FR-011, which is a
+requirement, over a clearer diagnostic for a library bug, which is not.
+
+Every one of these decisions MUST be pinned by a test that fails when the decision is mutated: the
+innermost-not-first scan, the machinery skip, and each of the three markers independently.
+
+### A non-integer status is a message, not a number
+
+`int(status)` MUST NOT be applied blindly. `return "some error"` / `sys.exit("some error")` is a
+common convention, and coercing it raises `ValueError` *inside the entry point*, replacing whatever
+the console was trying to say with the traceback this contract spends its length preventing. A
+non-`int`, non-`None` status is therefore printed to stderr and reported as status `1`, matching
+`sys.exit`.
 
 ### On `_core_requirement_roots` and the gating extra
 
@@ -155,6 +211,21 @@ discover late: this message exists to explain that the console is unavailable. I
 entry lives inside the console, the lookup fails exactly when the message is needed, and the user
 receives the traceback FR-011 exists to prevent. Slice 015 inherits this as a contract, not as
 advice.
+
+## `mfgparams.console.__init__` MUST import nothing
+
+`python -m mfgparams.console` reaches the guard *second*, not first: `runpy` imports the parent
+package `mfgparams.console` before it executes `console/__main__.py`. Anything `console/__init__.py`
+imports at module scope therefore fails **outside** `mfgparams.__main__:main`, and no guard can be
+placed ahead of it — the interpreter gets there first. Verified by appending an import of an
+absent module to that file: `python -m mfgparams` printed the friendly message and
+`python -m mfgparams.console` printed a raw traceback.
+
+So "all three forms behave identically" rests on this file importing nothing. That is not a
+by-product of the file currently being docstring-only; it is a constraint, and
+`tests/static/test_entry_points_are_guarded.py` fails if an import appears there. A convenience
+re-export is the likely way it would be broken, and it would also pull the console's dependencies in
+at package-import time — which is what the extra exists to avoid.
 
 ## Layering
 

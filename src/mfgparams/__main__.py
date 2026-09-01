@@ -11,6 +11,7 @@ in the console. Both halves are enforced by
 
 from __future__ import annotations
 
+import importlib
 import os
 import re
 import sys
@@ -50,14 +51,25 @@ def _is_broken_core(module: str | None) -> bool:
     extra cannot fix?"*, and that ordering is what keeps the answer honest.
 
     Both lookups compare an **import** name against **distribution** names, and
-    those differ for a large class of packages (``PyYAML``/``yaml``). Here --
-    unlike in :func:`_requested_by_the_console`, where the same mismatch is
-    disqualifying -- it is harmless, because the two lookups miss *together*:
-    a name that does not match the console extra does not match the core set
-    either, so the fall-through is the friendly path, which is already the
-    right answer. The one residual gap needs two *different* distributions
-    supplying the same import name, one core and one console-gated; that is a
-    genuine install conflict rather than a case worth engineering around.
+    those differ for a large class of packages (``PyYAML``/``yaml``). What that
+    costs depends on which caller is asking, so the two are worth separating:
+
+    * At **import time** it is free. The two lookups miss *together* -- a name
+      matching neither set falls through to the friendly path, which is already
+      the right answer there.
+    * At **execution time** it is a real, bounded gap. That caller's default is
+      to re-raise, so this function returning ``False`` is what *permits* the
+      friendly message; a core requirement whose import name differs from its
+      distribution name (a core ``PyYAML``, imported lazily by the console and
+      missing) would be answered with ``pip install mfgparams[console]``, which
+      cannot fix it.
+
+    The gap is not closable from here: resolving a distribution name to the
+    import name it provides needs that distribution's own metadata, which is by
+    definition absent at the moment its import fails. What bounds it instead is
+    how few core requirements there are -- ``tomli`` today, whose two names
+    match. A core requirement whose names diverge is the case to think twice
+    about, and this paragraph is the warning that it is not covered.
     """
     if not module:
         return False
@@ -140,29 +152,30 @@ def _console_extra_roots() -> frozenset:
 _CONSOLE_DIR = Path(__file__).parent / "console"
 
 
-def _requesting_file(exc: BaseException) -> str | None:
-    """The file whose code asked for the import that raised ``exc``.
+#: The standard library's ``importlib`` package directory. Compared as a *path*
+#: rather than by the directory's name: a vendored ``somelib/importlib/`` would
+#: otherwise be mistaken for the import system's own frames.
+_IMPORT_MACHINERY_DIR = os.path.dirname(importlib.__file__)
 
-    That is the deepest traceback frame belonging to *someone's code* rather
-    than to the import machinery, which contributes frames of its own
-    (``<frozen importlib._bootstrap>``, and ``importlib/__init__.py`` when a
-    module is loaded through :func:`importlib.import_module`).
+
+def _is_import_machinery(filename: str) -> bool:
+    """Is this frame the import system's, rather than someone's code?
+
+    A failed import contributes two shapes: the frozen bootstrap modules
+    (``<frozen importlib._bootstrap>``), and ``importlib/__init__.py`` when the
+    import went through :func:`importlib.import_module`.
     """
-    filenames = []
-    traceback = exc.__traceback__
-    while traceback is not None:
-        filenames.append(traceback.tb_frame.f_code.co_filename)
-        traceback = traceback.tb_next
+    return filename.startswith("<") or os.path.dirname(filename) == _IMPORT_MACHINERY_DIR
 
-    for filename in reversed(filenames):
-        if filename.startswith("<") or os.path.basename(os.path.dirname(filename)) == "importlib":
-            continue
-        return filename
-    return None
+
+#: Frame names the import system itself runs on the importer's behalf: a
+#: module executing its own body, and PEP 562's module-level ``__getattr__``,
+#: which is how a library spells a lazy submodule.
+_IMPORT_SYSTEM_CALLBACKS = frozenset({"<module>", "__getattr__"})
 
 
 def _requested_by_the_console(exc: BaseException) -> bool:
-    """Did code inside ``mfgparams.console`` ask for the module that is missing?
+    """Did the console *import* the module that turned out to be missing?
 
     Attribution by *name* cannot work here, which is the whole reason this
     function is about provenance instead. The gating extra records a
@@ -175,27 +188,105 @@ def _requested_by_the_console(exc: BaseException) -> bool:
     guard's default is to re-raise, every miss fails in the direction FR-011
     forbids.
 
-    Provenance sidesteps the mapping entirely: whatever it is called, a module
-    the console itself imported is the console's dependency, and
-    ``pip install mfgparams[console]`` is the fix. A failure raised from inside
-    a third-party library the console merely *called* is that library's bug and
-    still re-raises, which is the property the name check was reaching for.
+    So the question is asked of the *frames*, in two steps:
+
+    1. Find the innermost frame belonging to the console. No such frame means
+       the console had no part in this, and it re-raises.
+    2. Ask what the import system ran **directly below** it. Exactly three
+       things appear there when the console's own statement asks for a name:
+       the import **machinery**, a **module body**, or a module-level
+       **``__getattr__``** (PEP 562, how a library spells a lazy submodule).
+       Anything else is an ordinary call frame -- the console called a
+       function, and the failure is that function's own lazy import.
+
+    Step 2 is the whole discrimination, and it has been wrong twice by
+    inspecting the wrong part of the traceback. Both directions matter:
+
+    ===================================== ======================================
+    Rule                                  Shape it misreads
+    ===================================== ======================================
+    deepest frame that is not machinery   ``rich`` installed with its own
+                                          ``pygments`` missing: the deepest code
+                                          frame is inside ``rich``, so it blames
+                                          ``rich`` and re-raises.
+    ...and not a module body              a library resolving its imports in a
+                                          helper (``def _setup(): import
+                                          pygments`` called at module scope, as
+                                          ``matplotlib`` does): a *call* frame
+                                          sits at the bottom of what is still
+                                          the console's import.
+    any import evidence anywhere below    over-corrects: a library the console
+                                          *called* that does its own
+                                          ``importlib.import_module`` leaves a
+                                          machinery frame down there, and its
+                                          bug becomes "install the extra".
+    ===================================== ======================================
+
+    The first two shapes are the same failure -- a **half-installed extra**,
+    which ``pip install mfgparams[console]`` repairs and FR-011 exists to
+    describe. So is PEP 562, and the ``__getattr__`` marker is what catches it:
+    ``from lib import thing`` puts that call frame directly below the console
+    with the cascade beneath *it*.
+
+    Both other markers are needed too. CPython elides the
+    ``importlib._bootstrap`` frames from a plain failing ``import``, so a module
+    body is often the only evidence an import ran at all, while
+    ``importlib.import_module`` leaves machinery frames and no module body.
+
+    What is deliberately *not* answered: a library whose import is simply
+    **wrong** -- a typo, or an undeclared dependency imported unconditionally.
+    Its traceback is identical in shape to the half-installed one, both being
+    "the console imported X; something under X was missing", so no rule reading
+    frames can separate them. Decided in favour of FR-011, which is a
+    requirement, over a clearer diagnostic for a library bug, which is not.
+
+    A ``__getattr__`` reached by *attribute access* rather than by an import
+    statement (``import lib`` then ``lib.thing``) is indistinguishable here and
+    takes the friendly path too. That is the right answer for the PEP 562 case
+    it is there for, and a class's ``__getattr__`` doing a failing import is
+    rare enough to accept as the cost.
     """
-    requester = _requesting_file(exc)
-    if requester is None:
+    frames = []
+    traceback = exc.__traceback__
+    while traceback is not None:
+        code = traceback.tb_frame.f_code
+        frames.append((code.co_filename, code.co_name))
+        traceback = traceback.tb_next
+
+    console = _CONSOLE_DIR.resolve()
+    innermost = None
+    for index, (filename, _) in enumerate(frames):
+        if _is_import_machinery(filename):
+            continue
+        # `Path.is_relative_to` is 3.9+, which is this project's floor.
+        if Path(filename).resolve().is_relative_to(console):
+            innermost = index
+
+    if innermost is None:
         return False
 
-    # `Path.is_relative_to` is 3.9+, which is this project's floor.
-    return Path(requester).resolve().is_relative_to(_CONSOLE_DIR.resolve())
+    below = frames[innermost + 1 :]
+    if not below:
+        return True
+
+    filename, function = below[0]
+    return _is_import_machinery(filename) or function in _IMPORT_SYSTEM_CALLBACKS
+
+
+#: Stands in for the module name when the exception did not carry one (an
+#: import hook may omit it). This is user-facing prose inside a user-facing
+#: sentence, so Principle VIII puts it in the catalog rather than inline here:
+#: spliced in as a literal it would stay English in a translated message.
+_UNNAMED_DEPENDENCY_MESSAGE_ID = "console.missing_dependency.unnamed"
 
 
 def _report_missing_console(module: str | None) -> int:
     """Print the FR-011 message for ``module`` and return the exit status."""
     from mfgparams.i18n import get_locale, translate
 
-    message = translate(
-        get_locale(), _MISSING_CONSOLE_MESSAGE_ID, module=repr(module or "a dependency")
-    )
+    locale = get_locale()
+    named = repr(module) if module else translate(locale, _UNNAMED_DEPENDENCY_MESSAGE_ID)
+    message = translate(locale, _MISSING_CONSOLE_MESSAGE_ID, module=named)
     print(message, file=sys.stderr)
     return 1
 
@@ -233,11 +324,30 @@ def main() -> int:
         # returning the process exit status.
         status = _console_main()
     except ModuleNotFoundError as exc:
-        if not _requested_by_the_console(exc):
+        # Provenance answers "did the console ask for this?", not "can the
+        # extra supply it?" -- and inside the console those differ. A missing
+        # module of *ours* was requested by the console yet is a damaged
+        # install, so it needs the import-time question asked here too;
+        # otherwise a lazy `from mfgparams.processes... import x` that failed
+        # would be answered with "pip install mfgparams[console]", advice that
+        # cannot work (contracts/console-entry-contract.md).
+        if _is_broken_core(exc.name) or not _requested_by_the_console(exc):
             raise
         return _report_missing_console(exc.name)
 
-    return 0 if status is None else int(status)
+    if status is None:
+        return 0
+    if isinstance(status, int):
+        return status
+
+    # `sys.exit("message")` semantics: a non-int status is a message, not a
+    # number. `int()` on it raises ValueError *inside the entry point*,
+    # replacing whatever the console was trying to say with a traceback.
+    # `bool` is an `int` and takes the branch above, so `return False` exits 0
+    # and `return True` exits 1 -- the same quirk `sys.exit` has, kept rather
+    # than special-cased so the two agree.
+    print(status, file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":

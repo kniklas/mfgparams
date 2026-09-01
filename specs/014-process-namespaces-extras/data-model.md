@@ -63,12 +63,20 @@ modules (research.md #2).
 
 ### Console entry point
 
-The two invocation forms, both of which must keep working (FR-012).
+The three invocation forms, all of which must keep working and behave identically (FR-012).
 
 | Form | Resolves to | Behaviour without console dependencies |
 |---|---|---|
 | `mfgparams` (console script) | `mfgparams.__main__:main` | Actionable message, non-zero exit (FR-011) |
 | `python -m mfgparams` | `mfgparams/__main__.py` | Identical to the above |
+| `python -m mfgparams.console` | `mfgparams/console/__main__.py`, which delegates to `mfgparams.__main__:main` | Identical to the above |
+
+The third form is a form a user reaches by guessing, so FR-011 covers it too; it delegates rather
+than calling `console.cli.main` directly. It carries one constraint the other two do not:
+`runpy` imports `mfgparams.console` *before* running `console/__main__.py`, so
+`console/__init__.py` must import nothing at module scope — an import there fails ahead of the
+guard, where nothing can catch it. See
+[contracts/console-entry-contract.md](./contracts/console-entry-contract.md).
 
 ---
 

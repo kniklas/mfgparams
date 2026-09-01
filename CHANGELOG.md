@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ast scan plus a clean-interpreter `sys.modules` check rather than by
   convention.
 
+- `python -m mfgparams.console` now works as a third way to start the console,
+  alongside the `mfgparams` command and `python -m mfgparams`. All three route
+  through the same entry point, so a missing console dependency gets the same
+  actionable message from any of them instead of a traceback from one.
+
 ### Added
 
 - Installation extras. `pip install mfgparams` now installs only what the

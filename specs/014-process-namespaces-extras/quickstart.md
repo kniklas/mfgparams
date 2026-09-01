@@ -93,20 +93,26 @@ if that lazy import is ever hoisted to module scope.
 
 ---
 
-## 5. Console works, both invocation forms (FR-012)
+## 5. Console works, all three invocation forms (FR-012)
 
 ```bash
 mfgparams --help; echo "exit=$?"
 python -m mfgparams --help; echo "exit=$?"
+python -m mfgparams.console --help; echo "exit=$?"
 
 # And an interactive run terminated at the first prompt (the console exits on EOF;
 # there is no quit command):
 printf '' | mfgparams; echo "exit=$?"
 printf '' | python -m mfgparams; echo "exit=$?"
+printf '' | python -m mfgparams.console; echo "exit=$?"
 ```
 
-**Expected**: both forms print the same help text with `prog: mfgparams` and `exit=0`, and both
-EOF runs terminate cleanly with the same exit status as each other.
+**Expected**: all three forms print the same help text with `prog: mfgparams` and `exit=0`, and all
+three EOF runs terminate cleanly with the same exit status as each other.
+
+The third form is the one worth actually running rather than assuming: it is the only one that
+reaches `mfgparams.__main__:main` indirectly, and `runpy` imports the `mfgparams.console` package
+*before* the guard exists — see contracts/console-entry-contract.md.
 
 ---
 

@@ -56,6 +56,15 @@ and is why the spec's Assumptions declare the extra now: the guard and its test 
 contract before there is a dependency to trip it, so that adding the first console dependency is a
 one-line change rather than a rediscovery of this whole design.
 
+**Delivered larger than this entry implies.** "Keying on the dependency import" turned out to name
+two guards, not one. #63 permits a heavy dependency to be imported *lazily*, inside the call, which
+fails after the entry point has committed to running — so the console's **execution** is wrapped
+too. That second guard cannot ask *what* is missing, because an exception carries an import name
+while an extra declares a distribution name and the mapping needs metadata that is absent precisely
+when the import fails; it asks *who imported it* instead, from the traceback's frames. That
+mechanism is specified in contracts/console-entry-contract.md, and it is where the design risk of
+this feature actually ended up — not in the one-line `try/except` this entry describes.
+
 **Alternatives considered**:
 
 - *Two distributions (`mfgparams` and `mfgparams-console`)*: gives a genuine module-level split, so

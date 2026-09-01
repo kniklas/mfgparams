@@ -111,7 +111,9 @@ src/mfgparams/
 │   └── materials.toml
 ├── console/                        # was cli.py (FR-007)
 │   ├── __init__.py
-│   ├── __main__.py                 # console script target
+│   ├── __main__.py                 # `python -m mfgparams.console`; delegates to
+│   │                               #   mfgparams/__main__.py, which is the console
+│   │                               #   script target and holds the FR-011 guard
 │   └── cli.py
 └── processes/                      # was operations/ (FR-001)
     ├── __init__.py
@@ -136,7 +138,11 @@ tests/
 ├── scripts/
 ├── static/
 │   ├── test_no_old_layout.py       # NEW (FR-017)
-│   └── test_core_does_not_import_console.py   # NEW (FR-008)
+│   ├── test_core_does_not_import_console.py   # NEW (FR-008)
+│   └── test_entry_points_are_guarded.py       # NEW (FR-011, FR-012) — no module
+│                                              #   outside the two declared shims is
+│                                              #   runnable, and console/__init__.py
+│                                              #   imports nothing
 └── unit/
     ├── shared/
     └── processes/machining/        # mirrors src (FR-014)

@@ -20,6 +20,10 @@ MESSAGES: dict[str, str] = {
         "The interactive console is not available: it needs {module}, which is "
         "not installed.\nInstall it with:  pip install mfgparams[console]"
     ),
+    # Substituted for `{module}` above when the exception carried no name.
+    # Prose, so it is catalogued rather than inlined at the call site: a
+    # literal there would stay English inside a translated sentence.
+    "console.missing_dependency.unnamed": "a dependency",
     # --- Interactive text interface (console/cli.py) prompts and labels ---
     "cli.prompt.unit_system": "Unit system [metric/imperial] ({default}): ",
     "cli.prompt.unit_system.invalid": "Please enter 'metric' or 'imperial'.",
