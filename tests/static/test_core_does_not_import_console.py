@@ -94,6 +94,21 @@ def _resolve_relative(relative_path: str, level: int, module: str | None) -> str
     return ".".join(package[:keep] + ((module,) if module else ()))
 
 
+def _imported_from_names(target: str | None, node: ast.ImportFrom) -> list[str]:
+    """Every dotted name an ``ImportFrom`` actually binds, target included.
+
+    ``from mfgparams import console`` and ``from . import console`` name the
+    console in the *alias*, not in ``node.module`` -- which resolves only to
+    ``mfgparams``. Checking the target alone therefore scores both clean, and
+    placed in a function body or behind ``TYPE_CHECKING`` they evade the
+    runtime check too, so FR-008 could be violated with both guards green.
+    Expanding each alias against the target is what closes that.
+    """
+    if not target:
+        return []
+    return [target] + [f"{target}.{alias.name}" for alias in node.names]
+
+
 def _console_references(relative_path: str, source: str) -> list[str]:
     tree = ast.parse(source)
     found = []
@@ -106,8 +121,7 @@ def _console_references(relative_path: str, source: str) -> list[str]:
                 if node.level == 0
                 else _resolve_relative(relative_path, node.level, node.module)
             )
-            if _names_console(target):
-                found.append(target)
+            found += [name for name in _imported_from_names(target, node) if _names_console(name)]
     return found
 
 
@@ -149,10 +163,24 @@ def test_the_exemption_is_scoped_to_the_package_root(relative_path, exempt):
         ("registry.py", "from .console import cli"),
         ("registry.py", "from .console.cli import main"),
         ("processes/machining/drilling/tools.py", "from ....console import cli"),
+        # The console named in the *alias* rather than in the module: `node.module`
+        # resolves only to `mfgparams` here, so checking it alone scores clean.
+        ("registry.py", "from mfgparams import console"),
+        ("registry.py", "from mfgparams import console as c"),
+        ("registry.py", "from mfgparams import units, console"),
+        ("registry.py", "from . import console"),
+        ("registry.py", "from . import console as c"),
+        ("processes/machining/drilling/tools.py", "from .... import console"),
         # Placement the runtime sys.modules check cannot see, which is the whole
-        # reason the ast scan exists alongside it.
+        # reason the ast scan exists alongside it -- in both spellings, since the
+        # alias form is exactly the one that also slipped past the scan.
         ("registry.py", "def f():\n    from .console import cli\n"),
         ("registry.py", "import typing\nif typing.TYPE_CHECKING:\n    from .console import cli\n"),
+        ("registry.py", "def f():\n    from . import console\n"),
+        (
+            "registry.py",
+            "import typing\nif typing.TYPE_CHECKING:\n    from mfgparams import console\n",
+        ),
     ],
 )
 def test_the_scan_detects_every_import_form(relative_path, source):
@@ -167,6 +195,12 @@ def test_the_scan_detects_every_import_form(relative_path, source):
         ("registry.py", "from . import units"),
         # Not the console: a sibling whose name merely starts the same way.
         ("registry.py", "from mfgparams.console_helpers import x"),
+        ("registry.py", "from mfgparams import console_helpers"),
+        ("registry.py", "from . import console_helpers"),
+        # Alias expansion must respect the *resolved* parent, not just the leaf
+        # name: three dots from `drilling` land on `mfgparams.processes`, so this
+        # names a hypothetical `mfgparams.processes.console` and not the console.
+        ("processes/machining/drilling/tools.py", "from ... import console"),
     ],
 )
 def test_the_scan_does_not_fire_on_legitimate_imports(relative_path, source):

@@ -40,6 +40,7 @@ import ast
 import glob
 import importlib.machinery
 import inspect
+import re
 import shutil
 import subprocess
 import sys
@@ -285,6 +286,16 @@ def _wheel_metadata(wheel: Path) -> list[str]:
         return archive.read(name).decode("utf-8").splitlines()
 
 
+#: The gating extra in a ``Requires-Dist`` marker. Shared with the guard in
+#: ``mfgparams/__main__.py``, which parses the same field for the same reason:
+#: quoting and spacing around ``==`` are not guaranteed, and older setuptools
+#: emits single quotes. A fixed ``'extra == "'`` substring test would group
+#: every console-gated requirement under ``None`` on such a wheel, emptying
+#: ``grouped["all"]`` and failing the assertions below with a message blaming
+#: `pyproject.toml` rather than the parser.
+_EXTRA_MARKER = re.compile(r"""extra\s*==\s*['"]([^'"]+)['"]""")
+
+
 def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
     """Group the wheel's ``Requires-Dist`` entries by the extra that gates them.
 
@@ -297,10 +308,8 @@ def _requirements_by_extra(wheel: Path) -> dict[str | None, set[str]]:
             continue
         value = line.split(":", 1)[1].strip()
         requirement, _, marker = value.partition(";")
-        extra = None
-        if 'extra == "' in marker:
-            extra = marker.split('extra == "', 1)[1].split('"', 1)[0]
-        grouped.setdefault(extra, set()).add(requirement.strip())
+        found = _EXTRA_MARKER.search(marker)
+        grouped.setdefault(found.group(1) if found else None, set()).add(requirement.strip())
     return grouped
 
 
@@ -349,10 +358,24 @@ def test_all_extra_is_a_superset_of_every_runtime_extra(built_wheel):
     grouped = _requirements_by_extra(built_wheel)
     everything = grouped.get("all", set())
 
-    assert any(
-        requirement.replace(" ", "").startswith("mfgparams[") for requirement in everything
+    # Parse the extras out of each self-reference rather than asking whether the
+    # word appears anywhere in the joined requirements: a substring check passes
+    # on any requirement that merely *contains* "console" -- a third-party
+    # `console-tools`, say -- so it would keep passing after the aggregation it
+    # exists to prove had been removed.
+    referenced = set()
+    for requirement in everything:
+        head = requirement.replace(" ", "")
+        name, bracket, rest = head.partition("[")
+        if bracket and name == "mfgparams":
+            referenced |= set(rest.split("]", 1)[0].split(","))
+
+    assert (
+        referenced
     ), f"the `all` extra must aggregate the others by reference, found {sorted(everything)}"
-    assert "console" in " ".join(everything), "the `all` extra must include `console`"
+    assert (
+        "console" in referenced
+    ), f"the `all` extra must include `console`; it references {sorted(referenced)}"
 
     development_only = {"pytest", "ruff", "black", "mypy", "tox", "sphinx", "bandit"}
     named = {requirement.split()[0].split("[")[0].split(">")[0] for requirement in everything}

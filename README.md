@@ -32,19 +32,21 @@ granted there, including all commercial rights, are reserved.
 ## Install
 
 ```bash
-pip install mfgparams                # the calculation library only
-pip install "mfgparams[console]"     # plus the interactive console
-pip install "mfgparams[all]"         # every optional runtime capability
+pip install mfgparams                # core dependencies only
+pip install "mfgparams[console]"     # adds the console's dependencies
+pip install "mfgparams[all]"         # adds every optional runtime dependency
 ```
 
-A default install carries only what the calculations need. The console's
-dependencies sit behind the `console` extra, so embedding the library in another
-application does not drag the REPL's requirements in with it. The extra is
-currently empty — the console needs nothing beyond the standard library today —
-but it is declared now so that populating it later stays invisible to you.
+An extra gates **dependencies, not modules**: every install ships the same
+wheel, `mfgparams.console` included. What `[console]` adds is what the console
+*needs*, so embedding the library in another application does not drag the
+REPL's requirements in with it. The extra is currently empty — the console
+needs nothing beyond the standard library today — so a default install can in
+fact run the console; the extra is declared now so that populating it later
+stays invisible to you.
 
-Invoking `mfgparams` without the console extra prints the exact command that
-fixes it and exits non-zero; it never shows a traceback.
+If a console dependency is ever unavailable, invoking `mfgparams` prints the
+exact command that fixes it and exits non-zero; it never shows a traceback.
 
 ## Package structure
 
@@ -59,10 +61,13 @@ mfgparams.processes.machining.milling.face_milling
 mfgparams.console                                  interactive console
 ```
 
-Everything in the first block is re-exported at the top level, so
-`from mfgparams import calculate` is the supported way to reach it; the
+The calculation modules are re-exported at the top level, so
+`from mfgparams import calculate` is the supported way to reach them; the
 qualified paths are there to say where a calculation sits in the manufacturing
-domain. A future process (turning, welding, joining, forming) attaches beside
+domain. `mfgparams.console` is *not* part of that surface — the console is
+reached through the `mfgparams` command or `python -m mfgparams`.
+
+A future process (turning, welding, joining, forming) attaches beside
 `machining` rather than reorganising it.
 
 ## Install (development)

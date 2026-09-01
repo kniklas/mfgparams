@@ -81,9 +81,15 @@ extra and confirm the interactive console starts.
    same calculations, same output, same exit codes.
 3. **Given** a clean environment, **When** the package is installed with the "everything" extra,
    **Then** every optional capability the project currently ships is available.
-4. **Given** the package is installed without the console extra, **When** a user invokes the console
-   entry point, **Then** they get a short actionable message naming the exact install command that
-   fixes it, and a non-zero exit status — never a raw stack trace.
+4. **Given** a dependency the console needs is unavailable — the `console` extra was never
+   installed, or an install is incomplete — **When** a user invokes the console entry point,
+   **Then** they get a short actionable message naming the exact install command that fixes it,
+   and a non-zero exit status — never a raw stack trace.
+
+   The Given clause is keyed on a *dependency* rather than on the extra because an extra gates
+   dependencies, not modules (FR-011): the console module ships in every wheel, so "installed
+   without the console extra" alone does not stop the entry point from working — and with the
+   extra empty on delivery, it succeeds.
 
 ---
 
@@ -114,11 +120,15 @@ confirm the built distribution contains every bundled data file at its new locat
 
 ### Edge Cases
 
-- **Console entry point without the console extra**: covered by Story 2 scenario 4 — actionable
-  message and non-zero exit, never a traceback.
-- **A partially-installed console**: the guard must key on the capability actually being importable,
-  not on a recorded installation choice, so a broken or partially-removed console dependency
-  produces the same actionable message rather than a traceback from deep inside a submodule.
+- **Console entry point with a console dependency unavailable**: covered by Story 2 scenario 4 —
+  actionable message and non-zero exit, never a traceback. Note this is not the same as "installed
+  without the extra": the extra gates dependencies, not the module.
+- **A partially-installed console**: the guard must key on whether the console's *dependencies*
+  resolve, not on a recorded installation choice and not on whether `mfgparams.console` itself
+  imports — the module ships in every wheel, so the latter test can never fail. A broken or
+  partially-removed console dependency must produce the same actionable message rather than a
+  traceback from deep inside a submodule, whether it surfaces while the console is being imported
+  or later, while it is running.
 - **Bundled data files silently dropped from the distribution**: moving source directories moves the
   data directories with them; if packaging metadata is not updated in step, the library installs but
   fails at first use in a way no source-tree test would catch. Must be caught by a build-and-inspect
@@ -212,8 +222,9 @@ touching it, satisfying FR-006.
 - **SC-001**: For every calculation the library exposes, results for identical inputs are identical
   before and after this feature — verified by the existing contract tests, unchanged in substance.
 - **SC-002**: A default installation pulls in zero console-only dependencies.
-- **SC-003**: A user who installs without the console and then invokes it is told, in one message,
-  the exact command that fixes it; no stack trace reaches them.
+- **SC-003**: A user who invokes the console while one of its dependencies is unavailable is told,
+  in one message, the exact command that fixes it; no stack trace reaches them. Stated in terms of
+  a dependency, not of the extra, for the reason given under Story 2 scenario 4.
 - **SC-004**: Zero functional references to the previous layout remain anywhere in the repository,
   enforced by an automated check that fails if one is reintroduced.
 - **SC-005**: 100% of bundled reference-data files are present in the built distribution, verified
