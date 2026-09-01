@@ -53,7 +53,7 @@ stays invisible to you.
 If a console dependency is ever unavailable, invoking `mfgparams` prints the
 exact command that fixes it and exits non-zero rather than showing a traceback.
 A failure inside `mfgparams` itself — a damaged install, a missing *core*
-dependency — still raises normally, because `pip install mfgparams[console]`
+dependency — still raises normally, because `pip install "mfgparams[console]"`
 would not fix it.
 
 ## Package structure

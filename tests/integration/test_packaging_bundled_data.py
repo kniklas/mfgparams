@@ -384,9 +384,14 @@ def test_default_install_pulls_in_no_console_only_dependency(built_wheel):
     # default install carried a console dependency -- the exact thing FR-013
     # forbids. Names are normalised (PEP 503) so casing and `-`/`_` cannot hide
     # it either. The original strings are kept for the failure message.
-    by_name = {}
+    by_name: dict[str, list[str]] = {}
     for requirement in default:
-        by_name.setdefault(_distribution_name(requirement), []).append(requirement)
+        # A malformed entry normalises to "", and two of them would pair up as
+        # a leak that does not exist. It takes a corrupt wheel to reach, but a
+        # false FR-013 failure is a bad way to find that out.
+        name = _distribution_name(requirement)
+        assert name, f"unparseable Requires-Dist in the built wheel: {requirement!r}"
+        by_name.setdefault(name, []).append(requirement)
     leaked = sorted(
         (requirement, other)
         for other in console_only

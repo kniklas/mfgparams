@@ -34,11 +34,11 @@ behaviour.
 
 | Aspect | Requirement |
 |---|---|
-| Output | One short message naming the exact command that fixes it: `pip install "mfgparams[console]"` |
+| Output | One short message naming the exact command that fixes it: `<sys.executable> -m pip install "mfgparams[console]"` |
 | Stream | stderr |
 | Exit status | Non-zero |
 | Traceback | MUST NOT be shown |
-| Shell safety | The command MUST be **quoted**, and MUST run as printed in the user's shell |
+| Shell safety | The command MUST be **quoted** and MUST name the **running interpreter**, so that it runs as printed on the machine that printed it |
 | Trigger | A dependency of the console failing to import — never a check for the console module, which always exists (see [installation-extras-contract.md](./installation-extras-contract.md)). The concrete construct is specified below. |
 
 The guard MUST cover the lazy console import inside `main()` **and the console's own execution**,
@@ -56,10 +56,23 @@ emits exactly the raw traceback FR-011 forbids, on precisely the path the extra 
 command fails FR-011 as surely as a traceback would — worse, arguably, since it tells the user the
 fix does not exist. Unquoted, `mfgparams[console]` is a glob: zsh, the default shell on macOS,
 matches nothing and aborts the whole line with `no matches found` before pip is ever invoked. The
-requirement is therefore quoted in the catalogue entry, and the test asserts it by running the
-emitted command under `zsh` with a stub `pip` on `PATH`, checking pip receives
-`mfgparams[console]` intact. The unquoted form's failure is pinned by its own test, so the quoting
-cannot later be mistaken for a style preference and removed.
+requirement is therefore quoted, and the test asserts it by handing the emitted requirement —
+verbatim, quotes included — to a real `zsh -f` and checking it expands to `mfgparams[console]`.
+Nothing is executed: only the shell's word expansion is under test, so there is no stub `pip` to be
+shadowed and no way for the test to install anything. `-f` matters, because zsh recovers `HOME`
+from the passwd database even from a scrubbed environment and would otherwise read the developer's
+`~/.zshenv`. The unquoted form's failure is pinned by its own test, so the quoting cannot later be
+mistaken for a style preference and removed.
+
+**The command MUST also name the running interpreter**, not a bare `pip`. More than one Python on a
+machine is the ordinary case — a system Python beside a venv, a Debian box with only `pip3` — and a
+bare `pip` there installs into a different interpreter's site-packages, after which the console is
+still unavailable and this same message appears again. That is the same "the fix does not exist"
+dead end as the globbing failure, one layer down. The guard builds the command from
+`sys.executable`, falling back to `python` when it is empty (an embedded interpreter).
+
+Because the command is assembled rather than written out, the catalogue entry holds only a
+`{command}` placeholder: neither the quoting nor the interpreter can be broken by a translation.
 
 ## What the guard actually wraps
 

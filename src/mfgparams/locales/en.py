@@ -16,14 +16,18 @@ MESSAGES: dict[str, str] = {
     # looking it up from a catalog that lives inside the console would fail
     # exactly when it is needed and hand the user the traceback FR-011 exists
     # to prevent (contracts/console-entry-contract.md, research.md #4).
-    # The requirement is **quoted**, and that is not decoration: zsh -- the
-    # default shell on macOS -- globs `[console]` and aborts the whole command
-    # with `no matches found` before pip ever runs. FR-011 promises "the exact
-    # command that fixes it", so the command has to survive being pasted into
-    # the shell the user actually has.
+    # `{command}` is built by the guard rather than written here, and both of
+    # its peculiarities are load-bearing (contracts/console-entry-contract.md):
+    # the requirement is *quoted*, because zsh -- the default shell on macOS --
+    # globs `[console]` and aborts with `no matches found` before pip runs; and
+    # it names the *running interpreter* rather than a bare `pip`, which on a
+    # machine with several Pythons installs into the wrong one and reproduces
+    # this very message. FR-011 promises "the exact command that fixes it", so
+    # neither is cosmetic -- and neither is left where a translation could
+    # break it.
     "console.missing_dependency": (
         "The interactive console is not available: it needs {module}, which is "
-        'not installed.\nInstall it with:  pip install "mfgparams[console]"'
+        "not installed.\nInstall it with:  {command}"
     ),
     # Substituted for `{module}` above when the exception carried no name.
     # Prose, so it is catalogued rather than inlined at the call site: a

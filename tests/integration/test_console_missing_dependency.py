@@ -34,10 +34,9 @@ import mfgparams.__main__ as entry_point
 
 _CONSOLE_MODULES = ("mfgparams.console", "mfgparams.console.cli")
 
-#: The command FR-011 promises is "the exact command that fixes it". Stated
-#: once here rather than inline at each assertion, so the shell-safety rule
-#: below governs every one of them.
-_FIX_COMMAND = 'pip install "mfgparams[console]"'
+#: Read from the guard rather than restated, so a rename cannot leave these
+#: assertions passing against a string the product no longer emits.
+_CONSOLE_EXTRA_REQUIREMENT = entry_point._CONSOLE_EXTRA_REQUIREMENT
 
 
 class _FailOnConsoleImport(importlib.abc.MetaPathFinder):
@@ -72,7 +71,7 @@ def test_console_missing_dependency_reports_the_install_command(simulate_missing
     captured = capsys.readouterr()
 
     assert status != 0, "a console that could not start must not report success"
-    assert _FIX_COMMAND in captured.err
+    assert _CONSOLE_EXTRA_REQUIREMENT in captured.err
     assert captured.out == "", "the guidance belongs on stderr, not stdout"
 
 
@@ -83,7 +82,7 @@ def test_console_missing_dependency_emits_one_message_and_no_traceback(simulate_
     stderr = capsys.readouterr().err
 
     assert "Traceback" not in stderr
-    assert stderr.count(_FIX_COMMAND) == 1, "say it once"
+    assert stderr.count(_CONSOLE_EXTRA_REQUIREMENT) == 1, "say it once"
 
 
 def test_console_missing_dependency_message_comes_from_the_catalog(simulate_missing, capsys):
@@ -100,7 +99,7 @@ def test_console_missing_dependency_message_comes_from_the_catalog(simulate_miss
     entry_point.main()
 
     expected = en.MESSAGES[entry_point._MISSING_CONSOLE_MESSAGE_ID].format(
-        module=repr("some_console_dependency")
+        module=repr("some_console_dependency"), command=entry_point._install_command()
     )
     assert capsys.readouterr().err.strip() == expected.strip()
 
@@ -147,7 +146,7 @@ def test_an_unnamed_import_failure_takes_the_friendly_path(simulate_missing, cap
     stderr = capsys.readouterr().err
 
     assert status == 1
-    assert _FIX_COMMAND in stderr
+    assert _CONSOLE_EXTRA_REQUIREMENT in stderr
     assert "a dependency" in stderr
     assert "None" not in stderr, "a missing name must not leak into the message"
 
@@ -246,7 +245,7 @@ def test_a_lazy_console_dependency_still_gets_the_friendly_message(monkeypatch, 
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert _FIX_COMMAND in stderr
+    assert _CONSOLE_EXTRA_REQUIREMENT in stderr
     assert _ABSENT in stderr
 
 
@@ -259,7 +258,7 @@ def test_a_lazy_import_deeper_inside_the_console_is_also_attributed(monkeypatch,
     monkeypatch.setattr(console_cli, "main", _console_main_that_imports(_ABSENT, from_file=deeper))
 
     assert entry_point.main() == 1
-    assert _FIX_COMMAND in capsys.readouterr().err
+    assert _CONSOLE_EXTRA_REQUIREMENT in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -312,7 +311,7 @@ def test_the_import_name_never_has_to_match_a_distribution_name(monkeypatch, cap
     )
 
     assert entry_point.main() == 1
-    assert _FIX_COMMAND in capsys.readouterr().err
+    assert _CONSOLE_EXTRA_REQUIREMENT in capsys.readouterr().err
 
 
 def test_the_console_frame_is_found_past_the_import_machinery():
@@ -384,7 +383,7 @@ def test_provenance_looks_past_importlib_s_own_frames(monkeypatch, capsys):
     monkeypatch.setattr(console_cli, "main", namespace["main"])
 
     assert entry_point.main() == 1
-    assert _FIX_COMMAND in capsys.readouterr().err
+    assert _CONSOLE_EXTRA_REQUIREMENT in capsys.readouterr().err
 
 
 def test_the_console_extra_wins_over_a_core_declaration_of_the_same_name(monkeypatch):
@@ -485,7 +484,7 @@ def test_the_console_module_form_is_guarded_too(simulate_missing, capsys):
     stderr = capsys.readouterr().err
     assert excinfo.value.code == 1
     assert "Traceback" not in stderr
-    assert _FIX_COMMAND in stderr
+    assert _CONSOLE_EXTRA_REQUIREMENT in stderr
 
 
 def test_an_exception_with_no_traceback_is_not_attributed_to_the_console():
@@ -592,7 +591,7 @@ def test_a_console_library_s_own_missing_dependency_is_attributed_to_the_console
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert _FIX_COMMAND in stderr
+    assert _CONSOLE_EXTRA_REQUIREMENT in stderr
 
 
 def test_a_library_that_imports_via_a_helper_is_still_the_console_s_dependency(
@@ -627,7 +626,7 @@ def test_a_library_that_imports_via_a_helper_is_still_the_console_s_dependency(
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert _FIX_COMMAND in stderr
+    assert _CONSOLE_EXTRA_REQUIREMENT in stderr
 
 
 def test_a_library_s_lazy_import_inside_a_call_is_still_its_own_bug(tmp_path, monkeypatch, capsys):
@@ -738,7 +737,7 @@ def test_a_pep_562_lazy_submodule_is_still_the_console_s_dependency(tmp_path, mo
 
     assert status == 1
     assert "Traceback" not in stderr
-    assert _FIX_COMMAND in stderr
+    assert _CONSOLE_EXTRA_REQUIREMENT in stderr
 
 
 def test_the_innermost_console_frame_is_what_counts_not_the_first(tmp_path, monkeypatch, capsys):
@@ -767,7 +766,7 @@ def test_the_innermost_console_frame_is_what_counts_not_the_first(tmp_path, monk
     monkeypatch.setattr(console_cli, "main", namespace["main"])
 
     assert entry_point.main() == 1
-    assert _FIX_COMMAND in capsys.readouterr().err
+    assert _CONSOLE_EXTRA_REQUIREMENT in capsys.readouterr().err
 
 
 def test_machinery_frames_are_skipped_before_the_console_directory_test(tmp_path, monkeypatch):
@@ -801,16 +800,46 @@ def test_machinery_frames_are_skipped_before_the_console_directory_test(tmp_path
     assert excinfo.value.name == _ABSENT
 
 
+def _zsh_expands(argument: str) -> subprocess.CompletedProcess:
+    """Run zsh on ``print -r -- <argument>`` and report what it did.
+
+    Hermetic on purpose, in three ways this test previously was not:
+
+    * ``-f`` (NO_RCS) stops zsh reading the developer's ``~/.zshenv``. Scrubbing
+      the environment is not enough -- zsh recovers ``HOME`` from the passwd
+      database and reads it anyway -- so a contributor with ``setopt nomatch``
+      unset would silently invert the result, and one who prepends to ``PATH``
+      there (Homebrew, pyenv, nix and direnv all do) could have had a *real*
+      ``pip install`` run from a unit test.
+    * nothing is executed. Only zsh's word expansion is under test, so ``print``
+      is enough; there is no stub ``pip`` to be shadowed and nothing to install.
+    * ``timeout`` bounds it, so a hung shell fails the test instead of the run.
+    """
+    return subprocess.run(
+        [shutil.which("zsh") or "zsh", "-f", "-c", f"print -r -- {argument}"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={"PATH": "/usr/bin:/bin", "HOME": tempfile.gettempdir()},
+    )
+
+
+_needs_zsh = pytest.mark.skipif(
+    shutil.which("zsh") is None, reason="zsh not installed; its globbing is what is under test"
+)
+
+
 def test_the_advertised_command_survives_the_user_s_shell(simulate_missing, capsys):
     """FR-011 promises *the exact command that fixes it*, so it has to run.
 
-    Unquoted, `pip install mfgparams[console]` is a glob. zsh -- the default
-    shell on macOS -- finds no match and aborts the whole command with
-    `no matches found`, before pip is ever invoked. The user is then told the
-    fix does not exist, which is worse than the traceback the guard replaced.
+    Two independent ways it could fail to, both of which end with the user
+    unable to apply the fix -- worse than the traceback the guard replaced:
 
-    Checked two ways: the portable one, which runs everywhere, and an actual
-    zsh invocation where zsh exists.
+    * unquoted, `mfgparams[console]` is a glob, and zsh (the default shell on
+      macOS) aborts the whole line with `no matches found` before pip runs;
+    * a bare `pip` on a machine with several Pythons installs into a different
+      interpreter, after which the console is still missing and this same
+      message appears again.
     """
 
     simulate_missing("some_console_dependency")
@@ -818,56 +847,45 @@ def test_the_advertised_command_survives_the_user_s_shell(simulate_missing, caps
     stderr = capsys.readouterr().err
 
     line = next(line for line in stderr.splitlines() if "pip install" in line)
-    command = line[line.index("pip install") :].strip()
-    assert command == _FIX_COMMAND
+    command = line[line.index(sys.executable if sys.executable else "python") :].strip()
 
-    # Portable, so it runs on every CI leg: the shell must hand pip the
-    # requirement intact, brackets and all, and the bracketed word must not
-    # reach the shell bare.
-    assert shlex.split(command) == ["pip", "install", "mfgparams[console]"]
-    assert "mfgparams[console]" not in command.replace('"mfgparams[console]"', "")
+    assert shlex.split(command) == [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        _CONSOLE_EXTRA_REQUIREMENT,
+    ]
 
-    zsh = shutil.which("zsh")
-    if zsh is None:  # pragma: no cover - zsh is not installed everywhere
-        pytest.skip("zsh not available to check the globbing behaviour end to end")
 
-    with tempfile.TemporaryDirectory() as fake_bin:
-        stub = Path(fake_bin) / "pip"
-        stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
-        stub.chmod(0o755)
-        completed = subprocess.run(
-            [zsh, "-c", command],
-            capture_output=True,
-            text=True,
-            env={"PATH": f"{fake_bin}:/usr/bin:/bin"},
-        )
+@_needs_zsh
+def test_the_requirement_reaches_pip_intact_through_zsh(simulate_missing, capsys):
+    """The quoting, checked against a real zsh rather than by inspection."""
+
+    simulate_missing("some_console_dependency")
+    entry_point.main()
+    line = next(line for line in capsys.readouterr().err.splitlines() if "pip install" in line)
+
+    # The requirement exactly as emitted, quotes included -- not re-quoted by
+    # `shlex.join`, which would add the very quoting under test.
+    as_emitted = line[line.rindex(" ") + 1 :]
+    completed = _zsh_expands(as_emitted)
 
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.split() == ["install", "mfgparams[console]"], completed.stdout
+    assert completed.stdout.strip() == _CONSOLE_EXTRA_REQUIREMENT
 
 
-def test_the_unquoted_command_really_would_have_failed():
+@_needs_zsh
+def test_the_unquoted_requirement_really_would_have_failed():
     """The premise of the test above, pinned separately.
 
-    Without this, quoting looks like a style preference. It is not: the bare
-    form aborts before pip runs, and that is what makes the finding a defect
-    rather than a nit.
+    Without it, the quoting reads as a style preference and the next edit drops
+    it. Derived from `_CONSOLE_EXTRA_REQUIREMENT` rather than hardcoded, so
+    renaming the extra cannot leave this proving something about a string the
+    product no longer emits.
     """
 
-    zsh = shutil.which("zsh")
-    if zsh is None:  # pragma: no cover - zsh is not installed everywhere
-        pytest.skip("zsh not available to check the globbing behaviour end to end")
-
-    with tempfile.TemporaryDirectory() as fake_bin:
-        stub = Path(fake_bin) / "pip"
-        stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
-        stub.chmod(0o755)
-        completed = subprocess.run(
-            [zsh, "-c", "pip install mfgparams[console]"],
-            capture_output=True,
-            text=True,
-            env={"PATH": f"{fake_bin}:/usr/bin:/bin"},
-        )
+    completed = _zsh_expands(_CONSOLE_EXTRA_REQUIREMENT)
 
     assert completed.returncode != 0
     assert "no matches found" in completed.stderr

@@ -7,8 +7,14 @@
 | Command | Installs | Guarantee |
 |---|---|---|
 | `pip install mfgparams` | Core runtime only (`tomli` on Python < 3.11) | Full calculation API; zero console-only dependencies (FR-009, FR-013) |
-| `pip install mfgparams[console]` | Core + console dependencies | Interactive console starts and behaves identically to before this feature (FR-010) |
-| `pip install mfgparams[all]` | Every runtime extra the project ships | Superset of all of the above (FR-010) |
+| `pip install "mfgparams[console]"` | Core + console dependencies | Interactive console starts and behaves identically to before this feature (FR-010) |
+| `pip install "mfgparams[all]"` | Every runtime extra the project ships | Superset of all of the above (FR-010) |
+
+The bracketed requirements are **quoted** in this table because the column is headed *Command* and
+these are meant to be pasted: unquoted, zsh globs `[console]` and aborts with `no matches found`
+before pip runs. The FR-011 guard emits the same quoted form, and prefixes it with the running
+interpreter for the same reason — see
+[console-entry-contract.md](./console-entry-contract.md).
 
 `test` and `dev` are pre-existing development extras and are outside this contract; `all` covers
 *runtime* extras only, and MUST NOT pull development tooling into a user install.

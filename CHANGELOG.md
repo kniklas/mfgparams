@@ -54,7 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whereas populating a declared one is invisible to them. Self-referential
   extras need pip >= 21.2.
 - Invoking the console when its dependencies are unavailable prints one
-  actionable message naming `pip install "mfgparams[console]"` and exits
+  actionable message naming the exact install command — quoted, and qualified
+  with the running interpreter, so it can be pasted straight into any shell —
+  and exits
   non-zero, instead of a traceback. A failure rooted inside `mfgparams` itself
   still surfaces as itself: a broken install is not a missing extra.
 

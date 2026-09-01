@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -23,6 +24,10 @@ from pathlib import Path
 #: unavailable cannot be looked up from inside the console
 #: (contracts/console-entry-contract.md).
 _MISSING_CONSOLE_MESSAGE_ID = "console.missing_dependency"
+
+#: The requirement that installs the console's dependencies. Named once so the
+#: message, the tests and the contract cannot drift apart about it.
+_CONSOLE_EXTRA_REQUIREMENT = "mfgparams[console]"
 
 
 def _is_broken_core(module: str | None) -> bool:
@@ -280,13 +285,40 @@ def _requested_by_the_console(exc: BaseException) -> bool:
 _UNNAMED_DEPENDENCY_MESSAGE_ID = "console.missing_dependency.unnamed"
 
 
+def _install_command() -> str:
+    """The command that actually installs the console extra, as the user must type it.
+
+    FR-011 promises *the exact command that fixes it*, so this is a command
+    that has to survive being pasted into a real shell, on a real machine:
+
+    * the requirement is **quoted**. Bare, ``mfgparams[console]`` is a glob, and
+      zsh -- the default shell on macOS -- matches nothing and aborts the whole
+      line with ``no matches found`` before pip is invoked. The user is then
+      told the fix does not exist, which is worse than the traceback the guard
+      replaced.
+    * it names **this interpreter** rather than a bare ``pip``. A machine with
+      more than one Python is the common case, not the exotic one -- a system
+      Python beside a venv, a Debian box where only ``pip3`` exists -- and
+      there a bare ``pip`` installs into some other interpreter's
+      site-packages, after which the console is still unavailable and this
+      same message appears again.
+
+    Falls back to ``python`` when :data:`sys.executable` is empty, which happens
+    in an embedded interpreter.
+    """
+    interpreter = shlex.quote(sys.executable) if sys.executable else "python"
+    return f'{interpreter} -m pip install "{_CONSOLE_EXTRA_REQUIREMENT}"'
+
+
 def _report_missing_console(module: str | None) -> int:
     """Print the FR-011 message for ``module`` and return the exit status."""
     from mfgparams.i18n import get_locale, translate
 
     locale = get_locale()
     named = repr(module) if module else translate(locale, _UNNAMED_DEPENDENCY_MESSAGE_ID)
-    message = translate(locale, _MISSING_CONSOLE_MESSAGE_ID, module=named)
+    message = translate(
+        locale, _MISSING_CONSOLE_MESSAGE_ID, module=named, command=_install_command()
+    )
     print(message, file=sys.stderr)
     return 1
 
