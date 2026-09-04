@@ -44,7 +44,9 @@ about for its own guard). This feature is enforced by:
      green while console keys silently render as raw IDs.
   3. `console.missing_dependency*` is present in core's catalogue and absent from the console's.
   4. Every `message_key` found the same way (direct or `error_message_key`-chained) across
-     `validation.py`, milling's `_calculate.py`, and drilling's `__init__.py` exists in
+     **every non-console Python source file** (not a hardcoded list of the three modules known
+     at the time this feature was implemented — the scan walks `src/mfgparams` excluding the
+     `console` subtree, so a new process module added later is covered automatically) exists in
      `mfgparams.locales.en.MESSAGES` — confirms research.md #4's move did not over-relocate
      something core still needs.
   5. The two catalogues' key sets are disjoint, except `console.missing_dependency*` and the three
