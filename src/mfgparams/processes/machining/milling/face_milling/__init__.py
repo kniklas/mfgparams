@@ -124,7 +124,13 @@ def calculate_face_milling(
             ``POWER_CONSTRAINED`` mode it is a **required** hard constraint.
         config_path: Optional path to a configuration file supplying
             validation bounds.
-        locale: Locale code for all human-readable messages.
+        locale: Locale code used to translate ``feasibility_warning`` text.
+            **No longer affects ``ErrorInfo.message``**, which is always
+            English regardless of this argument (specs/015-console-i18n
+            -relocation FR-005) — retained on this signature only for
+            backward compatibility. A console or other caller that wants
+            translated error text renders it from ``ErrorInfo.message_key``
+            and ``ErrorInfo.kwargs`` instead (FR-005a/FR-005b).
         materials_config_path: Optional path to a user materials/tools
             configuration file.
         mode: Which calculation mode to use (``STANDARD``,

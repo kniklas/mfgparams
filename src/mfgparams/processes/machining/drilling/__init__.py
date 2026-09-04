@@ -85,6 +85,7 @@ def _compute_metrics(
                 ErrorInfo(
                     "INFEASIBLE_POWER_BUDGET",
                     translate(locale, "error.infeasible_power_budget"),
+                    message_key="error.infeasible_power_budget",
                 ),
                 mode,
             )
@@ -97,6 +98,7 @@ def _compute_metrics(
                 ErrorInfo(
                     "INFEASIBLE_POWER_BUDGET",
                     translate(locale, "error.infeasible_power_budget"),
+                    message_key="error.infeasible_power_budget",
                 ),
                 mode,
             )
@@ -150,6 +152,8 @@ def _resolve_material_and_tool(
             ErrorInfo(
                 "MISSING_MATERIAL",
                 translate(locale, "error.unknown_material", material=material),
+                message_key="error.unknown_material",
+                kwargs=(("material", material),),
             ),
             mode,
         )
@@ -166,6 +170,8 @@ def _resolve_material_and_tool(
                     material=material,
                     details=details,
                 ),
+                message_key="error.unusable_material",
+                kwargs=(("material", material), ("details", details)),
             ),
             mode,
         )
@@ -174,7 +180,12 @@ def _resolve_material_and_tool(
     if resolved_tool is None:
         return _error_result(
             unit_system,
-            ErrorInfo("MISSING_TOOL", translate(locale, "error.unknown_tool", tool=tool)),
+            ErrorInfo(
+                "MISSING_TOOL",
+                translate(locale, "error.unknown_tool", tool=tool),
+                message_key="error.unknown_tool",
+                kwargs=(("tool", tool),),
+            ),
             mode,
         )
 
@@ -241,7 +252,11 @@ def _validate_mode_inputs(
         if target_rpm is None:
             return _error_result(
                 unit_system,
-                ErrorInfo("INVALID_TARGET_RPM", translate(locale, "error.invalid_target_rpm")),
+                ErrorInfo(
+                    "INVALID_TARGET_RPM",
+                    translate(locale, "error.invalid_target_rpm"),
+                    message_key="error.invalid_target_rpm",
+                ),
                 mode,
             )
 
@@ -384,11 +399,16 @@ def calculate(
             constraint (FR-002).
         config_path: Optional path to a TOML file overriding the default
             diameter/depth validation bounds (FR-018).
-        locale: Optional locale used to translate ``ErrorInfo.message`` and
-            ``feasibility_warning`` text (FR-019d). Defaults to English; an
-            empty string is treated the same as omitting it. Falls back to
-            English for any locale or message key not present in the
-            requested catalog (FR-019e).
+        locale: Optional locale used to translate ``feasibility_warning``
+            text (FR-019d). Defaults to English; an empty string is treated
+            the same as omitting it. Falls back to English for any locale
+            or message key not present in the requested catalog (FR-019e).
+            **No longer affects ``ErrorInfo.message``**, which is always
+            English regardless of this argument (specs/015-console-i18n
+            -relocation FR-005) — retained on this signature only for
+            backward compatibility. A console or other caller that wants
+            translated error text renders it from ``ErrorInfo.message_key``
+            and ``ErrorInfo.kwargs`` instead (FR-005a/FR-005b).
         mode: Which calculation mode to use (``STANDARD``,
             ``POWER_CONSTRAINED``, or ``FIXED_RPM``). Defaults to
             ``STANDARD``, which is byte-for-byte identical to
@@ -433,6 +453,15 @@ def calculate(
     # An empty string is treated the same as omitting locale (FR-019d).
     locale = locale or DEFAULT_LOCALE
 
+    # specs/015-console-i18n-relocation FR-005/FR-007: ErrorInfo.message is
+    # always English now. `locale` is still accepted by the public API for
+    # signature compatibility and still governs `feasibility_warning`
+    # (unaffected by this feature — it is not part of ErrorInfo), via
+    # `_build_result` below, which keeps receiving the caller's real
+    # `locale`. Only the error-producing calls get pinned to English, via
+    # this separate name rather than by reusing/shadowing `locale`.
+    message_locale = DEFAULT_LOCALE
+
     prepared = _validate_and_prepare(
         diameter,
         depth,
@@ -441,7 +470,7 @@ def calculate(
         unit_system,
         available_power,
         config_path,
-        locale,
+        message_locale,
         mode,
         target_rpm,
         materials_config_path,
@@ -459,7 +488,7 @@ def calculate(
         available_power_kw,
         target_rpm,
         unit_system,
-        locale,
+        message_locale,
     )
     if isinstance(metrics_or_error, CalculationResult):
         return metrics_or_error

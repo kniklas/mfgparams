@@ -11,6 +11,7 @@ from __future__ import annotations
 import builtins
 
 from mfgparams import i18n
+from mfgparams.console import i18n as console_i18n
 from mfgparams.console.cli import run
 
 _REPL_INPUTS = [
@@ -35,6 +36,7 @@ def _run_repl(monkeypatch):
 def test_unset_locale_uses_english(monkeypatch, capsys):
     monkeypatch.delenv("MFGPARAMS_LOCALE", raising=False)
     i18n.clear_catalog_cache()
+    console_i18n.clear_catalog_cache()
     _run_repl(monkeypatch)
 
     run()
@@ -46,6 +48,7 @@ def test_unset_locale_uses_english(monkeypatch, capsys):
 def test_unrecognized_locale_falls_back_to_english_without_error(monkeypatch, capsys):
     monkeypatch.setenv("MFGPARAMS_LOCALE", "xx-not-a-real-locale")
     i18n.clear_catalog_cache()
+    console_i18n.clear_catalog_cache()
     _run_repl(monkeypatch)
 
     run()
@@ -56,12 +59,17 @@ def test_unrecognized_locale_falls_back_to_english_without_error(monkeypatch, ca
 
 
 def test_valid_non_english_locale_uses_that_catalog(monkeypatch, capsys):
+    # cli.result.spindle_speed is console-owned (specs/015-console-i18n
+    # -relocation FR-001), so the fixture catalog must be registered in the
+    # console's own cache, not core's — the console renders it via
+    # mfgparams.console.i18n, which has a separate cache from mfgparams.i18n.
     fixture_key = "cli.result.spindle_speed"
     fixture_catalog = {fixture_key: "Vitesse de broche : {value} RPM"}
 
     monkeypatch.setenv("MFGPARAMS_LOCALE", "fr-test-fixture")
     i18n.clear_catalog_cache()
-    monkeypatch.setitem(i18n._catalog_cache, "fr-test-fixture", fixture_catalog)
+    console_i18n.clear_catalog_cache()
+    monkeypatch.setitem(console_i18n._catalog_cache, "fr-test-fixture", fixture_catalog)
     _run_repl(monkeypatch)
 
     run()

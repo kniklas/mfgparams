@@ -186,12 +186,16 @@ Adding a milling sub-operation
    ``formulas.py`` as a thin adapter over ``_shared``.
 5. Implement the entry point by delegating to ``_calculate.calculate_milling()``
    with your ``resolve_tool``, ``compute`` and ``engagement_label_key``.
-6. Add the sub-operation to ``MillingSubOperation``, add its prompts to the
-   message catalog, and wire a session function into ``cli.py``.
+6. Add the sub-operation to ``MillingSubOperation``, add its prompts to
+   ``mfgparams/console/locales/en.py`` (the console's own catalog), and wire
+   a session function into ``console/cli.py``.
 7. Re-export the entry point from ``mfgparams/__init__.py``.
 
-Every user-facing string must be a catalog key, and every formula must cite
-its source in a docstring.
+Every user-facing string must be a catalog key, never inlined — prompts and
+labels in the console's catalog, error/warning/notice text in
+``mfgparams/locales/en.py`` (see the README's "Adding or changing a
+user-facing string" section) — and every formula must cite its source in a
+docstring.
 
 Formulas
 --------

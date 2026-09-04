@@ -62,7 +62,11 @@ def validate_diameter_mm(
     """
 
     if not _is_positive_finite_number(diameter_mm):
-        return ErrorInfo("INVALID_DIAMETER", translate(locale, "error.invalid_diameter.zero"))
+        return ErrorInfo(
+            "INVALID_DIAMETER",
+            translate(locale, "error.invalid_diameter.zero"),
+            message_key="error.invalid_diameter.zero",
+        )
     if diameter_mm > config.max_diameter_mm:
         return ErrorInfo(
             "INVALID_DIAMETER",
@@ -71,6 +75,8 @@ def validate_diameter_mm(
                 "error.invalid_diameter.max",
                 max_diameter_mm=config.max_diameter_mm,
             ),
+            message_key="error.invalid_diameter.max",
+            kwargs=(("max_diameter_mm", config.max_diameter_mm),),
         )
     return None
 
@@ -85,11 +91,17 @@ def validate_depth_mm(
     """
 
     if not _is_positive_finite_number(depth_mm):
-        return ErrorInfo("INVALID_DEPTH", translate(locale, "error.invalid_depth.zero"))
+        return ErrorInfo(
+            "INVALID_DEPTH",
+            translate(locale, "error.invalid_depth.zero"),
+            message_key="error.invalid_depth.zero",
+        )
     if depth_mm > config.max_depth_mm:
         return ErrorInfo(
             "INVALID_DEPTH",
             translate(locale, "error.invalid_depth.max", max_depth_mm=config.max_depth_mm),
+            message_key="error.invalid_depth.max",
+            kwargs=(("max_depth_mm", config.max_depth_mm),),
         )
     return None
 
@@ -100,7 +112,11 @@ def validate_material_present(
     """Validate that a material name was supplied (non-empty)."""
 
     if not material:
-        return ErrorInfo("MISSING_MATERIAL", translate(locale, "error.missing_material"))
+        return ErrorInfo(
+            "MISSING_MATERIAL",
+            translate(locale, "error.missing_material"),
+            message_key="error.missing_material",
+        )
     return None
 
 
@@ -108,7 +124,11 @@ def validate_tool_present(tool: str | None, locale: str = DEFAULT_LOCALE) -> Err
     """Validate that a drilling tool name was supplied (non-empty)."""
 
     if not tool:
-        return ErrorInfo("MISSING_TOOL", translate(locale, "error.missing_tool"))
+        return ErrorInfo(
+            "MISSING_TOOL",
+            translate(locale, "error.missing_tool"),
+            message_key="error.missing_tool",
+        )
     return None
 
 
@@ -139,6 +159,8 @@ def validate_depth_of_cut_mm(
         return ErrorInfo(
             "INVALID_DEPTH_OF_CUT",
             translate(locale, "error.invalid_depth_of_cut.zero", label=label),
+            message_key="error.invalid_depth_of_cut.zero",
+            kwargs=(("label", label),),
         )
     if depth_of_cut_mm > config.max_depth_of_cut_mm:
         return ErrorInfo(
@@ -149,6 +171,8 @@ def validate_depth_of_cut_mm(
                 label=label,
                 max_depth_of_cut_mm=config.max_depth_of_cut_mm,
             ),
+            message_key="error.invalid_depth_of_cut.max",
+            kwargs=(("label", label), ("max_depth_of_cut_mm", config.max_depth_of_cut_mm)),
         )
     return None
 
@@ -173,14 +197,17 @@ def validate_engagement_mm(
     ):
         return None
     if radial_engagement_mm > diameter_mm:
+        label = translate(locale, label_key)
         return ErrorInfo(
             "INVALID_ENGAGEMENT",
             translate(
                 locale,
                 "error.invalid_engagement",
-                label=translate(locale, label_key),
+                label=label,
                 diameter_mm=diameter_mm,
             ),
+            message_key="error.invalid_engagement",
+            kwargs=(("label", label), ("diameter_mm", diameter_mm)),
         )
     return None
 
@@ -204,7 +231,9 @@ def validate_feed_per_tooth_mm(
 
     if not _is_positive_finite_number(feed_per_tooth_mm):
         return ErrorInfo(
-            "INVALID_FEED_PER_TOOTH", translate(locale, "error.invalid_feed_per_tooth")
+            "INVALID_FEED_PER_TOOTH",
+            translate(locale, "error.invalid_feed_per_tooth"),
+            message_key="error.invalid_feed_per_tooth",
         )
     return None
 
@@ -218,10 +247,16 @@ def validate_tooth_count(number_of_teeth: float, locale: str = DEFAULT_LOCALE) -
     """
 
     if not _is_positive_finite_number(number_of_teeth):
-        return ErrorInfo("INVALID_TOOTH_COUNT", translate(locale, "error.invalid_tooth_count"))
+        return ErrorInfo(
+            "INVALID_TOOTH_COUNT",
+            translate(locale, "error.invalid_tooth_count"),
+            message_key="error.invalid_tooth_count",
+        )
     if float(number_of_teeth) != int(number_of_teeth):
         return ErrorInfo(
-            "INVALID_TOOTH_COUNT", translate(locale, "error.invalid_tooth_count.fractional")
+            "INVALID_TOOTH_COUNT",
+            translate(locale, "error.invalid_tooth_count.fractional"),
+            message_key="error.invalid_tooth_count.fractional",
         )
     return None
 
@@ -233,7 +268,9 @@ def validate_length_of_cut_mm(
 
     if not _is_positive_finite_number(length_of_cut_mm):
         return ErrorInfo(
-            "INVALID_LENGTH_OF_CUT", translate(locale, "error.invalid_length_of_cut.zero")
+            "INVALID_LENGTH_OF_CUT",
+            translate(locale, "error.invalid_length_of_cut.zero"),
+            message_key="error.invalid_length_of_cut.zero",
         )
     if length_of_cut_mm > config.max_length_of_cut_mm:
         return ErrorInfo(
@@ -243,6 +280,8 @@ def validate_length_of_cut_mm(
                 "error.invalid_length_of_cut.max",
                 max_length_of_cut_mm=config.max_length_of_cut_mm,
             ),
+            message_key="error.invalid_length_of_cut.max",
+            kwargs=(("max_length_of_cut_mm", config.max_length_of_cut_mm),),
         )
     return None
 
@@ -258,7 +297,11 @@ def validate_mill_diameter_mm(
     """
 
     if not _is_positive_finite_number(diameter_mm):
-        return ErrorInfo("INVALID_DIAMETER", translate(locale, "error.invalid_mill_diameter.zero"))
+        return ErrorInfo(
+            "INVALID_DIAMETER",
+            translate(locale, "error.invalid_mill_diameter.zero"),
+            message_key="error.invalid_mill_diameter.zero",
+        )
     if diameter_mm > config.max_mill_diameter_mm:
         return ErrorInfo(
             "INVALID_DIAMETER",
@@ -267,6 +310,8 @@ def validate_mill_diameter_mm(
                 "error.invalid_mill_diameter.max",
                 max_mill_diameter_mm=config.max_mill_diameter_mm,
             ),
+            message_key="error.invalid_mill_diameter.max",
+            kwargs=(("max_mill_diameter_mm", config.max_mill_diameter_mm),),
         )
     return None
 
@@ -279,7 +324,11 @@ def validate_mill_tool_present(tool: str | None, locale: str = DEFAULT_LOCALE) -
     """
 
     if not tool:
-        return ErrorInfo("MISSING_TOOL", translate(locale, "error.missing_mill_tool"))
+        return ErrorInfo(
+            "MISSING_TOOL",
+            translate(locale, "error.missing_mill_tool"),
+            message_key="error.missing_mill_tool",
+        )
     return None
 
 
@@ -301,9 +350,17 @@ def validate_target_rpm(target_rpm: float | None, locale: str = DEFAULT_LOCALE) 
     if target_rpm is None:
         return None
     if not isinstance(target_rpm, (int, float)) or isinstance(target_rpm, bool):
-        return ErrorInfo("INVALID_TARGET_RPM", translate(locale, "error.invalid_target_rpm"))
+        return ErrorInfo(
+            "INVALID_TARGET_RPM",
+            translate(locale, "error.invalid_target_rpm"),
+            message_key="error.invalid_target_rpm",
+        )
     if not math.isfinite(target_rpm) or target_rpm <= 0:
-        return ErrorInfo("INVALID_TARGET_RPM", translate(locale, "error.invalid_target_rpm"))
+        return ErrorInfo(
+            "INVALID_TARGET_RPM",
+            translate(locale, "error.invalid_target_rpm"),
+            message_key="error.invalid_target_rpm",
+        )
     return None
 
 
@@ -344,9 +401,17 @@ def validate_mode_arguments(
 
     if mode is CalculationMode.POWER_CONSTRAINED:
         if target_rpm is not None:
-            return ErrorInfo("MODE_CONFLICT", translate(locale, "error.mode_conflict"))
+            return ErrorInfo(
+                "MODE_CONFLICT",
+                translate(locale, "error.mode_conflict"),
+                message_key="error.mode_conflict",
+            )
         if available_power is None:
-            return ErrorInfo("MODE_CONFLICT", translate(locale, "error.mode_conflict"))
+            return ErrorInfo(
+                "MODE_CONFLICT",
+                translate(locale, "error.mode_conflict"),
+                message_key="error.mode_conflict",
+            )
         if not _is_positive_finite_number(available_power):
             # A supplied-but-invalid budget (non-numeric, bool, non-finite,
             # zero, or negative) is presence-wise satisfied but can never
@@ -357,7 +422,9 @@ def validate_mode_arguments(
             # numeric comparison downstream and raising TypeError, which
             # would violate the public API's never-raises contract.
             return ErrorInfo(
-                "INFEASIBLE_POWER_BUDGET", translate(locale, "error.infeasible_power_budget")
+                "INFEASIBLE_POWER_BUDGET",
+                translate(locale, "error.infeasible_power_budget"),
+                message_key="error.infeasible_power_budget",
             )
         return None
 
@@ -383,4 +450,8 @@ def _validate_advisory_available_power(
 
     if available_power is None or _is_positive_finite_number(available_power):
         return None
-    return ErrorInfo("INVALID_AVAILABLE_POWER", translate(locale, "error.invalid_available_power"))
+    return ErrorInfo(
+        "INVALID_AVAILABLE_POWER",
+        translate(locale, "error.invalid_available_power"),
+        message_key="error.invalid_available_power",
+    )
