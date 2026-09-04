@@ -52,9 +52,20 @@ import mfgparams.locales.en as core_en
 
 _SRC = Path(mfgparams.__file__).parent
 _CLI_PATH = _SRC / "console" / "cli.py"
-_VALIDATION_PATH = _SRC / "validation.py"
-_MILLING_CALCULATE_PATH = _SRC / "processes" / "machining" / "milling" / "_calculate.py"
-_DRILLING_INIT_PATH = _SRC / "processes" / "machining" / "drilling" / "__init__.py"
+
+#: The one subtree that never constructs a *core* `ErrorInfo` — it only
+#: displays one. Everything else under `src/mfgparams/` is in scope for
+#: `test_core_still_has_every_key_its_own_error_messages_need`, discovered
+#: by walking the tree rather than naming specific files: a hardcoded list
+#: of "the modules that build ErrorInfo today" silently stops covering a
+#: future process/operation module the day one is added (found by review —
+#: an earlier version of this file named exactly three files).
+_CONSOLE_SUBTREE = _SRC / "console"
+
+
+def _non_console_source_files() -> list[Path]:
+    return [path for path in sorted(_SRC.rglob("*.py")) if _CONSOLE_SUBTREE not in path.parents]
+
 
 _CONSOLE_I18N_MODULE = "mfgparams.console.i18n"
 _CONSOLE_TRANSLATE_FUNCS = {"translate", "has_message"}
@@ -361,13 +372,21 @@ def _all_error_info_message_keys(tree: ast.Module) -> set[str]:
 
 
 def test_console_keys_resolve_in_the_console_catalogue():
+    """No exception for `_CORE_ONLY_EXCEPTION` here, deliberately: `console/cli.py`
+    has no legitimate reason to ever call the console's own `translate()`/
+    `has_message()` with `console.missing_dependency*` — that key exists to say
+    the console is unavailable (it is used by `__main__.py`'s guard, via
+    `_translate_core`, not by this module at all), so it is intentionally
+    absent from the console's catalogue. Excluding it here would have let
+    `console/cli.py` call it via the console-bound `translate()` — which
+    would render the raw key — pass unnoticed.
+    """
+
     tree = _parse(_CLI_PATH)
     keys = _all_console_keys(tree)
 
     assert keys, "expected to find at least one translate()/has_message() key"
-    missing = {
-        key for key in keys if key not in console_en.MESSAGES and key != _CORE_ONLY_EXCEPTION
-    }
+    missing = {key for key in keys if key not in console_en.MESSAGES}
     assert not missing, f"console/cli.py uses keys absent from its own catalogue: {missing}"
 
 
@@ -404,11 +423,9 @@ def test_console_missing_dependency_is_the_sole_core_only_exception():
 
 
 def test_core_still_has_every_key_its_own_error_messages_need():
-    needed = (
-        _all_error_info_message_keys(_parse(_VALIDATION_PATH))
-        | _all_error_info_message_keys(_parse(_MILLING_CALCULATE_PATH))
-        | _all_error_info_message_keys(_parse(_DRILLING_INIT_PATH))
-    )
+    needed: set[str] = set()
+    for path in _non_console_source_files():
+        needed |= _all_error_info_message_keys(_parse(path))
     assert needed, "expected to find at least one message_key"
     missing = needed - set(core_en.MESSAGES)
     assert not missing, f"core builds ErrorInfo with message_key(s) it cannot render: {missing}"

@@ -8,6 +8,23 @@ calling these functions.
 All error messages are sourced from the message catalog (FR-019a-e) via
 :mod:`mfgparams.i18n`; the optional ``locale`` parameter defaults to
 English (T033a).
+
+**``ErrorInfo.message`` is always English** (specs/015-console-i18n
+-relocation FR-005), regardless of what ``locale`` a caller supplies —
+every function here pins its `translate()` calls to
+:data:`~mfgparams.i18n.DEFAULT_LOCALE` internally, immediately after its
+docstring, rather than relying on every caller to pass English. This
+module's own functions are public (`from mfgparams.validation import
+validate_diameter_mm` works), so the invariant has to hold here, not just
+at the higher-level `calculate()`/`calculate_end_milling()` entry points
+that also happen to always pass English today (a Copilot review on the
+implementing PR found that reliance-on-every-caller was the actual gap:
+nothing stopped a direct caller of this module from passing a non-English
+``locale`` and getting a non-English ``ErrorInfo.message`` back). The
+``locale`` parameter is retained on every signature only because
+``validate_depth_of_cut_mm``/``validate_engagement_mm`` also use it to
+resolve their ``label_key`` argument's *current* value the same way — pin
+locale, not delete it.
 """
 
 from __future__ import annotations
@@ -61,6 +78,7 @@ def validate_diameter_mm(
     (issue #56) or raise from the comparison.
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not _is_positive_finite_number(diameter_mm):
         return ErrorInfo(
             "INVALID_DIAMETER",
@@ -90,6 +108,7 @@ def validate_depth_mm(
     :func:`validate_diameter_mm` (issue #56).
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not _is_positive_finite_number(depth_mm):
         return ErrorInfo(
             "INVALID_DEPTH",
@@ -111,6 +130,7 @@ def validate_material_present(
 ) -> ErrorInfo | None:
     """Validate that a material name was supplied (non-empty)."""
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not material:
         return ErrorInfo(
             "MISSING_MATERIAL",
@@ -123,6 +143,7 @@ def validate_material_present(
 def validate_tool_present(tool: str | None, locale: str = DEFAULT_LOCALE) -> ErrorInfo | None:
     """Validate that a drilling tool name was supplied (non-empty)."""
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not tool:
         return ErrorInfo(
             "MISSING_TOOL",
@@ -143,7 +164,9 @@ def validate_depth_of_cut_mm(
     Args:
         depth_of_cut_mm: The depth/width, in canonical metric mm.
         config: Supplies ``max_depth_of_cut_mm`` (FR-018).
-        locale: Message-catalog locale for the returned message.
+        locale: Accepted for signature compatibility only — the returned
+            message is always English regardless (module docstring,
+            FR-005); pinned internally rather than deleted.
         label_key: Catalog key naming which input is being validated, so
             the message can distinguish an axial depth of cut from a radial
             depth of cut or a width of cut (Constitution VIII — the label
@@ -154,6 +177,7 @@ def validate_depth_of_cut_mm(
         :class:`~mfgparams.models.ErrorInfo`.
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message (incl. the label) is always English
     label = translate(locale, label_key)
     if not _is_positive_finite_number(depth_of_cut_mm):
         return ErrorInfo(
@@ -196,6 +220,7 @@ def validate_engagement_mm(
     are expected to have run first (data-model.md "Validation Order").
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message (incl. the label) is always English
     if not _is_positive_finite_number(radial_engagement_mm) or not _is_positive_finite_number(
         diameter_mm
     ):
@@ -233,6 +258,7 @@ def validate_feed_per_tooth_mm(
     being bounded here.
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not _is_positive_finite_number(feed_per_tooth_mm):
         return ErrorInfo(
             "INVALID_FEED_PER_TOOTH",
@@ -250,6 +276,7 @@ def validate_tooth_count(number_of_teeth: float, locale: str = DEFAULT_LOCALE) -
     number of teeth.
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not _is_positive_finite_number(number_of_teeth):
         return ErrorInfo(
             "INVALID_TOOTH_COUNT",
@@ -270,6 +297,7 @@ def validate_length_of_cut_mm(
 ) -> ErrorInfo | None:
     """Validate a milling length of cut (travel distance), in mm (FR-008, FR-018)."""
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not _is_positive_finite_number(length_of_cut_mm):
         return ErrorInfo(
             "INVALID_LENGTH_OF_CUT",
@@ -300,6 +328,7 @@ def validate_mill_diameter_mm(
     rather than drilling's ``max_diameter_mm`` (FR-018).
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not _is_positive_finite_number(diameter_mm):
         return ErrorInfo(
             "INVALID_DIAMETER",
@@ -327,6 +356,7 @@ def validate_mill_tool_present(tool: str | None, locale: str = DEFAULT_LOCALE) -
     drilling's catalog entry names a *drilling* tool (FR-019a).
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if not tool:
         return ErrorInfo(
             "MISSING_TOOL",
@@ -351,6 +381,7 @@ def validate_target_rpm(target_rpm: float | None, locale: str = DEFAULT_LOCALE) 
     mode) via :func:`validate_mode_arguments`.
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if target_rpm is None:
         return None
     if not isinstance(target_rpm, (int, float)) or isinstance(target_rpm, bool):
@@ -400,6 +431,7 @@ def validate_mode_arguments(
       type/finiteness-checked (``INVALID_AVAILABLE_POWER``).
     """
 
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if mode is CalculationMode.STANDARD:
         return _validate_advisory_available_power(available_power, locale)
 

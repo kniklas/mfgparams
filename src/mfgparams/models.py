@@ -138,10 +138,13 @@ class ErrorInfo:
             not left in English inside an otherwise-translated
             sentence — MUST look up ``label_key`` in its own catalog and
             substitute that result for ``label`` before formatting
-            ``message_key``'s template; a re-renderer that only wants the
-            outer template translated MAY ignore ``label_key`` and use
-            ``label`` as-is (this is what ``console/cli.py``'s
-            ``_render_error`` does).
+            ``message_key``'s template; this is what ``console/cli.py``'s
+            ``_render_error`` does. A re-renderer that only wants the outer
+            template translated MAY instead ignore ``label_key`` and use
+            ``label`` as-is — a strictly weaker rendering with one English
+            word left inside an otherwise-translated sentence, offered only
+            as a fallback for a re-renderer with no catalogue of its own to
+            look ``label_key`` up in.
     """
 
     code: str
