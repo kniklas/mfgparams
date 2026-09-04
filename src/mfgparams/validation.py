@@ -160,7 +160,7 @@ def validate_depth_of_cut_mm(
             "INVALID_DEPTH_OF_CUT",
             translate(locale, "error.invalid_depth_of_cut.zero", label=label),
             message_key="error.invalid_depth_of_cut.zero",
-            kwargs=(("label", label),),
+            kwargs=(("label", label), ("label_key", label_key)),
         )
     if depth_of_cut_mm > config.max_depth_of_cut_mm:
         return ErrorInfo(
@@ -172,7 +172,11 @@ def validate_depth_of_cut_mm(
                 max_depth_of_cut_mm=config.max_depth_of_cut_mm,
             ),
             message_key="error.invalid_depth_of_cut.max",
-            kwargs=(("label", label), ("max_depth_of_cut_mm", config.max_depth_of_cut_mm)),
+            kwargs=(
+                ("label", label),
+                ("label_key", label_key),
+                ("max_depth_of_cut_mm", config.max_depth_of_cut_mm),
+            ),
         )
     return None
 
@@ -207,7 +211,7 @@ def validate_engagement_mm(
                 diameter_mm=diameter_mm,
             ),
             message_key="error.invalid_engagement",
-            kwargs=(("label", label), ("diameter_mm", diameter_mm)),
+            kwargs=(("label", label), ("label_key", label_key), ("diameter_mm", diameter_mm)),
         )
     return None
 

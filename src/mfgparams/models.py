@@ -124,6 +124,24 @@ class ErrorInfo:
             shape, so that ``ErrorInfo`` — a frozen dataclass — stays
             hashable (specs/015-console-i18n-relocation research.md #2).
             Render with ``translate(locale, message_key, **dict(kwargs))``.
+
+            **``label_key`` is special-cased, not a literal substitution
+            value.** A handful of templates (``error.invalid_depth_of_cut
+            .*``, ``error.invalid_engagement``) embed a ``{label}`` that is
+            itself resolved from another catalog key (e.g.
+            ``"cli.label.axial_depth_of_cut"``) rather than being a plain
+            value like a number or a name. When present, ``kwargs``
+            carries **both** ``label`` (the label already rendered in
+            English, for building this ``ErrorInfo``'s own English
+            ``message``) and ``label_key`` (the catalog key that produced
+            it). A re-renderer that wants ``label`` itself translated —
+            not left in English inside an otherwise-translated
+            sentence — MUST look up ``label_key`` in its own catalog and
+            substitute that result for ``label`` before formatting
+            ``message_key``'s template; a re-renderer that only wants the
+            outer template translated MAY ignore ``label_key`` and use
+            ``label`` as-is (this is what ``console/cli.py``'s
+            ``_render_error`` does).
     """
 
     code: str

@@ -91,11 +91,25 @@ def _render_error(error: ErrorInfo, locale: str) -> str:
     ``error.message_key`` at all — true for every key today — this falls
     back to ``error.message`` instead of leaking the raw key string, which
     is what a bare :func:`translate` call would otherwise return.
+
+    A few templates (``error.invalid_depth_of_cut.*``,
+    ``error.invalid_engagement``) embed a ``{label}`` that is itself
+    resolved from another catalog key rather than being a plain value —
+    ``error.kwargs`` carries that as ``label_key`` alongside the
+    already-English-rendered ``label`` (see :class:`~mfgparams.models
+    .ErrorInfo`'s docstring). Re-translating it here too, when possible,
+    is what keeps a translated outer sentence from stranding one English
+    word inside it.
     """
 
-    if locale != DEFAULT_LOCALE and has_message(locale, error.message_key):
-        return translate(locale, error.message_key, **dict(error.kwargs))
-    return error.message
+    if locale == DEFAULT_LOCALE or not has_message(locale, error.message_key):
+        return error.message
+
+    kwargs = dict(error.kwargs)
+    label_key = kwargs.pop("label_key", None)
+    if isinstance(label_key, str) and has_message(locale, label_key):
+        kwargs["label"] = translate(locale, label_key)
+    return translate(locale, error.message_key, **kwargs)
 
 
 UNIT_LABELS = {

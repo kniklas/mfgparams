@@ -252,8 +252,11 @@ untouched by this feature, and that material display names still resolve correct
 - Q: FR-005 — what does `CalculationResult.error` carry once console owns UI-string catalogues and core
   is meant to stop being the one true source of translated text? → **A: core keeps a minimal
   English-only error-text catalogue and keeps populating `ErrorInfo.message` from it; the console
-  layers translated rendering on top for non-English locales by re-rendering from `code` (+ kwargs)
-  through its own catalogue.** Chosen over "core returns code+kwargs only" because that would make a
+  layers translated rendering on top for non-English locales by re-rendering from `message_key`
+  (+ kwargs) through its own catalogue.** [Corrected post-review: this bullet originally said
+  `code`, written before the second clarification below established that `code` is too coarse to
+  serve as the re-rendering key at all — a Copilot review on the implementing PR caught the
+  resulting self-contradiction.] Chosen over "core returns key+kwargs only" because that would make a
   library caller without the console extra lose readable error text entirely, breaking today's
   guarantee for no benefit proportional to the cost. Chosen over "core depends on console for its
   catalogue" because that reopens 014's FR-008 (core must not import console) for no compensating
