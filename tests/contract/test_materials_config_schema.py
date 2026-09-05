@@ -167,3 +167,33 @@ def test_engineered_wood_defaults_are_single_generic_entries():
     names = list_materials()
     assert names.count("Plywood") == 1
     assert names.count("MDF") == 1
+
+
+def test_translations_schema_and_resolution_are_unchanged_by_015(tmp_path):
+    """specs/015-console-i18n-relocation Story 3/FR-003: untouched by this feature.
+
+    `WorkpieceMaterial.translations` is user-supplied config data, not a
+    message-catalog entry — it must stay resolvable from a materials config
+    file exactly as before the console-catalogue relocation, with no
+    schema change.
+    """
+
+    path = _write(
+        tmp_path,
+        "translated.toml",
+        """
+        [[materials]]
+        name = "Bronze"
+        reference_cutting_speed = 45.0
+        reference_feed_per_rev = 0.18
+        specific_cutting_force = 750.0
+
+        [materials.translations]
+        fr = "Bronze (FR)"
+        """,
+    )
+    material = get_material("Bronze", path)
+    assert material is not None
+    assert material.translations == {"fr": "Bronze (FR)"}
+    assert material.display_name("fr") == "Bronze (FR)"
+    assert material.display_name("de") == "Bronze"  # falls back to name, unaffected

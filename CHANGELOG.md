@@ -43,6 +43,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through the same entry point, so a missing console dependency gets the same
   actionable message from any of them instead of a traceback from one.
 
+- **Breaking**: UI-facing message catalogues (prompts, labels, status text)
+  moved into `mfgparams.console`, the single place to find and change what the
+  console displays (issue #63, part 2 of 4). Error text stays a core
+  responsibility — `CalculationResult.error.message` is now **always
+  English**, regardless of `MFGPARAMS_LOCALE` or an explicit `locale=`
+  argument, so the library API stays fully usable without the `console` extra
+  installed. `ErrorInfo` gains two fields, `message_key` and `kwargs`, so a
+  caller with its own rendering (the console) can reproduce the exact message
+  template in another locale — `error.code` alone cannot, since one code can
+  cover more than one message template (e.g. `INVALID_DIAMETER` covers both a
+  zero-value case and an exceeds-maximum case). The `locale=` parameter on
+  `calculate()`/`calculate_end_milling()`/`calculate_face_milling()` is
+  retained for signature compatibility but no longer affects the returned
+  message text.
+
 ### Added
 
 - Installation extras. `pip install mfgparams` now installs only what the

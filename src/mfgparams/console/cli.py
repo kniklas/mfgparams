@@ -5,10 +5,17 @@ contains no calculation logic of its own; every result comes from
 ``mfgparams.calculate()``.
 
 All prompts, labels, and messages are sourced from the message catalog via
-``mfgparams.i18n`` (FR-019a-c) rather than hard-coded literal strings.
-The active locale is resolved exactly once at startup from
-``MFGPARAMS_LOCALE`` (:func:`mfgparams.i18n.get_locale`) and held
-fixed for the entire REPL loop — it is never re-read mid-session.
+``mfgparams.console.i18n`` (FR-019a-c; specs/015-console-i18n-relocation
+FR-001) rather than hard-coded literal strings. The active locale is
+resolved exactly once at startup from ``MFGPARAMS_LOCALE``
+(:func:`mfgparams.console.i18n.get_locale`) and held fixed for the entire
+REPL loop — it is never re-read mid-session.
+
+Error text (``ErrorInfo.message``) is always English, regardless of this
+locale (specs/015-console-i18n-relocation FR-005): when the active locale
+is non-English, this module re-renders it from ``ErrorInfo.message_key``/
+``ErrorInfo.kwargs`` through its own catalog instead of displaying
+``message`` verbatim — see :func:`_render_error` (FR-005a).
 """
 
 from __future__ import annotations
@@ -34,7 +41,9 @@ from mfgparams import (
     list_tools,
 )
 from mfgparams.config import Configuration
-from mfgparams.i18n import get_locale, get_raw_locale, has_message, translate
+from mfgparams.console.i18n import DEFAULT_LOCALE, get_locale, has_message, translate
+from mfgparams.i18n import get_raw_locale
+from mfgparams.i18n import translate as _translate_core
 from mfgparams.logging_setup import configure_logging
 from mfgparams.models import ErrorInfo
 from mfgparams.processes.machining.drilling.tools import DrillingTool, get_tool
@@ -56,6 +65,52 @@ from mfgparams.validation import (
 )
 
 _DEFAULT_CONFIG = Configuration()
+
+
+def _render_error(error: ErrorInfo, locale: str) -> str:
+    """Render an :class:`ErrorInfo` for display, translating it if needed.
+
+    ``error.message`` is always English (core FR-005 of
+    specs/015-console-i18n-relocation) — every ``ErrorInfo`` the core
+    constructs, whether reached via a public ``calculate*()`` call or via a
+    direct ``validate_*`` call this module makes for immediate re-prompt
+    feedback, carries English text there and nothing else. When the active
+    console ``locale`` is English, that text is exactly what should be
+    shown. Otherwise, this re-renders from ``error.message_key`` and
+    ``error.kwargs`` through the console's own catalog (FR-005a) — never by
+    attempting to translate the English ``message`` string itself, and
+    never by branching on ``error.code`` (FR-006: one code can cover more
+    than one message template).
+
+    This feature ships no non-English catalog on either side (spec
+    Assumptions) — ``error.*`` keys are not, and need not yet be, present
+    in the console's own catalog at all (research.md #3: a translation for
+    one would be new console-catalog content, not a copy of core's). So the
+    re-render is gated on :func:`has_message`: if the console's catalog
+    (in ``locale`` or its own English fallback) has no entry for
+    ``error.message_key`` at all — true for every key today — this falls
+    back to ``error.message`` instead of leaking the raw key string, which
+    is what a bare :func:`translate` call would otherwise return.
+
+    A few templates (``error.invalid_depth_of_cut.*``,
+    ``error.invalid_engagement``) embed a ``{label}`` that is itself
+    resolved from another catalog key rather than being a plain value —
+    ``error.kwargs`` carries that as ``label_key`` alongside the
+    already-English-rendered ``label`` (see :class:`~mfgparams.models
+    .ErrorInfo`'s docstring). Re-translating it here too, when possible,
+    is what keeps a translated outer sentence from stranding one English
+    word inside it.
+    """
+
+    if locale == DEFAULT_LOCALE or not has_message(locale, error.message_key):
+        return error.message
+
+    kwargs = dict(error.kwargs)
+    label_key = kwargs.pop("label_key", None)
+    if isinstance(label_key, str) and has_message(locale, label_key):
+        kwargs["label"] = translate(locale, label_key)
+    return translate(locale, error.message_key, **kwargs)
+
 
 UNIT_LABELS = {
     UnitSystem.METRIC: {
@@ -321,10 +376,10 @@ def _prompt_diameter(
     while True:
         value = _prompt_number(label, unit, default, locale)
         value_mm = in_to_mm(value) if unit_system is UnitSystem.IMPERIAL else value
-        error = validate_diameter_mm(value_mm, _DEFAULT_CONFIG, locale)
+        error = validate_diameter_mm(value_mm, _DEFAULT_CONFIG, DEFAULT_LOCALE)
         if error is None:
             return value
-        print(error.message)
+        print(_render_error(error, locale))
 
 
 def _prompt_depth(unit: str, default: float | None, unit_system: UnitSystem, locale: str) -> float:
@@ -332,10 +387,10 @@ def _prompt_depth(unit: str, default: float | None, unit_system: UnitSystem, loc
     while True:
         value = _prompt_number(label, unit, default, locale)
         value_mm = in_to_mm(value) if unit_system is UnitSystem.IMPERIAL else value
-        error = validate_depth_mm(value_mm, _DEFAULT_CONFIG, locale)
+        error = validate_depth_mm(value_mm, _DEFAULT_CONFIG, DEFAULT_LOCALE)
         if error is None:
             return value
-        print(error.message)
+        print(_render_error(error, locale))
 
 
 def _prompt_optional_power(unit: str, default: float | None, locale: str) -> float | None:
@@ -435,7 +490,7 @@ _SPINDLE_SPEED_MODE_LABEL_KEYS = {
 
 def _display_result(result, labels: dict[str, str], locale: str) -> None:
     if result.error is not None:
-        print(translate(locale, "cli.result.error", message=result.error.message))
+        print(translate(locale, "cli.result.error", message=_render_error(result.error, locale)))
         return
 
     print()
@@ -504,12 +559,17 @@ def _resolve_materials_config(materials_config_path: str | None, locale: str) ->
         list_end_mill_tools(config_path=materials_config_path)
         list_face_mill_tools(config_path=materials_config_path)
     except RegistryConfigError as exc:
-        print(translate(locale, exc.message_key, **exc.kwargs))
+        # exc.message_key is a core-owned key (error.materials_config.*,
+        # specs/015-console-i18n-relocation FR-002/FR-005 territory: it must
+        # render without the console catalog, so it uses core's translate,
+        # not the console's, even though this call site lives in the console.
+        print(_translate_core(locale, exc.message_key, **exc.kwargs))
         raise SystemExit(1) from exc
 
     notice_key, notice_kwargs = materials_load_notice(materials_config_path)
     if notice_key:
-        print(translate(locale, notice_key, **dict(notice_kwargs)))
+        # Same reasoning as above: notice_key is core-owned (notice.*).
+        print(_translate_core(locale, notice_key, **dict(notice_kwargs)))
 
 
 @dataclass
@@ -837,7 +897,7 @@ def _prompt_validated_length(
         error = validate(value_mm)
         if error is None:
             return value
-        print(error.message)
+        print(_render_error(error, locale))
 
 
 def _prompt_milling_geometry(
@@ -861,7 +921,7 @@ def _prompt_milling_geometry(
         state.diameter,
         unit_system,
         locale,
-        lambda mm: validate_mill_diameter_mm(mm, _DEFAULT_CONFIG, locale),
+        lambda mm: validate_mill_diameter_mm(mm, _DEFAULT_CONFIG, DEFAULT_LOCALE),
     )
     state.axial_depth_of_cut = _prompt_validated_length(
         "cli.label.axial_depth_of_cut",
@@ -870,7 +930,7 @@ def _prompt_milling_geometry(
         unit_system,
         locale,
         lambda mm: validate_depth_of_cut_mm(
-            mm, _DEFAULT_CONFIG, locale, "cli.label.axial_depth_of_cut"
+            mm, _DEFAULT_CONFIG, DEFAULT_LOCALE, "cli.label.axial_depth_of_cut"
         ),
     )
     diameter_mm = in_to_mm(state.diameter) if unit_system is UnitSystem.IMPERIAL else state.diameter
@@ -880,8 +940,10 @@ def _prompt_milling_geometry(
         state.radial_engagement,
         unit_system,
         locale,
-        lambda mm: validate_depth_of_cut_mm(mm, _DEFAULT_CONFIG, locale, engagement_label_key)
-        or validate_engagement_mm(mm, diameter_mm, locale, engagement_label_key),
+        lambda mm: (
+            validate_depth_of_cut_mm(mm, _DEFAULT_CONFIG, DEFAULT_LOCALE, engagement_label_key)
+            or validate_engagement_mm(mm, diameter_mm, DEFAULT_LOCALE, engagement_label_key)
+        ),
     )
     state.feed_per_tooth = _prompt_validated_length(
         "cli.label.feed_per_tooth",
@@ -889,7 +951,7 @@ def _prompt_milling_geometry(
         state.feed_per_tooth,
         unit_system,
         locale,
-        lambda mm: validate_feed_per_tooth_mm(mm, locale),
+        lambda mm: validate_feed_per_tooth_mm(mm, DEFAULT_LOCALE),
     )
     state.number_of_teeth = _prompt_validated_length(
         "cli.label.number_of_teeth",
@@ -898,7 +960,7 @@ def _prompt_milling_geometry(
         # Tooth count is a pure count, never unit-converted.
         UnitSystem.METRIC,
         locale,
-        lambda value: validate_tooth_count(value, locale),
+        lambda value: validate_tooth_count(value, DEFAULT_LOCALE),
     )
     state.length_of_cut = _prompt_validated_length(
         "cli.label.length_of_cut",
@@ -906,7 +968,7 @@ def _prompt_milling_geometry(
         state.length_of_cut,
         unit_system,
         locale,
-        lambda mm: validate_length_of_cut_mm(mm, _DEFAULT_CONFIG, locale),
+        lambda mm: validate_length_of_cut_mm(mm, _DEFAULT_CONFIG, DEFAULT_LOCALE),
     )
 
 

@@ -95,12 +95,62 @@ class ErrorInfo:
     Attributes:
         code: Machine-readable identifier, e.g. ``"INVALID_DIAMETER"``,
             ``"INVALID_DEPTH"``, ``"MISSING_MATERIAL"``, ``"MISSING_TOOL"``,
-            ``"UNSUPPORTED_COMBINATION"``.
+            ``"UNSUPPORTED_COMBINATION"``. Coarser than ``message_key``: one
+            code may cover more than one distinct message template (e.g.
+            ``"INVALID_DIAMETER"`` covers both a zero-value and an
+            exceeds-maximum case). Stable; MUST NOT be split or repurposed
+            to carry ``message_key``'s precision (specs/015-console-i18n
+            -relocation FR-006).
         message: Human-readable explanation suitable for CLI display.
+            Always English, regardless of the active locale
+            (specs/015-console-i18n-relocation FR-005) — this keeps
+            :class:`CalculationResult`'s error usable for a caller who does
+            not have the ``console`` extra installed.
+        message_key: The stable, fine-grained message-catalog key that
+            produced ``message`` (e.g. ``"error.invalid_diameter.max"``),
+            named to match the existing
+            :class:`~mfgparams.registry_config.RegistryConfigError
+            .message_key` / :class:`~mfgparams.registry_config.MergeResult
+            .notice_key`. Lets a caller with locale-rendering of its own
+            (the console) reproduce the exact message template in another
+            locale without depending on ``code``, which is not
+            one-to-one with a template (specs/015-console-i18n-relocation
+            FR-005b).
+        kwargs: The interpolation values already passed to
+            :func:`~mfgparams.i18n.translate` for ``message_key`` (e.g.
+            ``(("max_diameter_mm", 50.0),)``). A tuple of pairs rather than
+            a ``dict``, matching
+            :class:`~mfgparams.registry_config.MergeResult.notice_kwargs`'s
+            shape, so that ``ErrorInfo`` — a frozen dataclass — stays
+            hashable (specs/015-console-i18n-relocation research.md #2).
+            Render with ``translate(locale, message_key, **dict(kwargs))``.
+
+            **``label_key`` is special-cased, not a literal substitution
+            value.** A handful of templates (``error.invalid_depth_of_cut
+            .*``, ``error.invalid_engagement``) embed a ``{label}`` that is
+            itself resolved from another catalog key (e.g.
+            ``"cli.label.axial_depth_of_cut"``) rather than being a plain
+            value like a number or a name. When present, ``kwargs``
+            carries **both** ``label`` (the label already rendered in
+            English, for building this ``ErrorInfo``'s own English
+            ``message``) and ``label_key`` (the catalog key that produced
+            it). A re-renderer that wants ``label`` itself translated —
+            not left in English inside an otherwise-translated
+            sentence — MUST look up ``label_key`` in its own catalog and
+            substitute that result for ``label`` before formatting
+            ``message_key``'s template; this is what ``console/cli.py``'s
+            ``_render_error`` does. A re-renderer that only wants the outer
+            template translated MAY instead ignore ``label_key`` and use
+            ``label`` as-is — a strictly weaker rendering with one English
+            word left inside an otherwise-translated sentence, offered only
+            as a fallback for a re-renderer with no catalogue of its own to
+            look ``label_key`` up in.
     """
 
     code: str
     message: str
+    message_key: str
+    kwargs: tuple[tuple[str, object], ...] = ()
 
 
 @dataclass(frozen=True)

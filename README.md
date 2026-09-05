@@ -301,6 +301,23 @@ for full runnable scenarios, and
 [`specs/005-configurable-materials-tools/contracts/materials-config-schema.md`](specs/005-configurable-materials-tools/contracts/materials-config-schema.md)
 for the exact TOML schema.
 
+### Adding or changing a user-facing string
+
+Every user-facing string lives in a message catalog, never inlined at its call site (Constitution
+Principle VIII). Which catalog depends on what the string is:
+
+- A prompt, label, or status/progress message the interactive console displays — add or edit it in
+  `mfgparams/console/locales/en.py`.
+- Error, warning, or startup-notice text returned by the library API (`ErrorInfo.message`,
+  `CalculationResult.feasibility_warning`, a materials-config load notice/error) — add or edit it in
+  `mfgparams/locales/en.py`. This text must stay readable without the `console` extra installed.
+- The material/tool *display name* a user supplies via `[materials.translations]`/
+  `[tools.translations]` in their own config file is not a catalog entry at all — see the materials
+  configuration section above.
+
+See [`specs/015-console-i18n-relocation/contracts/catalogue-ownership-contract.md`](specs/015-console-i18n-relocation/contracts/catalogue-ownership-contract.md)
+for the full rule, including two narrow, explicitly documented exceptions.
+
 ## Run the tests
 
 ```bash

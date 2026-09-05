@@ -27,7 +27,7 @@ import math
 from typing import Callable, Optional, Protocol
 
 from mfgparams.config import Configuration, load_configuration
-from mfgparams.i18n import translate
+from mfgparams.i18n import DEFAULT_LOCALE, translate
 from mfgparams.models import CalculationMode, CalculationResult, ErrorInfo, UnitSystem
 from mfgparams.processes.machining.milling._shared import (
     calculate_power_constrained_milling_metrics,
@@ -147,7 +147,10 @@ def _resolve_material_and_tool(
         return error_result(
             unit_system,
             ErrorInfo(
-                "MISSING_MATERIAL", translate(locale, "error.unknown_material", material=material)
+                "MISSING_MATERIAL",
+                translate(locale, "error.unknown_material", material=material),
+                message_key="error.unknown_material",
+                kwargs=(("material", material),),
             ),
             mode,
         )
@@ -159,6 +162,8 @@ def _resolve_material_and_tool(
             ErrorInfo(
                 "UNUSABLE_MATERIAL",
                 translate(locale, "error.unusable_material", material=material, details=details),
+                message_key="error.unusable_material",
+                kwargs=(("material", material), ("details", details)),
             ),
             mode,
         )
@@ -167,7 +172,12 @@ def _resolve_material_and_tool(
     if resolved_tool is None:
         return error_result(
             unit_system,
-            ErrorInfo("MISSING_TOOL", translate(locale, "error.unknown_mill_tool", tool=tool)),
+            ErrorInfo(
+                "MISSING_TOOL",
+                translate(locale, "error.unknown_mill_tool", tool=tool),
+                message_key="error.unknown_mill_tool",
+                kwargs=(("tool", tool),),
+            ),
             mode,
         )
 
@@ -250,7 +260,11 @@ def _validate_mode_inputs(
         if target_rpm is None:
             return error_result(
                 unit_system,
-                ErrorInfo("INVALID_TARGET_RPM", translate(locale, "error.invalid_target_rpm")),
+                ErrorInfo(
+                    "INVALID_TARGET_RPM",
+                    translate(locale, "error.invalid_target_rpm"),
+                    message_key="error.invalid_target_rpm",
+                ),
                 mode,
             )
 
@@ -292,6 +306,7 @@ def _compute_metrics(
                 ErrorInfo(
                     "INFEASIBLE_POWER_BUDGET",
                     translate(locale, "error.infeasible_power_budget"),
+                    message_key="error.infeasible_power_budget",
                 ),
                 mode,
             )
@@ -403,7 +418,11 @@ def _reject_if_invalid(
         return metrics
     return error_result(
         unit_system,
-        ErrorInfo(error_code, translate(locale, error_message_key)),
+        ErrorInfo(
+            error_code,
+            translate(locale, error_message_key),
+            message_key=error_message_key,
+        ),
         mode,
     )
 
@@ -520,10 +539,19 @@ def calculate_milling(
         failures (FR-012).
     """
 
+    # specs/015-console-i18n-relocation FR-005/FR-007: ErrorInfo.message is
+    # always English now. `locale` is still accepted by the public API for
+    # signature compatibility and still governs `feasibility_warning`
+    # (unaffected by this feature — it is not part of ErrorInfo), via
+    # `_build_result` below, which keeps receiving the caller's real
+    # `locale`. Only the error-producing calls get pinned to English,
+    # via this separate name rather than by reusing/shadowing `locale`.
+    message_locale = DEFAULT_LOCALE
+
     config = load_configuration(config_path)
 
     resolved = _resolve_material_and_tool(
-        material, tool, unit_system, locale, resolve_tool, materials_config_path, mode
+        material, tool, unit_system, message_locale, resolve_tool, materials_config_path, mode
     )
     if isinstance(resolved, CalculationResult):
         return resolved
@@ -539,12 +567,14 @@ def calculate_milling(
     }
 
     geometry_error = _validate_geometry(
-        geometry_mm, config, unit_system, locale, engagement_label_key, mode
+        geometry_mm, config, unit_system, message_locale, engagement_label_key, mode
     )
     if geometry_error is not None:
         return geometry_error
 
-    mode_input_error = _validate_mode_inputs(mode, available_power, target_rpm, unit_system, locale)
+    mode_input_error = _validate_mode_inputs(
+        mode, available_power, target_rpm, unit_system, message_locale
+    )
     if mode_input_error is not None:
         return mode_input_error
 
@@ -564,7 +594,7 @@ def calculate_milling(
         compute,
         compute_at_rpm,
         unit_system,
-        locale,
+        message_locale,
     )
     if isinstance(metrics_or_error, CalculationResult):
         return metrics_or_error
