@@ -40,7 +40,7 @@ project-specific logic (`scripts/check_maintainability.py`).
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` |
 | `docs` | `docs/**` |
 | `ci_config` | `.github/workflows/**` |
-| `other` (catch-all) | Everything not matched by any named filter above **or** by the known-non-code paths in spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`), via a positive `'**'` entry followed by one `!`-prefixed exclusion per excluded glob — data-model.md's Path Category "Corrections" note explains why this list form, not a single `!(a/**|b/**|...)` extglob string, is what actually works |
+| `other` (catch-all) | Everything not matched by any named filter above **or** by the known-non-code paths in spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`), via a *separate* `paths-filter` step with `predicate-quantifier: every` and a positive `'**'` entry followed by one `!`-prefixed exclusion per excluded glob — data-model.md's Path Category "Corrections" note walks through why two earlier, plausible-looking forms (a single `!(a/**|b/**|...)` extglob string, then the same list form under the *default* quantifier) both silently matched everything anyway |
 
 **Rationale**: `docs` job's dependency on Python source (docstrings feed the Sphinx build,
 per spec.md Assumptions) is expressed as `needs.changes.outputs.python == 'true' ||

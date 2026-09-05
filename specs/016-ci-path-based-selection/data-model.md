@@ -21,9 +21,9 @@ Instances (see research.md #2 for rationale):
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` | false |
 | `docs` | `docs/**` | false |
 | `ci_config` | `.github/workflows/**` | false |
-| `other` | `**`, then a `!`-prefixed exclusion entry for every glob above **and** every known-non-code path from spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`) | true |
+| `other` | `**`, then a `!`-prefixed exclusion entry for every glob above **and** every known-non-code path from spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`) — evaluated in its **own** `dorny/paths-filter` step with `predicate-quantifier: every` | true |
 
-**Corrections (both found during live quickstart validation, not planning):**
+**Corrections (all three found during live quickstart validation, not planning):**
 
 1. The first implementation of `other` negated only the three named categories' globs,
    omitting the known-non-code paths spec.md's own Assumptions section already named. That
@@ -35,10 +35,18 @@ Instances (see research.md #2 for rationale):
    the same live check: `dorny/paths-filter`'s live log showed
    `specs/016-ci-path-based-selection/quickstart.md` matching `other = true` even with
    `specs/**` inside that negation. A single extglob negation containing `**` inside its
-   alternatives is unreliable in the underlying matcher. The working, and
-   `dorny/paths-filter`-documented, form is a *list*: a bare `**` positive entry, then one
-   `!`-prefixed entry per excluded glob — matched in order, each negation subtracting from
-   what came before. `other`'s definition (and `ci.yml`) now uses that list form.
+   alternatives is unreliable in the underlying matcher. Switched to a *list*: a bare `**`
+   positive entry, then one `!`-prefixed entry per excluded glob.
+3. The list form from (2) *still* failed the identical live check, still reporting
+   `other = true` for the same file. Root cause: `dorny/paths-filter`'s `predicate-quantifier`
+   (default `some`) means a filter matches if **any** listed pattern matches - and a bare
+   `**` always matches, so every negation listed after it is moot under the default. The
+   list-plus-negation idiom only works under `predicate-quantifier: every` (all listed
+   patterns must match simultaneously), which is a setting for the whole `paths-filter` step,
+   not a per-filter option. Since `python`/`docs`/`ci_config` are plain OR-lists that need the
+   default `some` (a file need only match one of several globs to be `python`, say), `other`
+   was moved into its **own** `paths-filter` step with `predicate-quantifier: every` set
+   explicitly, leaving the first step's default untouched for the other three filters.
 
 ## Job Path Policy
 
