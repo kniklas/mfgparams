@@ -91,12 +91,32 @@ def test_the_packaging_step_can_actually_fail_the_build_job(ci_jobs: dict) -> No
     )
     # The job itself carries `if: github.event_name != 'schedule'`, like every
     # other gating job - a scheduled run has no pull request to gate. Any
-    # *other* condition would narrow when the wheel gets verified.
-    assert build_job.get("if") in (None, "github.event_name != 'schedule'"), (
-        f"the build job's condition is {build_job.get('if')!r}; only the "
-        "standard schedule exclusion is allowed, or the wheel stops being "
-        "verified on some events"
-    )
+    # *other* condition would narrow when the wheel gets verified - except
+    # the one specs/016-ci-path-based-selection adds, which is safe only
+    # because it preserves the schedule exclusion, runs `build` anyway when
+    # the `changes` job itself fails (fail-open), and always runs for an
+    # unmatched path (`other`); see tests/static/test_ci_path_selection.py
+    # for the dedicated checks on those properties across every filtered job.
+    # A condition missing any of those three pieces is exactly the silent
+    # narrowing this test exists to catch.
+    condition = build_job.get("if")
+    if condition not in (None, "github.event_name != 'schedule'"):
+        assert condition is not None
+        assert "github.event_name != 'schedule'" in condition, (
+            f"the build job's condition is {condition!r} and dropped the "
+            "schedule exclusion - the wheel would be (pointlessly) verified "
+            "on the weekly cron with no pull request to gate"
+        )
+        assert "needs.changes.result == 'failure'" in condition, (
+            f"the build job's condition is {condition!r} and is missing the "
+            "path-selection fail-open clause - a broken `changes` job would "
+            "silently skip wheel verification instead of running it anyway"
+        )
+        assert "needs.changes.outputs.other == 'true'" in condition, (
+            f"the build job's condition is {condition!r} and is missing the "
+            "unmatched-path catch-all - an unanticipated changed path would "
+            "silently skip wheel verification instead of running it anyway"
+        )
 
 
 def test_build_job_installs_the_extra_that_makes_them_run(ci_jobs: dict) -> None:

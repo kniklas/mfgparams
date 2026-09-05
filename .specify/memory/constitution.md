@@ -1,6 +1,57 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 1.10.1 -> 1.11.0
+Modified principles: Principle IX gains a new bullet (path-based job selection exception),
+  inserted immediately after its intro sentence. Its bandit bullet is amended to qualify
+  "every pull request" by that exception. Additional Constraints' two bullets naming
+  lint/typecheck/test/build/docs directly, plus the bullet naming the Principle IX gates
+  (complexity/MI/security/dependency-scan/CodeQL), are amended the same way for the gates
+  this exception actually covers.
+Rationale: /speckit-analyze on feature 016-ci-path-based-selection (specs/016-ci-path-based-
+  selection/) found this constitution's literal, repeated "every pull request" language in
+  direct textual conflict with that feature's entire purpose - conditionally skipping
+  `lint`/`complexity`/`typecheck`/`security`/`test`/`build`/`docs` for pull requests touching
+  no path any of those gates could plausibly affect (e.g. a specs-only or docs-only PR). The
+  new exception is written to require exactly the safeguards that feature's own design
+  already includes - default-run whenever a changed path isn't recognized by the mapping,
+  fail-open if the path-selection mechanism itself breaks, and automated enforcement of both
+  plus the mapping's composition - so this codifies an existing, carefully-scoped design
+  rather than inventing new requirements or loosening anything for a pull request that does
+  touch in-scope files. `dependency-scan`/`pip-audit` and CodeQL are deliberately NOT
+  qualified: 016 does not filter either job (FR-006), so their literal "every pull request"/
+  "continuously" wording remains true and unqualified in every bullet that names them,
+  including the Additional Constraints bullet that groups them with complexity/MI/security -
+  only the complexity/MI/security portion of that bullet is qualified, verified deliberately
+  (not assumed) while drafting this amendment.
+MINOR rather than PATCH: this is new, materially expanded guidance - a conditional-execution
+  exception with its own four-part safeguard requirement did not exist in any prior version -
+  not a wording clarification of existing guidance.
+Templates requiring updates:
+  OK .specify/templates/plan-template.md (no changes needed)
+  OK .specify/templates/tasks-template.md (no changes needed)
+  OK .specify/templates/spec-template.md (no changes needed)
+  OK .github/copilot-instructions.md (no changes needed - does not enumerate CI job names)
+Propagation: specs/003-ci-quality-security-gates/contracts/ci-checks-contract.md's `ci-ok` row,
+  .github/skills/code-review/SKILL.md §7a, and .github/skills/pr-review-loop/SKILL.md §5 all
+  currently describe pre-016 `ci-ok` semantics; already tracked as tasks T022-T024 in
+  specs/016-ci-path-based-selection/tasks.md - not duplicated as a follow-up here.
+Follow-up TODOs:
+  - Run /speckit-analyze again against specs/016-ci-path-based-selection once this amendment
+    is committed, to confirm the constitution-conflict finding (C1) is resolved and no new
+    conflict was introduced by this wording.
+Correction (same PR, before merge - not a separate version bump): the path-based job
+  selection bullet above originally said a gate "MAY be limited to pull requests," but
+  specs/016-ci-path-based-selection's actual design applies the exception to `push` runs too
+  (main's post-merge CI), matching Additional Constraints' pre-existing "every push/pull
+  request" scope. A local code-review pass on PR #89 caught the mismatch before merge; fixed
+  in place by saying "pull requests or pushes" throughout the bullet, since this is still the
+  v1.11.0 draft landing, not a change to an already-released version.
+-->
+
+<!--
+Sync Impact Report (previous amendment)
+==================
 Version change: 1.10.0 -> 1.10.1
 Modified principles: none redefined. Principle IX's required-status-check clause, the
   Additional Constraints echo of it, and the Development Workflow echo of it are
@@ -317,6 +368,18 @@ translatable, while internal application logging MUST always remain in English.
 Every pull request MUST be automatically measured against objective complexity,
 maintainability, and security metrics in CI; these gates complement, and do not replace,
 human review.
+- A gate MAY be limited to pull requests or pushes whose changed paths fall within files that
+  gate is capable of evaluating ("path-based job selection"), provided: (a) the path-to-gate mapping
+  is version-controlled and auditable, and defaults to running the gate whenever a changed
+  path is not recognized by the mapping; (b) a failure of the path-selection mechanism itself
+  defaults to running the gate rather than skipping it (fail open); (c) an automated test
+  enforces both defaults and the mapping's composition, mirroring the aggregate-composition
+  enforcement this principle already requires for `ci-ok`; and (d) a gate that does run is
+  held to the same pass/fail standard as always — path-based selection MUST NOT alter a
+  gate's own pass/fail outcome, only whether it runs. This exists so a change touching no
+  file a gate could plausibly affect (e.g., specification or documentation text) is not
+  required to run a gate with nothing to measure; it does not relax the requirement for any
+  pull request or push that does touch in-scope files.
 - Cyclomatic complexity MUST be measured per function (e.g., `ruff`'s `C90`/mccabe rule
   with a configured `max-complexity`, or `radon cc`); any function exceeding the
   configured threshold MUST be refactored or have the exception explicitly justified in
@@ -324,8 +387,9 @@ human review.
 - Maintainability Index MUST be measured per module (e.g., `radon mi` enforced via
   `xenon` with a minimum grade threshold); modules dropping below the threshold MUST be
   flagged for refactoring before merge rather than accumulated as unmanaged technical debt.
-- Static security analysis (e.g., `bandit`) MUST run in CI on every pull request; no
-  high- or medium-severity finding MAY be merged without an explicit, documented
+- Static security analysis (e.g., `bandit`) MUST run in CI on every pull request whose
+  changed paths are in scope for it (subject to the path-based job selection exception
+  above); no high- or medium-severity finding MAY be merged without an explicit, documented
   suppression rationale in the pull request description.
 - Dependency vulnerability scanning (e.g., `pip-audit`) MUST run in CI on every pull
   request and on a recurring schedule; known CVEs in direct or transitive dependencies
@@ -484,21 +548,26 @@ into one PR or merged to `main` in a partially-built state.
 ## Additional Constraints (Quality Gates)
 
 - CI MUST run linting, the full automated test suite, and a package build check on every
-  pull request; all three MUST pass before merge.
+  pull request whose changed paths are in scope for each (subject to Principle IX's
+  path-based job selection exception); all three MUST pass before merge when they run.
 - Dependencies introducing calculation logic (e.g., math/statistics libraries) MUST be
   vetted for correctness and actively maintained status before adoption.
 - Performance MUST be measured, not assumed: any calculation expected to run on large
   datasets or in tight loops MUST have a benchmark or profiling note before optimization,
   and MUST be evaluated against the legacy-hardware runtime target in Principle V.
-- GitHub Actions MUST automate, for every push/pull request: linting, static type
+- GitHub Actions MUST automate, for every push/pull request, linting, static type
   checking, the full test suite (with coverage reporting), a package build check, and a
-  Sphinx documentation build; all MUST pass before merge.
-- GitHub Actions MUST automate, for every pull request, the Principle IX gates: cyclomatic
-  complexity/Maintainability Index checks (radon/xenon or equivalent), static security
-  analysis (bandit or equivalent), and dependency vulnerability scanning (pip-audit or
-  equivalent); GitHub CodeQL MUST run continuously as repository-level SAST. All MUST
-  pass before merge, and all MUST gate `main` as required status checks — directly or
-  through an aggregate check meeting Principle IX's conditions.
+  Sphinx documentation build, each subject to Principle IX's path-based job selection
+  exception; all MUST pass before merge when they run.
+- GitHub Actions MUST automate the Principle IX gates: cyclomatic complexity/Maintainability
+  Index checks (radon/xenon or equivalent) and static security analysis (bandit or
+  equivalent) for every pull request whose changed paths are in scope for each (subject to
+  Principle IX's path-based job selection exception), and dependency vulnerability scanning
+  (pip-audit or equivalent) for every pull request unconditionally — that job is not subject
+  to the exception; GitHub CodeQL MUST run continuously as repository-level SAST,
+  independent of any pull request's changed paths. All MUST pass before merge when they run,
+  and all MUST gate `main` as required status checks — directly or through an aggregate
+  check meeting Principle IX's conditions.
 - GitHub Actions MUST automatically publish the generated Sphinx documentation to GitHub
   Pages on every successful build of the default branch, keeping user- and developer-facing
   docs continuously up to date.
@@ -548,4 +617,4 @@ recurring pattern, MUST trigger a proposed constitution amendment rather than re
 ad-hoc exceptions. Use `.specify/memory/constitution.md` as the authoritative source for
 runtime development guidance until a dedicated guidance file is introduced.
 
-**Version**: 1.10.1 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-08-30
+**Version**: 1.11.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-09-05

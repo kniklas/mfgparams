@@ -385,22 +385,27 @@ and actionable failure reporting).
 
 ## Quality & Security Gates (CI)
 
-Every pull request runs the following checks, per
+Every pull request is measured against the following checks, per
 `.specify/memory/constitution.md` Principle IX. All of them gate a merge, but only
-three are named in `main`'s ruleset — see the note below the table:
+three are named in `main`'s ruleset — see the note below the table. Most of them also
+run conditionally: a check with nothing in its scope to evaluate (e.g. `typecheck` on a
+pull request that touches no Python source) reports **Skipped**, not run — see the
+path-based selection note below the table.
 
 | Check | Tool | Enforces |
 |---|---|---|
-| `lint` | `ruff` (incl. `C90`/mccabe) | Style, formatting, cyclomatic complexity (FR-001) |
+| `changes` | `dorny/paths-filter` | Classifies the diff into path categories that decide which of the jobs below actually run |
+| `lint` | `ruff` (incl. `C90`/mccabe) | Style, formatting, cyclomatic complexity (FR-001); also runs whenever `.github/skills/**`/`.claude/**` changes (skill-symlink integrity) |
 | `complexity` | `scripts/check_maintainability.py` (`radon mi`) | Maintainability Index (FR-002) |
 | `typecheck` | `mypy` | Static type errors (FR-003) |
 | `security` | `bandit` | High/medium-severity security findings (FR-004) |
-| `dependency-scan` | `pip-audit` | Known CVEs in resolved dependencies (FR-005); also runs weekly, independent of PRs |
+| `dependency-scan` | `pip-audit` | Known CVEs in resolved dependencies (FR-005); also runs weekly, independent of PRs, and is never path-selected |
 | `test (3.9)`, `test (3.10)`, `test (3.11)`, `test (3.12)` | `pytest -m "not packaging" --cov` | Test failures / coverage below 90%, checked separately on every officially supported Python version |
-| `build` | `python -m build`, then `pytest -m packaging` | Package build failures, and the wheel-contents assertions — the only place in CI they run |
+| `build` | `python -m build`, then `pytest -m packaging` | Package build failures, and the wheel-contents assertions — the only place in CI they run; also runs whenever `README.md`/`LICENSE.md` changes (packaging metadata) |
 | `docs` | Sphinx | Docs build failures |
+| `repo-invariants` | `pytest` (two repo-wide static tests) | No stray reference to this package's old name/layout anywhere in the tree — reruns unconditionally, since `test`'s own path-based skip can't safely cover a check that scans every file regardless of category |
 | CodeQL (`Analyze (python)`) | GitHub CodeQL default setup | New high-confidence security alerts (FR-006) |
-| `ci-ok` | aggregate | Passes only when all eight jobs above (excluding CodeQL) succeeded |
+| `ci-ok` | aggregate | Passes when every one of the ten jobs above (excluding CodeQL) either succeeded or was intentionally skipped by path selection; fails on any real failure or cancellation |
 
 `main`'s ruleset requires exactly three checks — **`ci-ok`, `Analyze (python)`
 and `CodeQL`** — not the individual jobs. Every job in the table still runs and
@@ -408,6 +413,12 @@ reports under its own name; they are simply no longer read by branch
 protection, so renaming a job or adding a Python version no longer requires a
 ruleset change (issue #75 P2.4). `Analyze (python)` and `CodeQL` stay separate
 because they come from GitHub's managed CodeQL setup rather than `ci.yml`.
+
+**Path-based selection** (`specs/016-ci-path-based-selection`): `lint`, `complexity`,
+`typecheck`, `security`, `test`, `build`, and `docs` skip themselves when a pull request's
+changed paths fall outside what each depends on (e.g. a specs-only or docs-only PR shows
+most of them as Skipped) — a `Skipped` job does not block `ci-ok`, only a real `failure`/
+`cancelled` does. `changes` and `repo-invariants` are never skipped for path reasons.
 `performance`, `quality-summary`, `deploy-docs` and `sync-agent-integrations` are
 supporting jobs, deliberately outside `ci-ok`; pulling one in would make it a merge
 blocker, which `tests/static/test_ci_ok_aggregate_check.py` fails on.

@@ -606,12 +606,25 @@ The loop (§3) is done only when, on a fresh fetch:
   (no pending ones either — wait them out). Since #79 there are exactly
   **three**: `ci-ok`, `Analyze (python)` and `CodeQL`.
 
-  `ci-ok` is an aggregate that passes only when all eight individually
-  gating jobs did — `lint`, `complexity`, `typecheck`, `security`,
-  `dependency-scan`, `test`, `build`, `docs` — so a red `ci-ok` means one
-  of those failed and its own log names which. `Analyze (python)` and
-  `CodeQL` stay separate because they come from GitHub's managed CodeQL
-  setup rather than `ci.yml`, so `ci-ok` cannot depend on them.
+  `ci-ok` is an aggregate that passes when all ten individually gating
+  jobs either succeeded or were intentionally skipped — `changes`,
+  `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`,
+  `test`, `build`, `docs`, `repo-invariants` — so a red `ci-ok` means one
+  of those actually failed or was cancelled, and its own log names which.
+  Since specs/016-ci-path-based-selection, `lint`/`complexity`/`typecheck`/
+  `security`/`test`/`build`/`docs` are conditional on which paths the PR
+  touched (e.g. a specs-only or docs-only PR shows most of them as
+  Skipped, not Success) — a skip there is expected and does not need
+  investigating the way a failure or cancellation does. `lint` is the one
+  exception among those seven: it also runs (even when nothing else did)
+  for a `.github/skills/**`/`.claude/**`-only change, since it's the job
+  that verifies skill symlinks. `repo-invariants` and `changes` are never
+  skipped for path reasons — `changes` only skips on `schedule`/
+  `workflow_dispatch` (a manual dispatch bypasses its output rather than
+  waiting on it), and `repo-invariants` runs unconditionally on every
+  non-scheduled trigger. `Analyze (python)` and `CodeQL` stay separate
+  because they come from GitHub's managed CodeQL setup rather than
+  `ci.yml`, so `ci-ok` cannot depend on them.
 
   The individual jobs still run and still report under their own names —
   `test` is still a matrix emitting `test (3.9)`…`test (3.12)`, and there

@@ -1,1 +1,3 @@
-{"feature_directory":"specs/015-console-i18n-relocation"}
+{
+  "feature_directory": "specs/016-ci-path-based-selection"
+}

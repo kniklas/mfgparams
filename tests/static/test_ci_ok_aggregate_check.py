@@ -28,11 +28,13 @@ import pytest
 yaml = pytest.importorskip("yaml")
 
 CI_WORKFLOW = pathlib.Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
+PR_TEMPLATE = pathlib.Path(__file__).resolve().parents[2] / ".github" / "pull_request_template.md"
 
 # Jobs that MUST gate a merge. Keep in sync with the ruleset's single
 # `ci-ok` entry - this list is what `ci-ok` expands to.
 REQUIRED_JOBS = frozenset(
     {
+        "changes",
         "lint",
         "complexity",
         "typecheck",
@@ -41,6 +43,7 @@ REQUIRED_JOBS = frozenset(
         "test",
         "build",
         "docs",
+        "repo-invariants",
     }
 )
 
@@ -86,10 +89,13 @@ def test_ci_ok_only_excludes_scheduled_runs(ci_jobs: dict) -> None:
     condition = ci_jobs["ci-ok"]["if"]
     excluded_events = re.findall(r"github\.event_name\s*(==|!=)\s*'([a-z_]+)'", condition)
     assert ("!=", "schedule") in excluded_events, (
-        "ci-ok must exclude scheduled runs. On the weekly cron every "
-        "dependency except dependency-scan is skipped, so the assertion step "
-        "sees 'skipped' and fails - a permanently red scheduled run that "
-        "gates nothing."
+        "ci-ok must exclude scheduled runs: there is no pull request to gate "
+        "on a schedule run, only the weekly dependency-scan cron. (Before "
+        "specs/016-ci-path-based-selection, this was additionally required "
+        "because every dependency except dependency-scan was skipped on that "
+        "trigger and the assertion step treated 'skipped' as a failure; the "
+        "assertion now accepts 'skipped' as non-blocking, so that reason no "
+        "longer applies - the exclusion itself is still required.)"
     )
     for operator, event in excluded_events:
         if operator == "!=":
@@ -159,4 +165,23 @@ def test_every_ci_job_is_classified(ci_jobs: dict) -> None:
         f"ci.yml jobs not classified as required or supporting: "
         f"{sorted(unclassified)}. Add each to REQUIRED_JOBS (it gates "
         f"merges, and ci-ok must `needs:` it) or to SUPPORTING_JOBS."
+    )
+
+
+def test_pull_request_template_names_every_required_job() -> None:
+    """`.github/pull_request_template.md` must name every job in `REQUIRED_JOBS`.
+
+    This exact file was missed for three commits during #71's `test` -> `test (3.x)` rename
+    (`ci-ok`'s own comment in ci.yml cites it as the cautionary example), and was missed again,
+    independently, when `changes`/`repo-invariants` were added by specs/016-ci-path-based-
+    selection (a local code-review pass on PR #89 caught it the second time, not this test -
+    this test exists so a third recurrence doesn't need a human to notice). A stale list here
+    tells reviewers `ci-ok` aggregates fewer jobs than it actually does, with no test failure
+    at runtime to reveal the gap.
+    """
+    text = PR_TEMPLATE.read_text(encoding="utf-8")
+    missing = sorted(job for job in REQUIRED_JOBS if f"`{job}`" not in text)
+    assert not missing, (
+        f"{PR_TEMPLATE.name} does not mention {missing} - update its ci-ok checklist "
+        "line to name every job in REQUIRED_JOBS"
     )

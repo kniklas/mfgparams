@@ -158,13 +158,20 @@ officially supported Python version, not one combined or single-version result.
   because of the absence alone.
 - **FR-005**: The automated pull-request pipeline MUST execute the test suite, including the
   existing coverage requirement, separately against every officially supported Python version
-  on every pull request.
+  on every pull request. **Qualified by `specs/016-ci-path-based-selection`**: "every pull
+  request" now means every pull request touching a path that feature's `test` category
+  actually depends on — a pull request touching only `specs/**` or a non-packaging root `*.md`
+  file skips `test` entirely (intentionally; see that spec's contracts/path-selection-contract.md),
+  the same way `lint`/`complexity`/`typecheck`/`security`/`build`/`docs` do.
 - **FR-006**: The automated pull-request pipeline MUST report a distinct, individually
   attributable result per Python version, so a failure specific to one version is identifiable
   without needing to inspect combined logs.
 - **FR-007**: A pull request MUST NOT be mergeable unless the test suite (with its coverage
   requirement) passes for every officially supported Python version, consistent with the
-  project's existing required-status-check policy.
+  project's existing required-status-check policy. **Qualified by
+  `specs/016-ci-path-based-selection`**: this applies when `test` actually runs (see FR-005's
+  qualification) — `ci-ok`'s aggregate predicate treats an intentional path-based skip of
+  `test` as non-blocking, not as a bypass of this requirement.
 - **FR-008**: The set of Python versions exercised by the local multi-version workflow and the
   set exercised by the automated pull-request pipeline MUST match the officially supported
   version range declared in the project's packaging metadata, and MUST be kept in sync if that
@@ -184,10 +191,14 @@ officially supported Python version, not one combined or single-version result.
   version locally by running one documented command, with no manual per-version environment
   setup.
 - **SC-003**: 100% of pull requests merged after this feature ships have a recorded,
-  individually visible pass result for every officially supported Python version.
+  individually visible pass result for every officially supported Python version. **Qualified
+  by `specs/016-ci-path-based-selection`**: for pull requests where `test` runs at all (see
+  FR-005's qualification) — a specs-only or non-packaging-`*.md`-only pull request has no
+  per-version result to show, by design, and is not a counterexample to this criterion.
 - **SC-004**: Zero pull requests are merged where the change was only ever verified against a
   single Python version, measured by whether the required per-version checks appear and pass on
-  every pull request going forward.
+  every pull request going forward that touches a path `test` depends on (see FR-005's
+  `specs/016-ci-path-based-selection` qualification).
 
 ## Assumptions
 
