@@ -21,9 +21,24 @@ Instances (see research.md #2 for rationale):
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` | false |
 | `docs` | `docs/**` | false |
 | `ci_config` | `.github/workflows/**` | false |
-| `other` | negation of every glob above, **and** of the known-non-code paths from spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`) | true |
+| `other` | `**`, then a `!`-prefixed exclusion entry for every glob above **and** every known-non-code path from spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`) | true |
 
-**Correction (found during live quickstart validation, not planning):** the first implementation of `other` negated only the three named categories' globs, omitting the known-non-code paths spec.md's own Assumptions section already named. That made a specs-only change match `other` (nothing else) and therefore run every filtered job anyway — exactly the case this feature exists to skip, and the opposite of `other`'s intent as a safety net for paths nobody anticipated rather than a catch-all for paths already named and deliberately excluded elsewhere in this same spec. `other`'s negation glob now excludes both.
+**Corrections (both found during live quickstart validation, not planning):**
+
+1. The first implementation of `other` negated only the three named categories' globs,
+   omitting the known-non-code paths spec.md's own Assumptions section already named. That
+   made a specs-only change match `other` (nothing else) and therefore run every filtered job
+   anyway — exactly the case this feature exists to skip, and the opposite of `other`'s intent
+   as a safety net for paths nobody anticipated rather than a catch-all for paths already
+   named and deliberately excluded elsewhere in this same spec.
+2. Fixing (1) as a single `!(src/**|tests/**|...|specs/**|...)` extglob string still failed
+   the same live check: `dorny/paths-filter`'s live log showed
+   `specs/016-ci-path-based-selection/quickstart.md` matching `other = true` even with
+   `specs/**` inside that negation. A single extglob negation containing `**` inside its
+   alternatives is unreliable in the underlying matcher. The working, and
+   `dorny/paths-filter`-documented, form is a *list*: a bare `**` positive entry, then one
+   `!`-prefixed entry per excluded glob — matched in order, each negation subtracting from
+   what came before. `other`'s definition (and `ci.yml`) now uses that list form.
 
 ## Job Path Policy
 
