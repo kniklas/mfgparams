@@ -58,7 +58,7 @@ jobs:
       python: ${{ steps.filter.outputs.python }}
       docs: ${{ steps.filter.outputs.docs }}
       ci_config: ${{ steps.filter.outputs.ci_config }}
-      other: ${{ steps.filter.outputs.other }}
+      other: ${{ steps.other_filter.outputs.other }}
     steps:
       - id: filter
         uses: dorny/paths-filter@v3
@@ -75,13 +75,25 @@ jobs:
               - 'docs/**'
             ci_config:
               - '.github/workflows/**'
-            # A positive `**` (everything) with a `!`-prefixed exclusion per known
-            # category, per `dorny/paths-filter`'s documented negation idiom - NOT a
-            # single `!(a/**|b/**|...)` extglob string. That form was tried first and
-            # is silently unreliable when the alternatives contain `**`: live
-            # validation showed `specs/016-ci-path-based-selection/quickstart.md`
-            # still matching `other = true` even with `specs/**` inside the negation
-            # (data-model.md's Path Category "Correction" note, second entry).
+      # A second, separate paths-filter invocation for `other`, not a fourth entry in
+      # the step above: `predicate-quantifier` (default `some`) is a single setting
+      # for the whole step, and `other`'s exclusion idiom below - a positive `**` plus
+      # a `!`-prefixed entry per excluded glob - only works under `every` (all listed
+      # patterns must match). Under the default `some`, `**` alone already matches
+      # everything, making every negation that follows moot - live validation caught
+      # this twice: first a single `!(a/**|b/**|...)` extglob string (data-model.md's
+      # Path Category "Corrections" note #2), then this same list form still matching
+      # everything under the default quantifier (Corrections note #3) before the
+      # `every` setting below was found to be what the list form actually requires.
+      # `some` stays the default for the `filter` step above because python/docs/
+      # ci_config are plain OR-lists with no negation - `every` would require a
+      # changed file to match `src/**` *and* `tests/**` *and* ... simultaneously,
+      # which no single file can.
+      - id: other_filter
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
             other:
               - '**'
               - '!src/**'
