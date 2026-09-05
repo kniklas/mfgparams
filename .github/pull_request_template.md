@@ -26,6 +26,9 @@ a matching entry here.
 
 - [ ] Tests added/updated for the change
 - [ ] All required CI checks pass — `ci-ok`, `Analyze (python)`, CodeQL.
-  (`ci-ok` aggregates `lint`, `complexity`, `typecheck`, `security`,
-  `dependency-scan`, `test`, `build`, `docs`; if it is red, its log names
-  which one failed.)
+  (`ci-ok` aggregates `changes`, `lint`, `complexity`, `typecheck`, `security`,
+  `dependency-scan`, `test`, `build`, `docs`, `repo-invariants`; if it is red,
+  its log names which one failed. Several of these are path-based
+  (`specs/016-ci-path-based-selection`) and report **Skipped** rather than
+  running when nothing in their scope changed — that's expected and does not
+  block the merge, only a real failure/cancellation does.)

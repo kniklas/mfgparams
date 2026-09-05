@@ -28,6 +28,7 @@ import pytest
 yaml = pytest.importorskip("yaml")
 
 CI_WORKFLOW = pathlib.Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
+PR_TEMPLATE = pathlib.Path(__file__).resolve().parents[2] / ".github" / "pull_request_template.md"
 
 # Jobs that MUST gate a merge. Keep in sync with the ruleset's single
 # `ci-ok` entry - this list is what `ci-ok` expands to.
@@ -164,4 +165,23 @@ def test_every_ci_job_is_classified(ci_jobs: dict) -> None:
         f"ci.yml jobs not classified as required or supporting: "
         f"{sorted(unclassified)}. Add each to REQUIRED_JOBS (it gates "
         f"merges, and ci-ok must `needs:` it) or to SUPPORTING_JOBS."
+    )
+
+
+def test_pull_request_template_names_every_required_job() -> None:
+    """`.github/pull_request_template.md` must name every job in `REQUIRED_JOBS`.
+
+    This exact file was missed for three commits during #71's `test` -> `test (3.x)` rename
+    (`ci-ok`'s own comment in ci.yml cites it as the cautionary example), and was missed again,
+    independently, when `changes`/`repo-invariants` were added by specs/016-ci-path-based-
+    selection (a local code-review pass on PR #89 caught it the second time, not this test -
+    this test exists so a third recurrence doesn't need a human to notice). A stale list here
+    tells reviewers `ci-ok` aggregates fewer jobs than it actually does, with no test failure
+    at runtime to reveal the gap.
+    """
+    text = PR_TEMPLATE.read_text(encoding="utf-8")
+    missing = sorted(job for job in REQUIRED_JOBS if f"`{job}`" not in text)
+    assert not missing, (
+        f"{PR_TEMPLATE.name} does not mention {missing} - update its ci-ok checklist "
+        "line to name every job in REQUIRED_JOBS"
     )
