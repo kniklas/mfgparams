@@ -107,9 +107,15 @@ idiom already used in this file for the `performance` job's summary step), and M
 ```yaml
 if: >-
   !cancelled() && github.event_name != 'schedule' &&
-  (needs.changes.result == 'failure' ||
+  (github.event_name == 'workflow_dispatch' ||
+   needs.changes.result == 'failure' ||
    needs.changes.outputs.python == 'true' || needs.changes.outputs.ci_config == 'true')
 ```
+
+The `github.event_name == 'workflow_dispatch'` clause is FR-006's manual-dispatch bypass, not
+part of the fail-open mechanism itself — it is included in the same expression here (rather
+than a separate `if:`) because both are unconditional-run overrides evaluated the same way,
+and GitHub Actions has no way to compose two independent `if:` conditions on one job.
 
 **Rationale**: GitHub Actions implicitly ANDs a bare `if:` expression with `success()` of all
 listed `needs:` *unless* the expression itself contains `always()`, `cancelled()`, or

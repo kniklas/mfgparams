@@ -134,6 +134,40 @@ def test_changes_job_exists_and_is_schedule_guarded(ci_jobs: dict) -> None:
     assert "github.event_name != 'schedule'" in condition
 
 
+def test_changes_job_has_contents_read_permission(ci_jobs: dict) -> None:
+    """`dorny/paths-filter` needs a checked-out repo to diff non-`pull_request` events (see
+    `test_changes_job_checks_out_for_non_pull_request_events`), and checkout needs read
+    access to contents - without this permission the checkout step itself can fail on the
+    restricted default `GITHUB_TOKEN` this workflow's top-level `permissions:` sets.
+    """
+    permissions = ci_jobs["changes"].get("permissions", {})
+    assert (
+        permissions.get("contents") == "read"
+    ), "the `changes` job must grant `contents: read` for its checkout step"
+
+
+def test_changes_job_checks_out_for_non_pull_request_events(ci_jobs: dict) -> None:
+    """`dorny/paths-filter` reads changed files via the GitHub API for `pull_request` events,
+    but needs a real git checkout to diff `push`/`workflow_dispatch` events - without one the
+    `filter`/`other_filter` steps fail on those triggers, and since `changes` is a required
+    dependency of `ci-ok`, that failure blocks every push to `main` (the HIGH finding
+    Copilot's review caught on PR #89: this job originally had neither `actions/checkout` nor
+    `contents: read`).
+    """
+    steps = ci_jobs["changes"]["steps"]
+    checkout_steps = [s for s in steps if s.get("uses", "").startswith("actions/checkout")]
+    assert checkout_steps, "the `changes` job must checkout the repo for non-PR diffing"
+    filter_step = next(s for s in steps if s.get("uses", "").startswith("dorny/paths-filter"))
+    assert steps.index(checkout_steps[0]) < steps.index(
+        filter_step
+    ), "checkout must precede the paths-filter steps"
+    condition = str(checkout_steps[0].get("if", ""))
+    assert "pull_request" in condition, (
+        "the checkout step should be scoped to the non-pull_request events "
+        "(push/workflow_dispatch) that actually need it"
+    )
+
+
 def test_changes_job_has_exactly_two_paths_filter_steps(paths_filter_steps: list[dict]) -> None:
     assert len(paths_filter_steps) == 2, (
         "expected exactly one paths-filter step for python/docs/ci_config and a second, "
@@ -295,6 +329,19 @@ def test_filtered_job_fails_open_on_changes_failure(ci_jobs: dict, job: str) -> 
         f"{job!r} is missing the explicit status-check override needed for the fail-open "
         "clause to actually take effect"
     )
+
+
+@pytest.mark.parametrize("job", sorted(FILTERED_JOBS))
+def test_filtered_job_bypasses_selection_for_workflow_dispatch(ci_jobs: dict, job: str) -> None:
+    """FR-006: a manually-dispatched run must be unaffected by path selection - this job must
+    run regardless of what `changes` classified, matching its pre-016 behavior for
+    `workflow_dispatch` (the second HIGH finding from Copilot's review of PR #89: dispatch
+    reached the path selector like any other trigger and could be skipped by it).
+    """
+    condition = ci_jobs[job]["if"]
+    assert (
+        "github.event_name == 'workflow_dispatch'" in condition
+    ), f"{job!r} is missing the workflow_dispatch bypass required by FR-006"
 
 
 @pytest.mark.parametrize("job", sorted(FILTERED_JOBS))

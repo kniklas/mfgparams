@@ -195,9 +195,10 @@ every job that runs today still runs.
   depends on `docs/**` and any Python source (docstrings feed the Sphinx build).
 - `specs/**`, `.github/skills/**`, top-level `*.md` files (e.g. `README.md`), and `.claude/**` are
   treated as never requiring the Python-toolchain jobs on their own.
-- This feature changes *trigger conditions* on existing jobs, not the jobs' own steps or the
-  `ci-ok` aggregation logic's required-job list — no job is renamed, added, or removed, so the
-  branch protection ruleset (which names only `ci-ok`, per issue #75 P2.4) needs no change.
+- This feature changes *trigger conditions* on existing jobs, not their own steps, and adds one
+  new job (`changes`, added to `ci-ok`'s `needs:` alongside the existing ones) rather than
+  renaming or removing any — the branch protection ruleset (which names only `ci-ok`, per issue
+  #75 P2.4) still needs no change, since it never enumerated `ci-ok`'s internal dependency list.
 - GitHub Actions' own `paths:`/`paths-ignore:` trigger filters are a plausible mechanism but are
   evaluated per-workflow, not per-job, and would prevent the run itself (and therefore `ci-ok`)
   from appearing on an unrelated PR at all, which the branch-protection required-check contract

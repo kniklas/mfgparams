@@ -53,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       python: ${{ steps.filter.outputs.python }}
@@ -60,6 +61,19 @@ jobs:
       ci_config: ${{ steps.filter.outputs.ci_config }}
       other: ${{ steps.other_filter.outputs.other }}
     steps:
+      # `dorny/paths-filter` reads the changed-files list from the GitHub
+      # API for `pull_request` events (no checkout needed), but for `push`
+      # (and `workflow_dispatch`, which this job still runs for even though
+      # its output is bypassed downstream — see the `lint` job's comment)
+      # it diffs `git` history instead and needs a real clone to do it.
+      # `fetch-depth: 0` (full history) rather than a shallow depth: a push
+      # can carry more than one commit, and a shallow clone sized for the
+      # common case would leave `github.event.before` unreachable on the
+      # uncommon one, failing this step non-deterministically.
+      - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request'
+        with:
+          fetch-depth: 0
       - id: filter
         uses: dorny/paths-filter@v3
         with:
@@ -123,9 +137,22 @@ jobs:
     # intentional skip as non-blocking — the two changes together would
     # otherwise let a broken filter mechanism silently narrow the merge
     # gate (contracts/path-selection-contract.md's fail-open contract).
-    if: >-
+    # `github.event_name == 'workflow_dispatch'` is a second, independent
+    # override: FR-006 leaves manually-dispatched runs unaffected by path
+    # selection, so this job always runs on `workflow_dispatch` regardless
+    # of what `changes` classified — matching this job's pre-016 behavior
+    # for that trigger.
+    #
+    # Anchored as `&filtered_if` and referenced by `*filtered_if` on
+    # `complexity`/`typecheck`/`security`/`test`/`build` below, which share
+    # this exact condition (`docs` needs one more clause so it keeps its own
+    # copy) — a single source avoids five copies drifting out of sync the
+    # way this exact string already had to be edited in lockstep twice
+    # (adding the `ci_config` bypass, then this `workflow_dispatch` one).
+    if: &filtered_if >-
       !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
+      (github.event_name == 'workflow_dispatch' ||
+       needs.changes.result == 'failure' ||
        needs.changes.outputs.python == 'true' ||
        needs.changes.outputs.ci_config == 'true' ||
        needs.changes.outputs.other == 'true')
@@ -160,14 +187,9 @@ jobs:
     name: complexity
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: same rationale as the `lint` job
-    # above (specs/016-ci-path-based-selection).
-    if: >-
-      !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
-       needs.changes.outputs.python == 'true' ||
-       needs.changes.outputs.ci_config == 'true' ||
-       needs.changes.outputs.other == 'true')
+    # Path-based selection + fail-open: identical condition to the `lint`
+    # job above, referenced via the `&filtered_if` anchor defined there.
+    if: *filtered_if
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -191,14 +213,9 @@ jobs:
     name: typecheck
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: same rationale as the `lint` job
-    # above (specs/016-ci-path-based-selection).
-    if: >-
-      !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
-       needs.changes.outputs.python == 'true' ||
-       needs.changes.outputs.ci_config == 'true' ||
-       needs.changes.outputs.other == 'true')
+    # Path-based selection + fail-open: identical condition to the `lint`
+    # job above, referenced via the `&filtered_if` anchor defined there.
+    if: *filtered_if
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -214,14 +231,9 @@ jobs:
     name: security
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: same rationale as the `lint` job
-    # above (specs/016-ci-path-based-selection).
-    if: >-
-      !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
-       needs.changes.outputs.python == 'true' ||
-       needs.changes.outputs.ci_config == 'true' ||
-       needs.changes.outputs.other == 'true')
+    # Path-based selection + fail-open: identical condition to the `lint`
+    # job above, referenced via the `&filtered_if` anchor defined there.
+    if: *filtered_if
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -310,15 +322,10 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: same rationale as the `lint` job
-    # above (specs/016-ci-path-based-selection) — applied to the whole
-    # matrix job at once, not per-leg (research.md #7).
-    if: >-
-      !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
-       needs.changes.outputs.python == 'true' ||
-       needs.changes.outputs.ci_config == 'true' ||
-       needs.changes.outputs.other == 'true')
+    # Path-based selection + fail-open: identical condition to the `lint`
+    # job above, referenced via the `&filtered_if` anchor defined there —
+    # applied to the whole matrix job at once, not per-leg (research.md #7).
+    if: *filtered_if
     # Verifies every officially supported Python version on every pull request
     # (specs/013-tox-multi-python-testing FR-005/FR-006), not just the single
     # `env.PYTHON_VERSION` every other job pins. `fail-fast: false` so a
@@ -557,14 +564,9 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: same rationale as the `lint` job
-    # above (specs/016-ci-path-based-selection).
-    if: >-
-      !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
-       needs.changes.outputs.python == 'true' ||
-       needs.changes.outputs.ci_config == 'true' ||
-       needs.changes.outputs.other == 'true')
+    # Path-based selection + fail-open: identical condition to the `lint`
+    # job above, referenced via the `&filtered_if` anchor defined there.
+    if: *filtered_if
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -593,7 +595,8 @@ jobs:
     # just `docs/**` (data-model.md Job Path Policy).
     if: >-
       !cancelled() && github.event_name != 'schedule' &&
-      (needs.changes.result == 'failure' ||
+      (github.event_name == 'workflow_dispatch' ||
+       needs.changes.result == 'failure' ||
        needs.changes.outputs.python == 'true' ||
        needs.changes.outputs.docs == 'true' ||
        needs.changes.outputs.ci_config == 'true' ||

@@ -16,7 +16,7 @@ Every changed path in a `pull_request`/`push` run MUST be classified into at lea
 | `docs` | `docs/**` | `docs` |
 | `ci_config` | `.github/workflows/**` | all seven filtered jobs (FR-004 — unconditional) |
 | *(none — no job runs for these)* | `specs/**`, `.github/skills/**`, root `*.md`, `.claude/**` — the known-non-code paths from spec.md's Assumptions | none of the seven filtered jobs |
-| `other` (catch-all) | Anything matching none of the above, **including** the known-non-code row above | all seven filtered jobs (FR-003 — unconditional) |
+| `other` (catch-all) | Anything matching none of the above, **excluding** the known-non-code row above | all seven filtered jobs (FR-003 — unconditional) |
 
 A path MUST NOT be classified into zero *outputs* being checkable — every path is covered by
 either a named triggering category, the known-non-code row, or `other`. A path MAY be
@@ -65,6 +65,16 @@ but the fail-open clause was dropped, or vice versa.
 Every filtered job's `if:` MUST OR in `needs.changes.outputs.ci_config == 'true'` such that a
 change touching `.github/workflows/**` runs every filtered job regardless of any other path in
 the same diff. `tests/static/test_ci_path_selection.py` MUST assert this per filtered job.
+
+## Manual-dispatch bypass contract (FR-006)
+
+Every filtered job's `if:` MUST OR in `github.event_name == 'workflow_dispatch'`, so a manually
+dispatched run is unaffected by path selection regardless of what `changes` classified —
+matching that job's pre-016 behavior for this trigger. This is a second, independent
+unconditional-run clause alongside the fail-open contract's `needs.changes.result ==
+'failure'` above (research.md decision #5's example shows both together in one `if:`, since
+GitHub Actions has no way to compose two separate `if:` conditions on one job).
+`tests/static/test_ci_path_selection.py` MUST assert this per filtered job.
 
 ## Jobs excluded from path selection (FR-006)
 
