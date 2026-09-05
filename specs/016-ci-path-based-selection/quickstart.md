@@ -76,3 +76,5 @@ do not attempt to reproduce the failure live.
 
 **Expected outcome**: matches spec.md US1 Acceptance Scenario 3 — mixed changes never lose
 coverage for the code half.
+
+<!-- validation-scratch: specs-only change to exercise US1 skip behavior -->
