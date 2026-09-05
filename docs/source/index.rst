@@ -45,3 +45,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. Validation scratch: docs-only change to exercise US1 skip behavior.
