@@ -40,6 +40,13 @@ Follow-up TODOs:
   - Run /speckit-analyze again against specs/016-ci-path-based-selection once this amendment
     is committed, to confirm the constitution-conflict finding (C1) is resolved and no new
     conflict was introduced by this wording.
+Correction (same PR, before merge - not a separate version bump): the path-based job
+  selection bullet above originally said a gate "MAY be limited to pull requests," but
+  specs/016-ci-path-based-selection's actual design applies the exception to `push` runs too
+  (main's post-merge CI), matching Additional Constraints' pre-existing "every push/pull
+  request" scope. A local code-review pass on PR #89 caught the mismatch before merge; fixed
+  in place by saying "pull requests or pushes" throughout the bullet, since this is still the
+  v1.11.0 draft landing, not a change to an already-released version.
 -->
 
 <!--
@@ -361,8 +368,8 @@ translatable, while internal application logging MUST always remain in English.
 Every pull request MUST be automatically measured against objective complexity,
 maintainability, and security metrics in CI; these gates complement, and do not replace,
 human review.
-- A gate MAY be limited to pull requests whose changed paths fall within files that gate is
-  capable of evaluating ("path-based job selection"), provided: (a) the path-to-gate mapping
+- A gate MAY be limited to pull requests or pushes whose changed paths fall within files that
+  gate is capable of evaluating ("path-based job selection"), provided: (a) the path-to-gate mapping
   is version-controlled and auditable, and defaults to running the gate whenever a changed
   path is not recognized by the mapping; (b) a failure of the path-selection mechanism itself
   defaults to running the gate rather than skipping it (fail open); (c) an automated test
@@ -372,7 +379,7 @@ human review.
   gate's own pass/fail outcome, only whether it runs. This exists so a change touching no
   file a gate could plausibly affect (e.g., specification or documentation text) is not
   required to run a gate with nothing to measure; it does not relax the requirement for any
-  pull request that does touch in-scope files.
+  pull request or push that does touch in-scope files.
 - Cyclomatic complexity MUST be measured per function (e.g., `ruff`'s `C90`/mccabe rule
   with a configured `max-complexity`, or `radon cc`); any function exceeding the
   configured threshold MUST be refactored or have the exception explicitly justified in

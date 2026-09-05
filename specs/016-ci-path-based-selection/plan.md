@@ -136,6 +136,14 @@ Phase 1 design (data-model.md, contracts/path-selection-contract.md) introduces 
 existing documents. None of this adds runtime code, changes a public API, or touches
 calculation logic — the Phase 0 analysis above still holds. **Gate: PASS, unchanged.**
 
+**Post-review update (Copilot's review of PR #89):** the final design additionally introduces
+a second new job, `repo-invariants` (research.md #8), and the `skills`/`packaging_metadata`
+path categories (research.md #2), plus corrections to several more existing documents than the
+three anticipated above (specs/003's contract, both `.github/skills/*.md` operative docs,
+specs/013's spec.md, and this feature's own tasks.md) — see data-model.md's Path Category
+Corrections note #4 and research.md #6/#8 for what each addresses and why. Still no runtime
+code, public API, or calculation-logic change. **Gate: PASS, unchanged.**
+
 ## Complexity Tracking
 
 *No Constitution Check violations — this section is not needed.*

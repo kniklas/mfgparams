@@ -75,7 +75,9 @@ skip immediately block every PR.
   Category table: `python` (`src/**`, `tests/**`, `pyproject.toml`, `tox.ini`,
   `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py`), `docs`
   (`docs/**`), `ci_config` (`.github/workflows/**`), and `other` (a negation glob matching
-  anything none of the first three match) (research.md #2)
+  anything none of the first three match) (research.md #2). **Superseded by T030/T032** —
+  the guard and category set described here are the pre-review design; re-running this task
+  from scratch reproduces the two gaps those later tasks fixed.
 - [X] T004 In `.github/workflows/ci.yml`, change `ci-ok`'s embedded Python assertion step so
   a dependency's `result` is only added to `failures` when it is not in
   `("success", "skipped")` (currently: not equal to `"success"`), per research.md #3 and
@@ -94,7 +96,11 @@ skip immediately block every PR.
   contract"); (b) `ci-ok`'s assertion step body (parsed the same way
   `test_ci_ok_actually_asserts_its_dependencies` already does) accepts `"success"` and
   `"skipped"` and rejects `"failure"`/`"cancelled"`, per contracts/path-selection-contract.md's
-  blocking-predicate table (verifies T004)
+  blocking-predicate table (verifies T004). **Superseded by T030/T032** — the "exactly the
+  four filters" and single-event-guard checks in (a) describe the pre-review design; the
+  static suite now requires six categories, two `paths-filter` steps, and a `workflow_dispatch`
+  exclusion on top of the `schedule` one. Re-running this task as written would delete real
+  coverage T030/T032 added.
 
 **Checkpoint**: The filter producer and the aggregate's new predicate both exist and are
 tested. No filtered job skips anything yet — that is wired next, per story.
@@ -248,12 +254,12 @@ changes (research.md #6), and run the final regression/mixed-diff check.
 - [X] T022 [P] Update `specs/003-ci-quality-security-gates/contracts/ci-checks-contract.md`'s
   `ci-ok` row ("Blocks merge when: Any of the eight gating jobs failing, being cancelled, or
   being skipped") to reflect the new predicate (skip is non-blocking; also now nine jobs with
-  `changes` added) — research.md #6
+  `changes` added) — research.md #6. **Continued by T033** once `repo-invariants` made it ten.
 - [X] T023 [P] Update `.github/skills/code-review/SKILL.md` §7a's description of `ci-ok`
   passing "only when all eight individually succeed" to match the new predicate and job count
-  — research.md #6
+  — research.md #6. **Continued by T033** once `repo-invariants` made it ten.
 - [X] T024 [P] Update `.github/skills/pr-review-loop/SKILL.md` §5's equivalent description —
-  research.md #6
+  research.md #6. **Continued by T033** once `repo-invariants` made it ten.
 - [X] T025 [P] Correct `tests/static/test_ci_ok_aggregate_check.py`'s
   `test_ci_ok_only_excludes_scheduled_runs` docstring: its stated rationale ("the assertion
   step sees 'skipped' and fails") is no longer why `ci-ok` excludes scheduled runs post-T004 —
@@ -293,6 +299,51 @@ changes (research.md #6), and run the final regression/mixed-diff check.
   `test_other_filter_step_uses_every_quantifier` specifically so this exact regression - correct
   glob text under the wrong quantifier - fails loudly next time rather than requiring another
   live PR to notice
+- [X] T030 Copilot's round-2 review of PR #89 found the four-category design incomplete: two
+  known-non-code paths were load-bearing for specific jobs. Added `skills`
+  (`.github/skills/**`, `.claude/**` — runs `lint` only, which verifies skill symlinks) and
+  `packaging_metadata` (`README.md`, `LICENSE.md` — runs `build` only, which packages them)
+  categories in `.github/workflows/ci.yml`, data-model.md, contracts/path-selection-contract.md
+  and research.md #2/#4; extended `tests/static/test_ci_path_selection.py` with the matching
+  glob/wiring assertions (see data-model.md's Path Category Corrections note #4)
+- [X] T031 Same review round found `test`'s path-based skip unsound for
+  `tests/static/test_no_old_package_name.py`/`test_no_old_layout.py`, which scan every
+  git-tracked file rather than a path category. Added a new, never-filtered `repo-invariants`
+  job (research.md #8) that reruns both tests on every non-scheduled trigger, and added it to
+  `ci-ok`'s `needs:` and `tests/static/test_ci_ok_aggregate_check.py`'s `REQUIRED_JOBS`
+- [X] T032 Same review round also found `changes` itself still ran (and could fail) on
+  `workflow_dispatch` even though every filtered job already bypasses its output for that
+  trigger. Excluded `workflow_dispatch` from `changes`'s own `if:` too (in addition to
+  `schedule`), documented in contracts/path-selection-contract.md's Manual-dispatch bypass
+  contract and data-model.md's Job Path Policy `changes` row
+- [X] T033 Copilot's round-3 review of PR #89 found T030-T032 had not been propagated
+  everywhere T022-T024 originally landed the four-filter/nine-job design, plus one document
+  (specs/013-tox-multi-python-testing/spec.md) never covered by T022-T024 at all:
+  - `specs/003-ci-quality-security-gates/contracts/ci-checks-contract.md`'s `ci-ok` row:
+    nine gating jobs → ten (`repo-invariants`); `changes`'s "never `skipped`" claim corrected
+    to "skipped only on `workflow_dispatch`, which every filtered job already tolerates"
+  - `.github/skills/code-review/SKILL.md` §7a and `.github/skills/pr-review-loop/SKILL.md` §5:
+    same nine → ten correction, plus `pr-review-loop`'s exit-criteria section now explains
+    which of the ten jobs are never path-skipped and why
+  - `specs/016-ci-path-based-selection/data-model.md`/`research.md`: the `changes`-job
+    "never skipped" claim, the four-category table (now six, research.md #2), and decision #5's
+    fail-open example now show the `workflow_dispatch` clause alongside the failure clause
+  - `specs/016-ci-path-based-selection/spec.md`: User Story 1's prose and SC-001 corrected to
+    say a skills-only change runs `lint` (not skipped, per T030) instead of all seven jobs
+    skipping
+  - `specs/016-ci-path-based-selection/plan.md`: post-design Constitution Check assessment
+    updated to name `repo-invariants` and the fuller set of touched documents, not just
+    `changes` and three documents
+  - `.github/workflows/ci.yml`: the `test` job's matrix comment and `ci-ok`'s own comment
+    block both qualified to describe the actual `push`/`pull_request`-vs-`workflow_dispatch`
+    behavior instead of the pre-round-2 claims
+  - `specs/013-tox-multi-python-testing/spec.md`: FR-005/FR-007/SC-003/SC-004 each gained a
+    "Qualified by `specs/016-ci-path-based-selection`" note (kept as historical record, not
+    rewritten, matching how `ci-checks-contract.md`'s own `test` row already annotates a prior
+    supersession) — `test`'s "on every pull request" guarantee is now conditional on path
+  - This task itself and T003/T007/T022-T024 above gained inline "Superseded by"/"Continued
+    by" pointers so a future contributor replaying this file from the top lands on the final
+    design, not the pre-review one
 
 ---
 

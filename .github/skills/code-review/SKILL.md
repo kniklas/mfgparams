@@ -356,13 +356,13 @@ that combines multiple signals into a single pass/fail/skip verdict:
   through an aggregate/wrapper check that can't complete until it does.
 
   **This repo now has such an aggregate.** Since #79, `main` requires only
-  `ci-ok`, `Analyze (python)` and `CodeQL`; `ci-ok` expands to nine gating
+  `ci-ok`, `Analyze (python)` and `CodeQL`; `ci-ok` expands to ten gating
   jobs (`changes`, `lint`, `complexity`, `typecheck`, `security`,
-  `dependency-scan`, `test`, `build`, `docs`). Review any change to it
-  against three properties, all of which fail silently — the PR just goes
-  green:
+  `dependency-scan`, `test`, `build`, `docs`, `repo-invariants`). Review any
+  change to it against three properties, all of which fail silently — the
+  PR just goes green:
 
-  - It must `needs:` **only** those nine. `performance` is
+  - It must `needs:` **only** those ten. `performance` is
     `continue-on-error` by design, and `quality-summary`, `deploy-docs`
     and `sync-agent-integrations` are reporting/conditional; any of them
     in `needs:` is promoted to a merge blocker.

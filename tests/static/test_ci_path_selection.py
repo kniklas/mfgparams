@@ -30,7 +30,12 @@ aggregate's own composition invariant.
 
 from __future__ import annotations
 
+import json
+import os
 import pathlib
+import re
+import subprocess
+import sys
 
 import pytest
 
@@ -52,14 +57,80 @@ FILTERED_JOBS = frozenset(
     }
 )
 
+# Every category name a filtered job's `if:` can reference.
+ALL_CATEGORIES = ("python", "docs", "ci_config", "skills", "packaging_metadata", "other")
+
+# The one extra category (beyond `python`/`ci_config`/`other`, which every filtered job shares)
+# each of these three jobs alone depends on.
+EXTRA_CATEGORY_BY_JOB = {"docs": "docs", "lint": "skills", "build": "packaging_metadata"}
+
+
+def _outputs(**overrides: str) -> dict[str, str]:
+    """A `needs.changes.outputs` stand-in with every category `'false'` except `overrides`."""
+    values = {category: "false" for category in ALL_CATEGORIES}
+    values.update(overrides)
+    return values
+
+
+def _evaluate_condition(
+    condition: str,
+    *,
+    event_name: str,
+    cancelled: bool,
+    changes_result: str,
+    outputs: dict[str, str],
+) -> bool:
+    """Actually evaluate a job's `if:` string for representative inputs, rather than grepping
+    it for predicate-shaped substrings - an inverted clause (`!(needs.changes.result ==
+    'failure')`) or a reordered/all-`&&` condition can contain every substring the tests below
+    look for while behaving nothing like the real thing (Copilot round-3 MEDIUM finding on PR
+    #89). Translates the small subset of GitHub Actions expression syntax this repo's `if:`
+    strings actually use into an equivalent Python boolean expression and evaluates it with a
+    restricted namespace - not a general GitHub Actions expression evaluator, just enough of
+    one for `!cancelled()`, `&&`, `||`, `==`, `!=`, and the three dotted-path forms below.
+    """
+    expr = condition
+    expr = expr.replace("!cancelled()", "(not cancelled)")
+    expr = re.sub(r"needs\.changes\.outputs\.(\w+)", r"outputs['\1']", expr)
+    expr = expr.replace("needs.changes.result", "changes_result")
+    expr = expr.replace("github.event_name", "event_name")
+    expr = expr.replace("&&", " and ").replace("||", " or ")
+    # Restricted namespace (no builtins); the expression comes from this repo's own ci.yml,
+    # never from external input.
+    try:
+        result = eval(
+            expr,
+            {"__builtins__": {}},
+            {
+                "event_name": event_name,
+                "cancelled": cancelled,
+                "changes_result": changes_result,
+                "outputs": outputs,
+            },
+        )
+    except NameError as exc:
+        raise AssertionError(
+            f"_evaluate_condition doesn't model a construct in this if: string "
+            f"(translated to {expr!r}, original {condition!r}) - extend the translation "
+            f"above for whatever new GitHub Actions syntax was added ({exc})"
+        ) from exc
+    return bool(result)
+
+
 # Jobs FR-006 explicitly keeps out of path selection - they must run on every non-scheduled
-# trigger exactly as before this feature, independent of `changes`.
+# trigger exactly as before this feature, independent of `changes`, in every sense: neither
+# their own `if:` nor their `needs:` may reference it. `quality-summary` is deliberately NOT
+# here even though its own `if:` must equally never become conditional on path selection
+# (FR-008 requires it to always run and report one row per job) - unlike these five, it is
+# supposed to have `changes`/`repo-invariants` in its `needs:`, to report their result too
+# (see test_quality_summary_also_depends_on_changes_and_repo_invariants above). See
+# test_quality_summary_if_never_references_changes below for its narrower version of this
+# same invariant.
 EXCLUDED_JOBS = frozenset(
     {
         "dependency-scan",
         "sync-agent-integrations",
         "performance",
-        "quality-summary",
         "deploy-docs",
     }
 )
@@ -250,6 +321,28 @@ def test_changes_job_defines_exactly_the_six_named_filters(
     assert other_filter_globs  # the second step must actually define something
 
 
+def test_changes_job_outputs_wire_to_the_matching_filter_step_output(ci_jobs: dict) -> None:
+    """Every filter *definition* checked above is useless if the job's `outputs:` block maps
+    its name to the wrong `steps.*.outputs.*` expression - e.g. `python` wired to
+    `steps.filter.outputs.docs` - since every job downstream reads `needs.changes.outputs.*`,
+    never the filter step's output directly. No other test in this module would catch that: the
+    filter-definition tests above only look at the `filter`/`other_filter` steps' own `with:`
+    blocks, and the per-job `if:` tests below only look for `needs.changes.outputs.<name>`
+    appearing in a job's condition, which is unaffected by which step that name actually reads
+    (Copilot round-3 MEDIUM finding on PR #89).
+    """
+    outputs = ci_jobs["changes"]["outputs"]
+    expected = {
+        "python": "${{ steps.filter.outputs.python }}",
+        "docs": "${{ steps.filter.outputs.docs }}",
+        "ci_config": "${{ steps.filter.outputs.ci_config }}",
+        "skills": "${{ steps.filter.outputs.skills }}",
+        "packaging_metadata": "${{ steps.filter.outputs.packaging_metadata }}",
+        "other": "${{ steps.other_filter.outputs.other }}",
+    }
+    assert outputs == expected
+
+
 def test_python_filter_globs_match_the_documented_set(named_filters: dict) -> None:
     assert set(named_filters["python"]) == EXPECTED_PYTHON_GLOBS
 
@@ -307,21 +400,58 @@ def test_other_filter_excludes_every_named_and_known_non_code_glob(
         assert f"!{glob}" in other_globs, f"{glob!r} is not excluded from `other`"
 
 
-def test_ci_ok_predicate_accepts_success_and_skipped(ci_jobs: dict) -> None:
-    """FR-005: a skip by path selection must not block `ci-ok`.
-
-    Parses the literal predicate out of `ci-ok`'s assertion step, the same technique
-    `test_ci_ok_aggregate_check.py::test_ci_ok_actually_asserts_its_dependencies` already uses
-    for `sys.exit(1)`/`NEEDS_JSON` - a predicate that silently reverts to "any non-success
-    blocks" would re-break every path-filtered pull request the moment someone "simplifies"
-    this step, with no other test in this repo catching it.
+@pytest.fixture(scope="module")
+def ci_ok_assertion_script(ci_jobs: dict) -> str:
+    """The embedded `python3 - <<'PY' ... PY` heredoc body from `ci-ok`'s assertion step,
+    extracted so it can be executed directly rather than just grepped for a substring.
     """
     steps = ci_jobs["ci-ok"]["steps"]
     body = "\n".join(step.get("run", "") for step in steps)
-    assert 'not in ("success", "skipped")' in body, (
-        "ci-ok's assertion must accept both 'success' and 'skipped' as non-blocking "
-        "(contracts/path-selection-contract.md's blocking-predicate table)"
+    match = re.search(r"<<'PY'\n(.*?)\nPY\b", body, re.DOTALL)
+    assert match, "could not find the python3 <<'PY' heredoc in ci-ok's assertion step"
+    return match.group(1)
+
+
+@pytest.mark.parametrize(
+    "results,expect_exit_zero",
+    [
+        pytest.param({"lint": "success", "test": "success"}, True, id="all-success"),
+        pytest.param({"lint": "success", "changes": "skipped"}, True, id="success-and-skipped"),
+        pytest.param({"lint": "skipped", "test": "skipped"}, True, id="all-skipped"),
+        pytest.param({"lint": "success", "test": "failure"}, False, id="one-failure"),
+        pytest.param({"lint": "success", "test": "cancelled"}, False, id="one-cancelled"),
+    ],
+)
+def test_ci_ok_predicate_accepts_success_and_skipped(
+    ci_ok_assertion_script: str, results: dict, expect_exit_zero: bool
+) -> None:
+    """FR-005: a skip by path selection must not block `ci-ok`, but a real failure still must.
+
+    Actually *executes* the extracted assertion script against representative `NEEDS_JSON`
+    payloads rather than grepping the step body for a predicate-shaped substring - a substring
+    check would stay green if the matched text moved into a comment or dead branch while the
+    live code path silently accepted `failure`/`cancelled` (Copilot round-3 MEDIUM finding on
+    PR #89). `test_ci_ok_aggregate_check.py::test_ci_ok_actually_asserts_its_dependencies`
+    checks the surrounding wiring (`toJSON(needs)`, `sys.exit(1)` presence); this test checks
+    the predicate's actual behavior.
+    """
+    needs_payload = {name: {"result": result} for name, result in results.items()}
+    completed = subprocess.run(
+        [sys.executable, "-c", ci_ok_assertion_script],
+        env={**os.environ, "NEEDS_JSON": json.dumps(needs_payload)},
+        capture_output=True,
+        text=True,
     )
+    if expect_exit_zero:
+        assert completed.returncode == 0, (
+            f"expected ci-ok's assertion to pass for {results!r}, but it exited "
+            f"{completed.returncode}:\n{completed.stdout}{completed.stderr}"
+        )
+    else:
+        assert completed.returncode != 0, (
+            f"expected ci-ok's assertion to fail for {results!r}, but it exited 0 "
+            f"(a real failure/cancellation must still block the merge):\n{completed.stdout}"
+        )
 
 
 @pytest.mark.parametrize("job", sorted(FILTERED_JOBS))
@@ -380,6 +510,41 @@ def test_quality_summary_still_depends_on_every_filtered_job(ci_jobs: dict) -> N
     assert FILTERED_JOBS <= needs
 
 
+def test_quality_summary_also_depends_on_changes_and_repo_invariants(ci_jobs: dict) -> None:
+    """A `changes` or `repo-invariants` failure blocks `ci-ok` exactly like any filtered job's
+    failure does, so `quality-summary`'s comment must show it too - otherwise a reviewer sees
+    every one of the rows above green while `ci-ok` is separately red, with no clue in the
+    friendly comment as to why (a local-review finding on PR #89: these two jobs were added to
+    `ci-ok`'s `needs:` across earlier rounds of this same review but never propagated here).
+    """
+    needs = set(ci_jobs["quality-summary"]["needs"])
+    assert {"changes", "repo-invariants"} <= needs
+    env = ci_jobs["quality-summary"]["steps"][-2]["env"]
+    assert env["CHANGES_RESULT"] == "${{ needs.changes.result }}"
+    assert env["REPO_INVARIANTS_RESULT"] == "${{ needs.repo-invariants.result }}"
+    build_summary_run = ci_jobs["quality-summary"]["steps"][-2]["run"]
+    assert "$CHANGES_RESULT" in build_summary_run
+    assert "$REPO_INVARIANTS_RESULT" in build_summary_run
+    # Both must count toward the FAIL/PASS verdict, not just appear as a row - the `results=`
+    # line is what the run script uses to compute the overall status.
+    results_line = next(
+        line for line in build_summary_run.splitlines() if line.strip().startswith("results=")
+    )
+    assert "$CHANGES_RESULT" in results_line
+    assert "$REPO_INVARIANTS_RESULT" in results_line
+
+
+def test_quality_summary_if_never_references_changes(ci_jobs: dict) -> None:
+    """FR-008: unlike its `needs:` (which legitimately includes `changes`/`repo-invariants` now
+    - see the test above), `quality-summary`'s own `if:` must never become conditional on path
+    selection. It has to always run and show a row for every job regardless of what changed;
+    the whole point of a filtered job reporting `skipped` is that `quality-summary` renders
+    that skip, not that `quality-summary` itself gets skipped too.
+    """
+    condition = str(ci_jobs["quality-summary"].get("if", ""))
+    assert "needs.changes" not in condition
+
+
 @pytest.mark.parametrize("job", sorted(FILTERED_JOBS))
 def test_filtered_job_fails_open_on_changes_failure(ci_jobs: dict, job: str) -> None:
     """A broken `changes` job must never silently narrow the gate (research.md #5).
@@ -420,6 +585,102 @@ def test_filtered_job_bypasses_selection_for_ci_config_changes(ci_jobs: dict, jo
     regardless of what else did or did not change in the same diff.
     """
     assert "needs.changes.outputs.ci_config" in ci_jobs[job]["if"]
+
+
+# (event_name, cancelled, changes_result, outputs, expected)
+_GENERIC_IF_CASES = [
+    pytest.param(
+        "schedule",
+        False,
+        "success",
+        _outputs(python="true", other="true"),
+        False,
+        id="schedule-excluded",
+    ),
+    pytest.param("workflow_dispatch", False, "success", _outputs(), True, id="dispatch-bypass"),
+    pytest.param(
+        "pull_request", False, "failure", _outputs(), True, id="fail-open-on-changes-failure"
+    ),
+    pytest.param(
+        "pull_request",
+        True,
+        "failure",
+        _outputs(python="true"),
+        False,
+        id="cancelled-overrides-everything",
+    ),
+    pytest.param("pull_request", False, "success", _outputs(), False, id="nothing-matched-skips"),
+    pytest.param(
+        "pull_request", False, "success", _outputs(ci_config="true"), True, id="ci-config-bypass"
+    ),
+    pytest.param(
+        "pull_request", False, "success", _outputs(other="true"), True, id="other-catch-all"
+    ),
+    pytest.param(
+        "pull_request", False, "success", _outputs(python="true"), True, id="python-category-match"
+    ),
+]
+
+
+@pytest.mark.parametrize("job", sorted(FILTERED_JOBS))
+@pytest.mark.parametrize("event_name,cancelled,changes_result,outputs,expected", _GENERIC_IF_CASES)
+def test_filtered_job_if_condition_evaluates_correctly(
+    ci_jobs: dict,
+    job: str,
+    event_name: str,
+    cancelled: bool,
+    changes_result: str,
+    outputs: dict,
+    expected: bool,
+) -> None:
+    """Behaviorally re-verifies every property the substring-based tests above check
+    individually (schedule exclusion, dispatch bypass, fail-open, ci_config bypass, the
+    `python`/`other` categories) by actually evaluating each job's full `if:` string via
+    `_evaluate_condition` - the fix for Copilot's round-3 MEDIUM finding that the substring
+    checks alone would pass an inverted or restructured condition that behaves nothing like
+    the real one. `cancelled=True` additionally checks a property no substring test above
+    covers at all: `!cancelled()` must override *every* other clause, including a `changes`
+    failure and a matched category, not just gate the fail-open clause specifically.
+    """
+    condition = ci_jobs[job]["if"]
+    actual = _evaluate_condition(
+        condition,
+        event_name=event_name,
+        cancelled=cancelled,
+        changes_result=changes_result,
+        outputs=outputs,
+    )
+    assert actual == expected, (
+        f"{job}'s if: evaluated to {actual}, expected {expected} "
+        f"(event={event_name!r}, cancelled={cancelled}, changes_result={changes_result!r}, "
+        f"outputs={outputs!r})"
+    )
+
+
+@pytest.mark.parametrize("category", sorted(EXTRA_CATEGORY_BY_JOB.values()))
+def test_only_the_owning_job_runs_for_its_extra_category(ci_jobs: dict, category: str) -> None:
+    """`docs`/`skills`/`packaging_metadata` must each start exactly the one job that reads it -
+    the behavioral counterpart to `test_docs_job_additionally_runs_for_the_docs_category` and
+    its `lint`/`build` equivalents above, none of which check that the category is *absent*
+    from every other filtered job's condition. Without this, a copy-paste of the extra clause
+    onto the wrong job (or every job) would pass every existing test in this module.
+    """
+    owning_job = next(job for job, cat in EXTRA_CATEGORY_BY_JOB.items() if cat == category)
+    outputs = _outputs(**{category: "true"})
+    for job in sorted(FILTERED_JOBS):
+        condition = ci_jobs[job]["if"]
+        actual = _evaluate_condition(
+            condition,
+            event_name="pull_request",
+            cancelled=False,
+            changes_result="success",
+            outputs=outputs,
+        )
+        expected = job == owning_job
+        assert actual == expected, (
+            f"{job}'s if: evaluated to {actual} when only {category!r} matched; expected "
+            f"{expected} (only {owning_job!r} should run for this category)"
+        )
 
 
 @pytest.mark.parametrize("job", sorted(EXCLUDED_JOBS))

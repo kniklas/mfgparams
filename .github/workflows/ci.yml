@@ -322,7 +322,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install -e ".[dev]"
+      # `.[test]`, not `.[dev]`: these two tests import only `re`/`pathlib`/`subprocess`, so
+      # the full dev toolchain (ruff, black, mypy, bandit, sphinx, radon/xenon, ...) `dev`
+      # pulls in is pure install-time cost with nothing here to use it (found in a local
+      # code-review pass on PR #89). `.[test]` is the same extra `test`/`build` already install.
+      - run: pip install -e ".[test]"
       - run: >-
           pytest tests/static/test_no_old_package_name.py
           tests/static/test_no_old_layout.py --no-cov
@@ -397,11 +401,14 @@ jobs:
     # job above, referenced via the `&filtered_if` anchor defined there —
     # applied to the whole matrix job at once, not per-leg (research.md #7).
     if: *filtered_if
-    # Verifies every officially supported Python version on every pull request
-    # (specs/013-tox-multi-python-testing FR-005/FR-006), not just the single
-    # `env.PYTHON_VERSION` every other job pins. `fail-fast: false` so a
-    # failure on one version doesn't cancel the others before they report
-    # their own independent result (research.md #3).
+    # Verifies every officially supported Python version, not just the single
+    # `env.PYTHON_VERSION` every other job pins, on every pull request that
+    # touches a path this job depends on (specs/013-tox-multi-python-testing
+    # FR-005/FR-006, qualified by specs/016-ci-path-based-selection's `if:`
+    # above — a specs-only or non-packaging-`*.md`-only PR skips this job
+    # entirely, by design). `fail-fast: false` so a failure on one version
+    # doesn't cancel the others before they report their own independent
+    # result (research.md #3).
     strategy:
       fail-fast: false
       matrix:
@@ -704,7 +711,20 @@ jobs:
   # `workflow_dispatch` runs.
   quality-summary:
     name: quality-summary
-    needs: [lint, complexity, typecheck, security, dependency-scan, test, build, docs, performance]
+    needs:
+      [
+        changes,
+        lint,
+        complexity,
+        typecheck,
+        security,
+        dependency-scan,
+        test,
+        build,
+        docs,
+        repo-invariants,
+        performance,
+      ]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -742,6 +762,7 @@ jobs:
       - name: Build summary
         id: build-summary
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
           LINT_RESULT: ${{ needs.lint.result }}
           COMPLEXITY_RESULT: ${{ needs.complexity.result }}
           COMPLEXITY_METRIC: ${{ needs.complexity.outputs.mi_summary }}
@@ -752,6 +773,7 @@ jobs:
           TEST_METRIC: ${{ steps.coverage.outputs.coverage_pct }}
           BUILD_RESULT: ${{ needs.build.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
+          REPO_INVARIANTS_RESULT: ${{ needs.repo-invariants.result }}
           PERFORMANCE_STATUS: ${{ needs.performance.outputs.status_label }}
           PERFORMANCE_METRIC: ${{ needs.performance.outputs.metric }}
         run: |
@@ -802,6 +824,14 @@ jobs:
             echo
             echo "| Check | Status | Metric |"
             echo "|---|---|---|"
+            # `changes` (specs/016-ci-path-based-selection) is the path-selection filter
+            # producer every row below relies on, not a quality check on its own - shown
+            # here, and folded into `results=...` below, so a broken filter mechanism (which
+            # still fails `ci-ok` via `changes: failure`, per its fail-open contract) is
+            # visible in this comment too rather than only in the Actions tab (Copilot's
+            # local /code-review finding on PR #89: `ci-ok` red with this comment all-green
+            # otherwise gives a reviewer no clue which job actually broke).
+            echo "| changes | $(status_label "$CHANGES_RESULT") | $(metric_or_placeholder "") |"
             echo "| lint | $(status_label "$LINT_RESULT") | $(metric_or_placeholder "") |"
             echo "| complexity | $(status_label "$COMPLEXITY_RESULT") | $(metric_or_placeholder "$COMPLEXITY_METRIC") |"
             echo "| typecheck | $(status_label "$TYPECHECK_RESULT") | $(metric_or_placeholder "") |"
@@ -810,6 +840,10 @@ jobs:
             echo "| test | $(status_label "$TEST_RESULT") | $(metric_or_placeholder "$TEST_METRIC") |"
             echo "| build | $(status_label "$BUILD_RESULT") | $(metric_or_placeholder "") |"
             echo "| docs | $(status_label "$DOCS_RESULT") | $(metric_or_placeholder "") |"
+            # `repo-invariants` (specs/016-ci-path-based-selection) reruns two repository-wide
+            # static tests `test`'s path-based skip is unsound for - a real quality check, so
+            # it belongs in `results=...` below like any other, unlike `changes` above.
+            echo "| repo-invariants | $(status_label "$REPO_INVARIANTS_RESULT") | $(metric_or_placeholder "") |"
             # `performance` is informational-only (specs/006-legacy-hardware-
             # performance-tests FR-013): shown here with its own metric, but
             # deliberately excluded from the `results=...` overall-status
@@ -821,7 +855,7 @@ jobs:
             # FAIL if any check failed; else cancelled/incomplete if any
             # check was cancelled; else PASS. A `skipped` check never flips
             # this by itself (spec.md Assumptions).
-            results="$LINT_RESULT $COMPLEXITY_RESULT $TYPECHECK_RESULT $SECURITY_RESULT $DEPENDENCY_SCAN_RESULT $TEST_RESULT $BUILD_RESULT $DOCS_RESULT"
+            results="$CHANGES_RESULT $LINT_RESULT $COMPLEXITY_RESULT $TYPECHECK_RESULT $SECURITY_RESULT $DEPENDENCY_SCAN_RESULT $TEST_RESULT $BUILD_RESULT $DOCS_RESULT $REPO_INVARIANTS_RESULT"
             if echo "$results" | grep -qw "failure"; then
               echo "**Overall status: ❌ FAIL**"
             elif echo "$results" | grep -qw "cancelled"; then
@@ -881,11 +915,19 @@ jobs:
   #      `performance` (continue-on-error by design), `quality-summary`
   #      (reporting), `deploy-docs` (main-only) and `sync-agent-integrations`
   #      (schedule-only) are deliberately absent. Adding any of them here
-  #      would silently promote it to a merge blocker. `changes` is
-  #      included (specs/016-ci-path-based-selection): it produces the
-  #      path-selection outputs every other job below relies on, and has no
-  #      `needs:` of its own, so on a non-scheduled run it can only ever
-  #      report `success` or `failure` — never `skipped`.
+  #      would silently promote it to a merge blocker. `changes` and
+  #      `repo-invariants` are both included (specs/016-ci-path-based-
+  #      selection): `changes` produces the path-selection outputs every
+  #      filtered job below relies on, and on `push`/`pull_request` (it has
+  #      no `needs:` of its own) can only report `success` or `failure` —
+  #      never `skipped` there. On `workflow_dispatch` it reports `skipped`
+  #      instead (it excludes that event from its own `if:`, since every
+  #      filtered job already bypasses its output for that trigger), which
+  #      rule 2's predicate below already treats as non-blocking.
+  #      `repo-invariants` reruns two repository-wide static tests that this
+  #      feature's path-based skip is unsound for inside `test` (see that
+  #      job's own comment) — it has no category-based `if:` at all, so it
+  #      always reports `success` or `failure` on any non-scheduled run.
   #   2. Results are asserted **explicitly**. With `if: always()` a job runs
   #      even when a dependency failed, and GitHub does *not* fail it
   #      implicitly — without the assertion below, `ci-ok` would report

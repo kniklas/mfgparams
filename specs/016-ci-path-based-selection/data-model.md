@@ -89,7 +89,7 @@ Instances:
 | `repo-invariants` | N/A | false — never filtered, by design: re-runs `test_no_old_package_name.py`/`test_no_old_layout.py` (also collected inside `test`) unconditionally on every non-scheduled trigger, because both walk every git-tracked file and a violation can appear under any path category `test` is allowed to skip for (added in Copilot's round-2 review of PR #89; see data-model.md Path Category Corrections note #4) |
 | `changes` | N/A | N/A — this is the filter producer, not a filtered job. Excludes both `schedule` and, since round 2, `workflow_dispatch` too (`if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'`) — every filtered job already bypasses `changes`'s outputs on manual dispatch (FR-006), so there is nothing left for `changes` itself to compute on that trigger, and running it anyway only gave a checkout/filter failure a way to fail a manual run nothing downstream needed it for |
 | `quality-summary` | N/A | false — reporting only; renders whatever result each dependency reports, including `skipped` (research.md #4) |
-| `deploy-docs` | N/A | false — `push`-to-`main`-only, independent of this feature |
+| `deploy-docs` | N/A | false — `push`-to-`main`-only. Its `needs: docs` has no `!cancelled()`/`always()` override, so GitHub's implicit success-gating already skips it whenever `docs` is skipped (a `push` touching no path `docs` depends on) — desired, not a gap: nothing was rebuilt, so there is nothing new to deploy. Not "independent of this feature" as originally stated here; its *effective* run frequency is now coupled to `docs`'s path-based skip, even though this feature adds no explicit `if:` clause to it (found in a local code-review pass on PR #89) |
 
 Every `ci_config` and `other` entry above exists because FR-004 (CI-config changes run
 everything) and FR-003 (unmatched paths run everything) apply identically to all seven
@@ -110,6 +110,14 @@ The predicate `ci-ok`'s assertion step applies to each entry in its `needs:` map
 | `cancelled` | Yes | Unchanged — a cancelled run is not a clean signal either way, so it stays conservative. |
 
 `changes` itself is a member of `ci-ok`'s `needs:` and is classified by this same table; since
-it has no `needs:` of its own and runs on every non-scheduled trigger, its `result` can only
-ever be `success` or `failure` in practice — never `skipped` — so no special case is required
-for it here (research.md #5).
+it has no `needs:` of its own, on `push`/`pull_request` its `result` can only be `success` or
+`failure`. On `workflow_dispatch` it is intentionally excluded from its own `if:` (round 2 —
+every filtered job already bypasses its output for that trigger, so there was nothing left for
+`changes` to compute), reporting `skipped` there instead — this table's `skipped` row already
+covers that case, so still no special case is required (research.md #5).
+
+`repo-invariants` is also a member of `ci-ok`'s `needs:`, added alongside `changes` but for a
+different reason (research.md decision #8; "Repo-wide invariant contract" in
+contracts/path-selection-contract.md): it has no category-based `if:` at all, so on any
+non-scheduled trigger its `result` can only be `success` or `failure`, exactly like `changes`
+on `push`/`pull_request`.

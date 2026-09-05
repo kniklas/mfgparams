@@ -20,7 +20,7 @@ workflow YAML.
 
 | Input | Shape | Guarantee |
 |---|---|---|
-| `needs.<job>.result` for `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`, `test`, `build`, `docs` | one of `success`/`failure`/`cancelled`/`skipped` | Always present for every listed job once it is included in `needs:`; GitHub Actions guarantees exactly one of these four values per dependency |
+| `needs.<job>.result` for `lint`, `complexity`, `typecheck`, `security`, `dependency-scan`, `test`, `build`, `docs`, `changes`, `repo-invariants` | one of `success`/`failure`/`cancelled`/`skipped` | Always present for every listed job once it is included in `needs:`; GitHub Actions guarantees exactly one of these four values per dependency. `changes`/`repo-invariants` (`specs/016-ci-path-based-selection`) were added after this feature originally shipped, once `ci-ok` gained them as required dependencies and a local code-review pass on PR #89 found their failure invisible in this comment — see that spec's data-model.md/contracts/path-selection-contract.md for what each job does |
 | ~~`needs.test.outputs.coverage_pct`~~ **— superseded by `013-tox-multi-python-testing`; see the row below** | string containing an integer percentage (e.g. `"93"`) | Present whenever the `test` job itself reaches the coverage-report step (i.e. `pytest` ran, regardless of pass/fail on the coverage threshold); absent/empty if the job failed before that step (e.g. environment setup failure) — the summary MUST render a fallback placeholder in that case, never a fabricated number (spec.md Edge Cases: "job fails so early that it produces no parseable metric output") |
 | the `coverage-pct` **artifact** (`coverage-pct.txt`) | string containing an integer percentage (e.g. `"93"`) | **Replaces the job output above.** `013-tox-multi-python-testing` made `test` a Python-version matrix, and a matrix job publishes one output value from whichever leg finishes last — so no job output can name which interpreter a coverage number came from, and coverage genuinely differs per interpreter here. The canonical `env.PYTHON_VERSION` leg now writes the percentage to this artifact instead, and `quality-summary` downloads it with `continue-on-error: true`. The guarantee is otherwise unchanged: present whenever that leg reached its coverage-report step, absent when it did not, and the summary MUST render the fallback placeholder in that case rather than a fabricated number. See `specs/013-tox-multi-python-testing/research.md` #5 |
 | `needs.complexity.outputs.mi_summary` | short string (e.g. `"avg=74.3 worst=A"`) | Present only on the `complexity` job's passing path (research.md #4); absent when the job fails (violations are already visible via `status: failure`, and the summary MUST still show that check as failed with a fallback indicator, not a fabricated metric) |
@@ -30,7 +30,7 @@ workflow YAML.
 The comment body MUST include, at minimum:
 
 1. **One row per quality check** (`lint`, `complexity`, `typecheck`, `security`,
-   `dependency-scan`, `test`, `build`, `docs`), each showing:
+   `dependency-scan`, `test`, `build`, `docs`, `changes`, `repo-invariants`), each showing:
    - The check's name.
    - A clear, unambiguous status indicator distinguishing all four of `success` / `failure`
      / `cancelled` / `skipped` (e.g. distinct emoji/labels per state — never collapsing

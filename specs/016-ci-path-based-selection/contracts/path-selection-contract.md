@@ -122,8 +122,9 @@ Copilot's round-2 review of PR #89 (the third HIGH finding of that round).
 ## Non-goals
 
 - This contract does not change which jobs are named in `ci-ok`'s `needs:` today, except
-  adding `changes` and `repo-invariants` (research.md #5; the Repo-wide invariant contract
-  above). No job is renamed, added to, or removed from the set of *quality gates* — only these
-  two, neither of which represents a new quality check beyond what `test` already ran.
+  adding `changes` (research.md #5) and `repo-invariants` (research.md #8; the Repo-wide
+  invariant contract above). No job is renamed, added to, or removed from the set of *quality
+  gates* — only these two, neither of which represents a new quality check beyond what `test`
+  already ran.
 - This contract does not change any job's own steps, tool invocations, or pass/fail logic
   (FR-007) — only the `if:` condition deciding whether those steps run at all.

@@ -49,10 +49,13 @@ decorative-guard failure mode `code-review/SKILL.md` §7a already flags as CRITI
 
 ### User Story 1 - Docs-only and spec-only changes skip the Python toolchain (Priority: P1)
 
-As a contributor opening a pull request that only touches `docs/source/**`, `specs/**`,
-`.github/skills/**`, or other non-code paths, I want CI to skip jobs that only validate Python
-source (`lint`, `complexity`, `typecheck`, `security`, `test`, `build`) so that my PR gets a signal
-back in roughly the time one relevant job takes, not eight.
+As a contributor opening a pull request that only touches `docs/source/**`, `specs/**`, or other
+non-code paths, I want CI to skip jobs that only validate Python source (`lint`, `complexity`,
+`typecheck`, `security`, `test`, `build`) so that my PR gets a signal back in roughly the time one
+relevant job takes, not eight. **`.github/skills/**`/`.claude/**` are a deliberate partial
+exception**: a skill-only change still runs `lint` (it verifies skill symlinks — see
+data-model.md's Path Category Corrections note #4), skipping only the other five Python-toolchain
+jobs, which have nothing to check for that path.
 
 **Why this priority**: This is the concrete, everyday cost the feature exists to remove — every
 prior restructure slice (014, 015) itself produced spec-only commits mid-flight (`/speckit-clarify`,
@@ -176,9 +179,12 @@ every job that runs today still runs.
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of pull requests that change only non-code paths (docs, specs, skills) show
-  `lint`, `complexity`, `typecheck`, `security`, `test`, and `build` reporting as skipped rather
-  than run.
+- **SC-001**: 100% of pull requests that change only non-code paths show the Python-toolchain
+  jobs that path has nothing to check reporting as skipped rather than run — docs-only shows
+  `lint`/`complexity`/`typecheck`/`security`/`test`/`build` skipped; specs-only shows those six
+  plus `docs` skipped; skills-only (`.github/skills/**`/`.claude/**`) shows
+  `complexity`/`typecheck`/`security`/`test`/`build`/`docs` skipped but `lint` running (it
+  verifies skill symlinks — data-model.md's Path Category Corrections note #4).
 - **SC-002**: Every pull request that changes Python source or tests continues to receive exactly
   the same pass/fail verdict from `ci-ok` it would have received before this feature — zero change
   in what blocks a merge for code changes.
