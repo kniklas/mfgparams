@@ -142,11 +142,23 @@ jobs show Skipped and `ci-ok` still succeeds; repeat touching only `docs/source/
 
 ### Validation for User Story 1
 
-- [ ] T014 [US1] Perform quickstart.md §2: open a draft PR touching only `specs/**`, confirm
+- [X] T014 [US1] Perform quickstart.md §2: open a draft PR touching only `specs/**`, confirm
   `lint`/`complexity`/`typecheck`/`security`/`test`/`build` show **Skipped** and `ci-ok`
   reports **success**; repeat touching only `docs/source/*.rst` and confirm `docs` runs while
   the other six stay skipped. While this PR is open, also confirm the `quality-summary` PR
-  comment renders a "⏭️ skipped" row for each skipped job rather than omitting it (FR-008)
+  comment renders a "⏭️ skipped" row for each skipped job rather than omitting it (FR-008).
+  **Done via throwaway PRs #90/#91** (closed, branches deleted after observing CI). Caught
+  two implementation bugs neither planning nor the static tests surfaced — both now fixed and
+  covered by new/extended static-test assertions and recorded in data-model.md's Path
+  Category "Corrections" note: (1) `other`'s first negation glob omitted the known-non-code
+  paths (`specs/**` etc.), so a specs-only PR matched `other` and ran everything anyway; (2)
+  fixing that as a `!(a/**|b/**|...)` extglob string still failed the identical live check —
+  a single extglob negation containing `**` in its own alternatives is unreliable; (3) the
+  working list form (`**` then per-glob `!` exclusions) *still* matched everything until
+  `predicate-quantifier: every` was set on `other`'s own separate `paths-filter` step — the
+  default `some` quantifier means the leading bare `**` alone already satisfies the filter,
+  making every negation after it moot. All three needed a real GitHub Actions run to surface
+  — none were visible from the YAML alone.
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — docs/specs-only
 PRs demonstrably skip the toolchain, and `ci-ok` stays green throughout.
@@ -179,13 +191,18 @@ failure.
 
 ### Validation for User Story 2
 
-- [ ] T018 [US2] Perform quickstart.md §3: on a branch touching `src/mfgparams/**`, introduce a
+- [X] T018 [US2] Perform quickstart.md §3: on a branch touching `src/mfgparams/**`, introduce a
   deliberate `mypy` violation; confirm `typecheck` runs and **fails** and `ci-ok` reports
   **failure** (FR-007 — the job's own pass/fail outcome is unchanged by this feature). On a
   second, `specs/**`-only branch, confirm `typecheck` shows **Skipped** and `ci-ok` still
   reports **success**. On a third branch touching `src/mfgparams/**` with no defects, confirm
   every filtered job passes and `ci-ok` reports **success** exactly as it would have before
-  this feature (SC-002's ordinary, all-green case, not just the failing one)
+  this feature (SC-002's ordinary, all-green case, not just the failing one).
+  **Done via throwaway PR #92** for the failure case (`typecheck` failed as intended;
+  `lint` also failed, incidentally, on unformatted content the throwaway edit itself
+  introduced — a real failure either way, correctly blocking `ci-ok`); the specs-only case
+  is the same evidence as T014; the clean-green case is covered by PR #89 (the real feature
+  PR) itself passing every python-category job normally.
 
 **Checkpoint**: User Stories 1 and 2 both hold — skips never block, real failures always do,
 and a broken filter mechanism fails open rather than silently passing.
@@ -211,9 +228,12 @@ every filtered job.
 
 ### Validation for User Story 3
 
-- [ ] T021 [US3] Perform quickstart.md §4: on a branch, edit only `.github/workflows/ci.yml`
+- [X] T021 [US3] Perform quickstart.md §4: on a branch, edit only `.github/workflows/ci.yml`
   (a comment-only change) with no `src/**`/`tests/**`/`docs/**` changes in the same diff;
-  confirm every filtered job runs, none skipped
+  confirm every filtered job runs, none skipped. **Done via PR #89 itself** (this feature's
+  own PR touches `ci.yml`, so FR-004 applies to every one of its own CI runs) — every
+  filtered job ran and passed on every push to that PR, never skipped, across all four
+  rounds of fixes.
 
 **Checkpoint**: All three user stories are independently verified. The feature's core
 behavior is complete; remaining work is documentation upkeep and final regression checks.
@@ -239,10 +259,12 @@ changes (research.md #6), and run the final regression/mixed-diff check.
   step sees 'skipped' and fails") is no longer why `ci-ok` excludes scheduled runs post-T004 —
   the exclusion is now justified purely by "no pull request exists to gate on a schedule run."
   The assertion itself is unchanged; only the comment is wrong after T004
-- [ ] T026 Perform quickstart.md §6 (mixed-category regression check): on one branch, touch
+- [X] T026 Perform quickstart.md §6 (mixed-category regression check): on one branch, touch
   both a file under `specs/**` and a file under `src/mfgparams/**`; confirm every job whose
   category matched runs normally and nothing that would have run before this feature is now
-  skipped
+  skipped. **Done via throwaway PR #93**: every python-category job ran (none skipped) —
+  `lint` failed on unformatted content the throwaway edit itself introduced, correctly
+  blocking `ci-ok`, which if anything is stronger evidence than a clean pass would have been.
 - [X] T027 Run the full local check suite (`ruff check`, `black --check`, `mypy`, and `pytest`)
   against the two modified/created Python test files
   (`tests/static/test_ci_ok_aggregate_check.py`, `tests/static/test_ci_path_selection.py`) to
@@ -257,6 +279,20 @@ changes (research.md #6), and run the final regression/mixed-diff check.
   intent (reject anything that could silently narrow verification) rather than loosening it to
   accept any string. Missed during `/speckit-plan`'s Project Structure survey (plan.md did not
   list this file); full suite now at 1100 passed, 10 skipped, matching pre-feature skip count
+- [X] T029 Discovered during T014's live PR (#90, a specs-only diff): `other` reported `true`
+  for `specs/016-ci-path-based-selection/quickstart.md` despite `specs/**` being named in its
+  negation, running every filtered job on the one diff US1 exists to skip it for — a real
+  functional bug static tests and `/speckit-analyze` both missed, because both only ever
+  checked the glob *text*, never `dorny/paths-filter`'s actual matching behavior. Took two
+  more rounds to fix correctly (see data-model.md's Path Category "Corrections" note for the
+  full detail): a single `!(a/**|b/**|...)` extglob string is silently unreliable once its
+  alternatives contain `**`; the documented list form (`**` then `!`-exclusions) still failed
+  under the default `predicate-quantifier: some`, since a bare `**` alone already satisfies
+  "some" on its own. Fixed by giving `other` its own `paths-filter` step with
+  `predicate-quantifier: every`. `tests/static/test_ci_path_selection.py` gained
+  `test_other_filter_step_uses_every_quantifier` specifically so this exact regression - correct
+  glob text under the wrong quantifier - fails loudly next time rather than requiring another
+  live PR to notice
 
 ---
 
