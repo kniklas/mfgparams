@@ -42,6 +42,7 @@ REQUIRED_JOBS = frozenset(
         "test",
         "build",
         "docs",
+        "repo-invariants",
     }
 )
 

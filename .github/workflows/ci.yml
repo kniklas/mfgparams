@@ -42,16 +42,30 @@ jobs:
   # different reason). `other` is a catch-all (negation of every named
   # glob, INCLUDING the known-non-code paths below) so a genuinely
   # unanticipated path always defaults every job back on (FR-003) rather
-  # than silently escaping coverage. Those known-non-code paths
-  # (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**` — spec.md
-  # Assumptions) are deliberately excluded from `other` too: they are not
-  # unanticipated, they are the everyday case this feature exists to
-  # skip the toolchain for, and folding them into the catch-all would
-  # re-run everything for the one class of change SC-001 is about.
+  # than silently escaping coverage. The only paths that trigger no job at
+  # all are `specs/**` and root `*.md` files other than `README.md`/
+  # `LICENSE.md` (spec.md Assumptions) — deliberately excluded from `other`
+  # too, since they are not unanticipated, they are the everyday case this
+  # feature exists to skip the toolchain for, and folding them into the
+  # catch-all would re-run everything for the one class of change SC-001 is
+  # about. `.github/skills/**`/`.claude/**` and `README.md`/`LICENSE.md` are
+  # *not* in that fully-inert set — see the `skills` and `packaging_metadata`
+  # categories below, added after Copilot's review of PR #89 found both
+  # wrongly classified as safe to skip every job for.
   changes:
     name: changes
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    # Excludes `workflow_dispatch` (not just `schedule`): every filtered job
+    # below already bypasses `changes`'s outputs entirely on manual dispatch
+    # (FR-006, `github.event_name == 'workflow_dispatch'` in each `if:`), so
+    # running this job for that trigger only adds a way for a checkout or
+    # `paths-filter` failure to fail the manual run for no reason — `changes`
+    # being a required `ci-ok` dependency, that failure would have blocked
+    # the dispatch even though every job that actually matters bypassed it
+    # (the HIGH finding from Copilot's round-1 review of PR #89: excluding
+    # `workflow_dispatch` from the filtered jobs' `if:` wasn't enough while
+    # `changes` itself still ran and could fail).
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     permissions:
       contents: read
       pull-requests: read
@@ -59,12 +73,12 @@ jobs:
       python: ${{ steps.filter.outputs.python }}
       docs: ${{ steps.filter.outputs.docs }}
       ci_config: ${{ steps.filter.outputs.ci_config }}
+      skills: ${{ steps.filter.outputs.skills }}
+      packaging_metadata: ${{ steps.filter.outputs.packaging_metadata }}
       other: ${{ steps.other_filter.outputs.other }}
     steps:
       # `dorny/paths-filter` reads the changed-files list from the GitHub
       # API for `pull_request` events (no checkout needed), but for `push`
-      # (and `workflow_dispatch`, which this job still runs for even though
-      # its output is bypassed downstream — see the `lint` job's comment)
       # it diffs `git` history instead and needs a real clone to do it.
       # `fetch-depth: 0` (full history) rather than a shallow depth: a push
       # can carry more than one commit, and a shallow clone sized for the
@@ -89,6 +103,25 @@ jobs:
               - 'docs/**'
             ci_config:
               - '.github/workflows/**'
+            # `scripts/setup_skill_symlinks.py --check` (run by `lint`)
+            # verifies every `.github/skills/<name>/` has a matching
+            # `.claude/skills/<name>` symlink — a skills-only change can
+            # break or omit that link, so `lint` must run for it even
+            # though the rest of the toolchain has nothing to check (the
+            # first HIGH finding from Copilot's round-2 review of PR #89:
+            # these paths were fully excluded, including from `lint`).
+            skills:
+              - '.github/skills/**'
+              - '.claude/**'
+            # `pyproject.toml`'s `readme`/`license-files` name these two
+            # files as literal package-build inputs, so a change to either
+            # must run `build` (which packages them into the wheel) even
+            # though no other root `*.md` file needs to (the second HIGH
+            # finding from Copilot's round-2 review: `*.md` was excluded
+            # wholesale, README.md and LICENSE.md included).
+            packaging_metadata:
+              - 'README.md'
+              - 'LICENSE.md'
       # A second, separate paths-filter invocation for `other`, not a fourth entry in
       # the step above: `predicate-quantifier` (default `some`) is a single setting
       # for the whole step, and `other`'s exclusion idiom below - a positive `**` plus
@@ -143,17 +176,17 @@ jobs:
     # of what `changes` classified — matching this job's pre-016 behavior
     # for that trigger.
     #
-    # Anchored as `&filtered_if` and referenced by `*filtered_if` on
-    # `complexity`/`typecheck`/`security`/`test`/`build` below, which share
-    # this exact condition (`docs` needs one more clause so it keeps its own
-    # copy) — a single source avoids five copies drifting out of sync the
-    # way this exact string already had to be edited in lockstep twice
-    # (adding the `ci_config` bypass, then this `workflow_dispatch` one).
-    if: &filtered_if >-
+    # This job keeps its own literal condition rather than the
+    # `&filtered_if` anchor `complexity`/`typecheck`/`security`/`test` share
+    # below (`docs` also keeps its own, for the same reason): it needs the
+    # extra `skills` clause, since `setup_skill_symlinks.py --check` below
+    # is the one check in this file that a skills-only change can break.
+    if: >-
       !cancelled() && github.event_name != 'schedule' &&
       (github.event_name == 'workflow_dispatch' ||
        needs.changes.result == 'failure' ||
        needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.skills == 'true' ||
        needs.changes.outputs.ci_config == 'true' ||
        needs.changes.outputs.other == 'true')
     steps:
@@ -187,9 +220,21 @@ jobs:
     name: complexity
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: identical condition to the `lint`
-    # job above, referenced via the `&filtered_if` anchor defined there.
-    if: *filtered_if
+    # Path-based selection + fail-open, same rationale as the `lint` job
+    # above (which needs its own extra `skills` clause, so it keeps a
+    # literal copy instead of this anchor). Anchored here as `&filtered_if`
+    # and referenced by `*filtered_if` on `typecheck`/`security`/`test`
+    # below (`build`/`docs` each need one more clause of their own too) —
+    # a single source avoids these copies drifting out of sync the way
+    # this exact string already had to be edited in lockstep twice
+    # (adding the `ci_config` bypass, then the `workflow_dispatch` one).
+    if: &filtered_if >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (github.event_name == 'workflow_dispatch' ||
+       needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -255,6 +300,32 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
       - run: pip-audit
+
+  # `test`'s path-based skip (see the `&filtered_if` anchor above) is
+  # unsound for exactly two of its tests: `test_no_old_package_name.py` and
+  # `test_no_old_layout.py` each walk every git-tracked file's path and
+  # content looking for a stray reference, so a violation can appear in
+  # `specs/**`, `.github/skills/**`, a root `*.md` file, or `.claude/**` —
+  # every one of the categories `test` is allowed to skip for. Skipping
+  # `test` there would silently skip these two checks too (the third HIGH
+  # finding from Copilot's round-2 review of PR #89). Rather than weakening
+  # `test`'s skip condition for the other ~1100 genuinely path-scoped tests
+  # in that job, these two run again here, unfiltered (every non-schedule
+  # trigger, like `dependency-scan` above), so the invariant they enforce
+  # can never go unchecked regardless of what changed.
+  repo-invariants:
+    name: repo-invariants
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+      - run: >-
+          pytest tests/static/test_no_old_package_name.py
+          tests/static/test_no_old_layout.py --no-cov
 
   # Weekly (same schedule as dependency-scan above) check that every
   # installed coding-agent integration (Copilot, Claude Code, ...) still
@@ -564,9 +635,19 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     needs: [changes]
-    # Path-based selection + fail-open: identical condition to the `lint`
-    # job above, referenced via the `&filtered_if` anchor defined there.
-    if: *filtered_if
+    # Keeps its own literal condition rather than the `&filtered_if` anchor
+    # `complexity` defines above: it needs the extra `packaging_metadata`
+    # clause, since `python -m build` below packages `README.md`/
+    # `LICENSE.md` (`pyproject.toml`'s `readme`/`license-files`) even when
+    # nothing else in `python`/`ci_config`/`other` changed.
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (github.event_name == 'workflow_dispatch' ||
+       needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.packaging_metadata == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -818,7 +899,19 @@ jobs:
   # `ci-ok` excludes itself there — there is no pull request to gate.
   ci-ok:
     name: ci-ok
-    needs: [changes, lint, complexity, typecheck, security, dependency-scan, test, build, docs]
+    needs:
+      [
+        changes,
+        lint,
+        complexity,
+        typecheck,
+        security,
+        dependency-scan,
+        test,
+        build,
+        docs,
+        repo-invariants,
+      ]
     if: always() && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:

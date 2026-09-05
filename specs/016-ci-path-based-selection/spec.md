@@ -193,12 +193,23 @@ every job that runs today still runs.
   `tox.ini`), and the two named scripts already referenced by name in those jobs
   (`scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py`); `docs` additionally
   depends on `docs/**` and any Python source (docstrings feed the Sphinx build).
-- `specs/**`, `.github/skills/**`, top-level `*.md` files (e.g. `README.md`), and `.claude/**` are
-  treated as never requiring the Python-toolchain jobs on their own.
-- This feature changes *trigger conditions* on existing jobs, not their own steps, and adds one
-  new job (`changes`, added to `ci-ok`'s `needs:` alongside the existing ones) rather than
-  renaming or removing any — the branch protection ruleset (which names only `ci-ok`, per issue
-  #75 P2.4) still needs no change, since it never enumerated `ci-ok`'s internal dependency list.
+- `specs/**` and top-level `*.md` files other than `README.md`/`LICENSE.md` are treated as never
+  requiring any of the seven filtered jobs on their own. `.github/skills/**`/`.claude/**` and
+  `README.md`/`LICENSE.md` were originally assumed to fall in this same "never requires the
+  toolchain" set too; Copilot's round-2 review of PR #89 found that false for `lint` (skill
+  symlinks) and `build` (packaging metadata) specifically, corrected via the narrower
+  `skills`/`packaging_metadata` categories in data-model.md rather than by widening this
+  assumption's exceptions — see that document's Path Category Corrections note #4.
+- Two tests inside `test` (`test_no_old_package_name.py`, `test_no_old_layout.py`) scan every
+  git-tracked file rather than a specific path category, so `test`'s skip is unsound for them
+  regardless of which category is involved. Rather than weakening `test`'s skip condition for
+  the ~1100 other, genuinely path-scoped tests in that job, they run a second time, unfiltered,
+  in a new `repo-invariants` job (also found in the same PR #89 review round).
+- This feature changes *trigger conditions* on existing jobs, not their own steps, and adds two
+  new jobs (`changes` and `repo-invariants`, both added to `ci-ok`'s `needs:` alongside the
+  existing ones) rather than renaming or removing any — the branch protection ruleset (which
+  names only `ci-ok`, per issue #75 P2.4) still needs no change, since it never enumerated
+  `ci-ok`'s internal dependency list.
 - GitHub Actions' own `paths:`/`paths-ignore:` trigger filters are a plausible mechanism but are
   evaluated per-workflow, not per-job, and would prevent the run itself (and therefore `ci-ok`)
   from appearing on an unrelated PR at all, which the branch-protection required-check contract

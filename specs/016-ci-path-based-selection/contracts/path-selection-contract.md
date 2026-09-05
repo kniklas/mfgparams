@@ -15,8 +15,10 @@ Every changed path in a `pull_request`/`push` run MUST be classified into at lea
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` | `lint`, `complexity`, `typecheck`, `security`, `test`, `build`, `docs` |
 | `docs` | `docs/**` | `docs` |
 | `ci_config` | `.github/workflows/**` | all seven filtered jobs (FR-004 — unconditional) |
-| *(none — no job runs for these)* | `specs/**`, `.github/skills/**`, root `*.md`, `.claude/**` — the known-non-code paths from spec.md's Assumptions | none of the seven filtered jobs |
-| `other` (catch-all) | Anything matching none of the above, **excluding** the known-non-code row above | all seven filtered jobs (FR-003 — unconditional) |
+| `skills` | `.github/skills/**`, `.claude/**` | `lint` only — `setup_skill_symlinks.py --check` is the one toolchain step these paths can break |
+| `packaging_metadata` | `README.md`, `LICENSE.md` | `build` only — named as `pyproject.toml`'s `readme`/`license-files`, so these two files are build inputs unlike any other root `*.md` |
+| *(none — no job runs for these)* | `specs/**`, root `*.md` other than `README.md`/`LICENSE.md` — the known-non-code paths from spec.md's Assumptions | none of the seven filtered jobs |
+| `other` (catch-all) | Anything matching none of the above, **excluding** every row above (including `skills`/`packaging_metadata`, not just the known-non-code row) | all seven filtered jobs (FR-003 — unconditional) |
 
 A path MUST NOT be classified into zero *outputs* being checkable — every path is covered by
 either a named triggering category, the known-non-code row, or `other`. A path MAY be
@@ -26,12 +28,22 @@ MUST exclude the known-non-code row's globs as well as `python`/`docs`/`ci_confi
 already named and deliberately excluded elsewhere in this contract is not "unanticipated," and
 folding it into `other` anyway defeats FR-003's actual purpose (never lose coverage for a path
 nobody thought about) by making it indistinguishable from "a path this contract already
-decided should skip everything."
+decided should skip everything." This applies identically to `skills`/`packaging_metadata`:
+they are named and handled (by `lint`/`build` respectively), so `other`'s negation excludes
+their globs too — unchanged from before these two categories existed, since their globs
+(`.github/skills/**`/`.claude/**`/`*.md`) were already in that negation for the "none" row.
+
+**`skills`/`packaging_metadata` do not replace the "none" row** — they narrow it. A
+`.github/skills/**` change still runs nothing but `lint`; a `README.md` change still runs
+nothing but `build`. Neither triggers `complexity`/`typecheck`/`security`/`test`/`docs`, which
+have nothing to check for either path. (Added after Copilot's round-2 review of PR #89 found
+the original "none of the seven filtered jobs" claim false for these two path sets — see
+data-model.md's Path Category Corrections note #4.)
 
 ## `ci-ok` blocking-predicate contract (supersedes the prior "any non-success blocks" rule)
 
 For each job `J` in `ci-ok`'s `needs:` (`changes`, `lint`, `complexity`, `typecheck`,
-`security`, `dependency-scan`, `test`, `build`, `docs`):
+`security`, `dependency-scan`, `test`, `build`, `docs`, `repo-invariants`):
 
 | `J`'s result | Blocks `ci-ok` |
 |---|---|
@@ -76,6 +88,15 @@ unconditional-run clause alongside the fail-open contract's `needs.changes.resul
 GitHub Actions has no way to compose two separate `if:` conditions on one job).
 `tests/static/test_ci_path_selection.py` MUST assert this per filtered job.
 
+The `changes` job itself MUST also exclude `workflow_dispatch` from its own `if:` (in addition
+to `schedule`), not just OR it into the filtered jobs' bypass above. Every filtered job already
+ignores `changes`'s outputs on that trigger, so running `changes` for it anyway only gives a
+checkout or `paths-filter` failure a way to fail the manual run — for a required `ci-ok`
+dependency, that failure blocks the run even though nothing downstream needed its result
+(Copilot's round-2 review of PR #89: excluding `workflow_dispatch` from the filtered jobs'
+`if:` alone was not sufficient). `tests/static/test_ci_path_selection.py` MUST assert
+`changes`'s own `if:` excludes both events.
+
 ## Jobs excluded from path selection (FR-006)
 
 `dependency-scan`, `sync-agent-integrations`, `performance`, `quality-summary`, and
@@ -83,10 +104,26 @@ GitHub Actions has no way to compose two separate `if:` conditions on one job).
 by this feature. `tests/static/test_ci_path_selection.py` MUST assert none of these five job
 names reference `needs.changes` anywhere in their `if:`.
 
+## Repo-wide invariant contract (`repo-invariants`)
+
+`test`'s path-based skip is unsound for any test inside it that scans the whole repository
+rather than a specific path category — `tests/static/test_no_old_package_name.py` and
+`tests/static/test_no_old_layout.py` both walk every git-tracked file's path and content, so a
+violation can appear under `specs/**`, `.github/skills/**`, a root `*.md` file, or `.claude/**`:
+every category `test` is allowed to skip for. A `repo-invariants` job MUST run both tests
+unconditionally on every non-scheduled trigger (`needs: []`, no category-based `if:` clause),
+independent of `changes`, so this gap cannot reopen by `test` being skipped for a path one of
+these two tests actually cares about. This is deliberately a second invocation of the same two
+tests rather than removing them from `test`'s own run — they are cheap, and duplicating them
+costs far less than reworking `test`'s skip condition would (which would have to stop skipping
+for virtually every path, defeating SC-001 for the other ~1100 tests in that job). Added in
+Copilot's round-2 review of PR #89 (the third HIGH finding of that round).
+
 ## Non-goals
 
 - This contract does not change which jobs are named in `ci-ok`'s `needs:` today, except
-  adding `changes` itself (research.md #5). No job is renamed, added to, or removed from the
-  set of *quality gates* — only `changes`, a filter producer, is newly required.
+  adding `changes` and `repo-invariants` (research.md #5; the Repo-wide invariant contract
+  above). No job is renamed, added to, or removed from the set of *quality gates* — only these
+  two, neither of which represents a new quality check beyond what `test` already ran.
 - This contract does not change any job's own steps, tool invocations, or pass/fail logic
   (FR-007) — only the `if:` condition deciding whether those steps run at all.

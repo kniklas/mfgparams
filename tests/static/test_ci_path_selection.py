@@ -16,9 +16,16 @@ runtime in the common case:
   grows a ``needs.changes`` reference, coupling it to a mechanism FR-006 says it must not
   depend on.
 
-This module encodes the contract in ``contracts/path-selection-contract.md`` so all three are
-checkable here, the same way ``test_ci_ok_aggregate_check.py`` checks the aggregate's own
-composition invariant.
+Round 2 of Copilot's review of PR #89 found the original "known-non-code" set
+(``specs/**``, ``.github/skills/**``, root ``*.md``, ``.claude/**``) was too broad: three of
+those paths are load-bearing for specific checks (``lint``'s skill-symlink check, ``build``'s
+packaging of ``README.md``/``LICENSE.md``, and two repo-wide static tests inside ``test``).
+The ``skills``/``packaging_metadata`` categories and the ``repo-invariants`` job below exist to
+close those three gaps without giving up the skip for everything else under those paths.
+
+This module encodes the contract in ``contracts/path-selection-contract.md`` so all of the
+above are checkable here, the same way ``test_ci_ok_aggregate_check.py`` checks the
+aggregate's own composition invariant.
 """
 
 from __future__ import annotations
@@ -66,10 +73,29 @@ EXPECTED_PYTHON_GLOBS = {
     "scripts/setup_skill_symlinks.py",
 }
 
-# The "known-non-code" paths from spec.md's Assumptions: never trigger the toolchain on their
-# own, and MUST be excluded from `other`'s negation too - they are not unanticipated, they are
-# the everyday case this feature exists to skip the toolchain for (data-model.md's Path
-# Category "Correction" note; found by live quickstart validation, not planning).
+# `.github/skills/**`/`.claude/**`: `lint`'s `setup_skill_symlinks.py --check` step verifies
+# every canonical skill under the former has a matching symlink under the latter, so either
+# changing is exactly the case that check exists to catch (Copilot round-2 HIGH finding #1).
+EXPECTED_SKILLS_GLOBS = {
+    ".github/skills/**",
+    ".claude/**",
+}
+
+# `README.md`/`LICENSE.md`: named as `readme`/`license-files` in `pyproject.toml`, so `build`
+# (which packages them into the wheel) must run when either changes, unlike every other root
+# `*.md` file (Copilot round-2 HIGH finding #2).
+EXPECTED_PACKAGING_METADATA_GLOBS = {
+    "README.md",
+    "LICENSE.md",
+}
+
+# Paths that trigger no filtered job at all (spec.md's Assumptions), and MUST be excluded from
+# `other`'s negation too - they are not unanticipated, they are the everyday case this feature
+# exists to skip the toolchain for (data-model.md's Path Category "Correction" note; found by
+# live quickstart validation, not planning). `.github/skills/**`/`.claude/**` and
+# `README.md`/`LICENSE.md` used to be in this set too; they are still excluded from `other`
+# (handled by their own categories above, not "unanticipated"), but no longer trigger *no*
+# job - see `EXPECTED_SKILLS_GLOBS`/`EXPECTED_PACKAGING_METADATA_GLOBS` above.
 EXPECTED_KNOWN_NON_CODE_GLOBS = {
     "specs/**",
     ".github/skills/**",
@@ -134,6 +160,17 @@ def test_changes_job_exists_and_is_schedule_guarded(ci_jobs: dict) -> None:
     assert "github.event_name != 'schedule'" in condition
 
 
+def test_changes_job_also_excludes_workflow_dispatch(ci_jobs: dict) -> None:
+    """FR-006 in full: every filtered job already bypasses `changes`'s outputs on manual
+    dispatch, so `changes` running (and possibly failing) for that trigger only adds a way
+    for a required `ci-ok` dependency to fail a manual run nothing downstream needed it for
+    (Copilot round-2 HIGH finding: excluding `workflow_dispatch` from the filtered jobs'
+    `if:` wasn't enough while `changes` itself still ran for it).
+    """
+    condition = ci_jobs["changes"]["if"]
+    assert "github.event_name != 'workflow_dispatch'" in condition
+
+
 def test_changes_job_has_contents_read_permission(ci_jobs: dict) -> None:
     """`dorny/paths-filter` needs a checked-out repo to diff non-`pull_request` events (see
     `test_changes_job_checks_out_for_non_pull_request_events`), and checkout needs read
@@ -162,9 +199,11 @@ def test_changes_job_checks_out_for_non_pull_request_events(ci_jobs: dict) -> No
         filter_step
     ), "checkout must precede the paths-filter steps"
     condition = str(checkout_steps[0].get("if", ""))
-    assert "pull_request" in condition, (
-        "the checkout step should be scoped to the non-pull_request events "
-        "(push/workflow_dispatch) that actually need it"
+    assert condition == "github.event_name != 'pull_request'", (
+        "the checkout step's `if:` must be exactly this - a substring check "
+        "(e.g. containing 'pull_request') would also accept the inverted, wrong "
+        "condition `github.event_name == 'pull_request'`, which omits checkout on "
+        "exactly the events that need it (Copilot's round-2 MEDIUM finding on PR #89)"
     )
 
 
@@ -192,15 +231,22 @@ def test_other_filter_step_uses_every_quantifier(other_filter_step: dict) -> Non
     )
 
 
-def test_changes_job_defines_exactly_the_four_named_filters(
+def test_changes_job_defines_exactly_the_six_named_filters(
     named_filters: dict, other_filter_globs: list[str]
 ) -> None:
     """The category set must match data-model.md's Path Category table exactly.
 
-    Fewer categories silently drops FR-003's catch-all or FR-004's CI-config bypass; extra,
-    undocumented categories drift from what the spec/plan/contract describe.
+    Fewer categories silently drops FR-003's catch-all or FR-004's CI-config bypass (or, since
+    round 2, the `skills`/`packaging_metadata` carve-outs); extra, undocumented categories
+    drift from what the spec/plan/contract describe.
     """
-    assert set(named_filters) == {"python", "docs", "ci_config"}
+    assert set(named_filters) == {
+        "python",
+        "docs",
+        "ci_config",
+        "skills",
+        "packaging_metadata",
+    }
     assert other_filter_globs  # the second step must actually define something
 
 
@@ -214,6 +260,14 @@ def test_docs_filter_globs_match_the_documented_set(named_filters: dict) -> None
 
 def test_ci_config_filter_globs_match_the_documented_set(named_filters: dict) -> None:
     assert set(named_filters["ci_config"]) == {".github/workflows/**"}
+
+
+def test_skills_filter_globs_match_the_documented_set(named_filters: dict) -> None:
+    assert set(named_filters["skills"]) == EXPECTED_SKILLS_GLOBS
+
+
+def test_packaging_metadata_filter_globs_match_the_documented_set(named_filters: dict) -> None:
+    assert set(named_filters["packaging_metadata"]) == EXPECTED_PACKAGING_METADATA_GLOBS
 
 
 def test_other_filter_is_a_positive_catch_all_with_named_exclusions(
@@ -299,6 +353,22 @@ def test_docs_job_additionally_runs_for_the_docs_category(ci_jobs: dict) -> None
     assert "needs.changes.outputs.docs" in ci_jobs["docs"]["if"]
 
 
+def test_lint_job_additionally_runs_for_the_skills_category(ci_jobs: dict) -> None:
+    """`lint` runs `setup_skill_symlinks.py --check`, so a `.github/skills/**`/`.claude/**`
+    change must trigger it even when nothing else in `python`/`ci_config`/`other` changed
+    (Copilot round-2 HIGH finding #1 on PR #89).
+    """
+    assert "needs.changes.outputs.skills" in ci_jobs["lint"]["if"]
+
+
+def test_build_job_additionally_runs_for_the_packaging_metadata_category(ci_jobs: dict) -> None:
+    """`build` packages `README.md`/`LICENSE.md` (`pyproject.toml`'s `readme`/
+    `license-files`), so a change to either must trigger it even when nothing else in
+    `python`/`ci_config`/`other` changed (Copilot round-2 HIGH finding #2 on PR #89).
+    """
+    assert "needs.changes.outputs.packaging_metadata" in ci_jobs["build"]["if"]
+
+
 def test_quality_summary_still_depends_on_every_filtered_job(ci_jobs: dict) -> None:
     """FR-008: `quality-summary` must keep seeing every filtered job's result, including a
     skip, so its existing `status_label()` "⏭️ skipped" rendering stays reachable. Guards
@@ -361,3 +431,30 @@ def test_excluded_job_does_not_reference_changes(ci_jobs: dict, job: str) -> Non
         needs = [needs]
     assert "needs.changes" not in condition, f"{job!r}'s `if:` references `needs.changes`"
     assert "changes" not in needs, f"{job!r} declares `needs: [changes]`"
+
+
+def test_repo_invariants_job_exists_and_is_unfiltered(ci_jobs: dict) -> None:
+    """Unlike `EXCLUDED_JOBS` above (pre-existing jobs FR-006 keeps independent of path
+    selection), `repo-invariants` is new *because* of path selection: `test`'s skip is unsound
+    for two of its tests (see the job's own comment in ci.yml), so they run again here,
+    unconditionally, rather than ever being subject to `needs.changes` at all.
+    """
+    assert "repo-invariants" in ci_jobs, "the `repo-invariants` job is missing"
+    job = ci_jobs["repo-invariants"]
+    condition = str(job.get("if", ""))
+    needs = job.get("needs", [])
+    if isinstance(needs, str):
+        needs = [needs]
+    assert "needs.changes" not in condition, "repo-invariants must not reference needs.changes"
+    assert "changes" not in needs, "repo-invariants must not declare needs: [changes]"
+    assert "github.event_name != 'schedule'" in condition
+
+
+def test_repo_invariants_job_runs_both_repo_wide_static_tests(ci_jobs: dict) -> None:
+    """The whole point of this job: it must actually invoke the two tests whose skip inside
+    `test` would otherwise go uncaught (Copilot round-2 HIGH finding #3 on PR #89).
+    """
+    steps = ci_jobs["repo-invariants"]["steps"]
+    body = "\n".join(step.get("run", "") for step in steps)
+    assert "tests/static/test_no_old_package_name.py" in body
+    assert "tests/static/test_no_old_layout.py" in body

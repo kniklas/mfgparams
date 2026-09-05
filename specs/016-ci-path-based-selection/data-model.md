@@ -21,6 +21,8 @@ Instances (see research.md #2 for rationale):
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` | false |
 | `docs` | `docs/**` | false |
 | `ci_config` | `.github/workflows/**` | false |
+| `skills` | `.github/skills/**`, `.claude/**` | false |
+| `packaging_metadata` | `README.md`, `LICENSE.md` | false |
 | `other` | `**`, then a `!`-prefixed exclusion entry for every glob above **and** every known-non-code path from spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`) — evaluated in its **own** `dorny/paths-filter` step with `predicate-quantifier: every` | true |
 
 **Corrections (all three found during live quickstart validation, not planning):**
@@ -47,6 +49,16 @@ Instances (see research.md #2 for rationale):
    default `some` (a file need only match one of several globs to be `python`, say), `other`
    was moved into its **own** `paths-filter` step with `predicate-quantifier: every` set
    explicitly, leaving the first step's default untouched for the other three filters.
+4. Found by Copilot's round-2 review of PR #89, not live validation: two of the four
+   known-non-code paths were never actually safe to fully skip. `.github/skills/**`/
+   `.claude/**` broke `lint`'s `setup_skill_symlinks.py --check` (a skill added without its
+   symlink, or a broken symlink, would merge undetected), and `README.md`/`LICENSE.md` are
+   named as `pyproject.toml`'s `readme`/`license-files` (a build input, so `build` must run
+   when either changes). The `skills`/`packaging_metadata` categories above narrow the fix to
+   exactly the jobs that need it (`lint`, `build`) rather than re-running the whole toolchain
+   for these paths the way folding them into `other` would. `specs/**` and the remaining root
+   `*.md` files are unaffected — see `repo-invariants` in the Job Path Policy table below for
+   the separate, third gap this same review round found in `test`.
 
 ## Job Path Policy
 
@@ -64,23 +76,27 @@ Instances:
 
 | `job` | `depends_on_categories` | `filtered` |
 |---|---|---|
-| `lint` | `{python, ci_config, other}` | true |
+| `lint` | `{python, skills, ci_config, other}` | true |
 | `complexity` | `{python, ci_config, other}` | true |
 | `typecheck` | `{python, ci_config, other}` | true |
 | `security` | `{python, ci_config, other}` | true |
 | `test` | `{python, ci_config, other}` | true |
-| `build` | `{python, ci_config, other}` | true |
+| `build` | `{python, packaging_metadata, ci_config, other}` | true |
 | `docs` | `{python, docs, ci_config, other}` | true |
 | `dependency-scan` | N/A | false (FR-006) |
 | `sync-agent-integrations` | N/A | false (FR-006; schedule/workflow_dispatch only, unaffected either way) |
 | `performance` | N/A | false — informational-only (`continue-on-error`), out of `ci-ok`'s gate already; left running on every trigger unchanged, since narrowing it would change SC-003 for no benefit (it costs nothing to `ci-ok`'s outcome) |
-| `changes` | N/A | N/A — this is the filter producer, not a filtered job. Runs whenever any filtered job might (`if: github.event_name != 'schedule'`) |
+| `repo-invariants` | N/A | false — never filtered, by design: re-runs `test_no_old_package_name.py`/`test_no_old_layout.py` (also collected inside `test`) unconditionally on every non-scheduled trigger, because both walk every git-tracked file and a violation can appear under any path category `test` is allowed to skip for (added in Copilot's round-2 review of PR #89; see data-model.md Path Category Corrections note #4) |
+| `changes` | N/A | N/A — this is the filter producer, not a filtered job. Excludes both `schedule` and, since round 2, `workflow_dispatch` too (`if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'`) — every filtered job already bypasses `changes`'s outputs on manual dispatch (FR-006), so there is nothing left for `changes` itself to compute on that trigger, and running it anyway only gave a checkout/filter failure a way to fail a manual run nothing downstream needed it for |
 | `quality-summary` | N/A | false — reporting only; renders whatever result each dependency reports, including `skipped` (research.md #4) |
 | `deploy-docs` | N/A | false — `push`-to-`main`-only, independent of this feature |
 
 Every `ci_config` and `other` entry above exists because FR-004 (CI-config changes run
 everything) and FR-003 (unmatched paths run everything) apply identically to all seven
 filtered jobs — there is no job for which either exception is narrower than the others.
+`skills` and `packaging_metadata`, by contrast, are each read by exactly one job (`lint`,
+`build` respectively) — narrower carve-outs for the two round-2 gaps that were specific to
+what those two jobs individually check, not general to the whole toolchain.
 
 ## `ci-ok` Dependency Result Classification
 
