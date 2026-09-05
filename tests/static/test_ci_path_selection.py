@@ -84,15 +84,42 @@ def ci_jobs() -> dict:
 
 
 @pytest.fixture(scope="module")
-def changes_filters(ci_jobs: dict) -> dict:
-    """The `filters:` block passed to `dorny/paths-filter`, parsed as YAML.
+def paths_filter_steps(ci_jobs: dict) -> list[dict]:
+    """Both `dorny/paths-filter` steps in the `changes` job, in order.
+
+    Split into two steps because `other`'s exclusion idiom (a positive `**` plus a
+    `!`-prefixed entry per excluded glob) only works under `predicate-quantifier: every`
+    (all listed patterns must match) - under the default `some` (any pattern matches),
+    the bare `**` alone already matches everything, making every negation after it moot.
+    `python`/`docs`/`ci_config` are plain OR-lists with no negation, so they stay on the
+    default `some` in the first step; `other` gets its own step with `every` explicitly
+    set. See `test_other_filter_step_uses_every_quantifier` for why this is checked
+    directly rather than only inferred from `other`'s live behavior.
+    """
+    steps = ci_jobs["changes"]["steps"]
+    return [s for s in steps if s.get("uses", "").startswith("dorny/paths-filter")]
+
+
+@pytest.fixture(scope="module")
+def named_filters(paths_filter_steps: list[dict]) -> dict:
+    """The `python`/`docs`/`ci_config` filters from the first `paths-filter` step.
 
     `paths-filter`'s `with.filters` is itself a YAML document embedded as a string, so it
     needs a second `yaml.safe_load` pass - the outer parse only sees one long string.
     """
-    steps = ci_jobs["changes"]["steps"]
-    filter_step = next(s for s in steps if s.get("uses", "").startswith("dorny/paths-filter"))
-    return yaml.safe_load(filter_step["with"]["filters"])
+    return yaml.safe_load(paths_filter_steps[0]["with"]["filters"])
+
+
+@pytest.fixture(scope="module")
+def other_filter_step(paths_filter_steps: list[dict]) -> dict:
+    """The second `paths-filter` step, which defines only `other`."""
+    return paths_filter_steps[1]
+
+
+@pytest.fixture(scope="module")
+def other_filter_globs(other_filter_step: dict) -> list[str]:
+    filters = yaml.safe_load(other_filter_step["with"]["filters"])
+    return filters["other"]
 
 
 def test_changes_job_exists_and_is_schedule_guarded(ci_jobs: dict) -> None:
@@ -107,57 +134,84 @@ def test_changes_job_exists_and_is_schedule_guarded(ci_jobs: dict) -> None:
     assert "github.event_name != 'schedule'" in condition
 
 
-def test_changes_job_defines_exactly_the_four_named_filters(changes_filters: dict) -> None:
+def test_changes_job_has_exactly_two_paths_filter_steps(paths_filter_steps: list[dict]) -> None:
+    assert len(paths_filter_steps) == 2, (
+        "expected exactly one paths-filter step for python/docs/ci_config and a second, "
+        "separate one for other (see the `paths_filter_steps` fixture docstring for why)"
+    )
+
+
+def test_other_filter_step_uses_every_quantifier(other_filter_step: dict) -> None:
+    """The one setting that makes `other`'s exclusion idiom actually work.
+
+    Regression test for the bug live validation caught *twice*: a specs-only change kept
+    matching `other = true` even after `other`'s glob list correctly listed `!specs/**`
+    (and every other exclusion), because the default `predicate-quantifier: some` only
+    needs *one* listed pattern to match - and the leading bare `**` always does, making
+    every negation after it moot. Without this setting, `other_filter_globs`'s content can
+    be perfectly correct and `other` will still evaluate `true` for everything.
+    """
+    assert other_filter_step["with"].get("predicate-quantifier") == "every", (
+        "the `other` paths-filter step must set `predicate-quantifier: every`, or its "
+        "`!`-prefixed exclusions are silently ignored (data-model.md's Path Category "
+        "'Corrections' note #3)"
+    )
+
+
+def test_changes_job_defines_exactly_the_four_named_filters(
+    named_filters: dict, other_filter_globs: list[str]
+) -> None:
     """The category set must match data-model.md's Path Category table exactly.
 
     Fewer categories silently drops FR-003's catch-all or FR-004's CI-config bypass; extra,
     undocumented categories drift from what the spec/plan/contract describe.
     """
-    assert set(changes_filters) == {"python", "docs", "ci_config", "other"}
+    assert set(named_filters) == {"python", "docs", "ci_config"}
+    assert other_filter_globs  # the second step must actually define something
 
 
-def test_python_filter_globs_match_the_documented_set(changes_filters: dict) -> None:
-    assert set(changes_filters["python"]) == EXPECTED_PYTHON_GLOBS
+def test_python_filter_globs_match_the_documented_set(named_filters: dict) -> None:
+    assert set(named_filters["python"]) == EXPECTED_PYTHON_GLOBS
 
 
-def test_docs_filter_globs_match_the_documented_set(changes_filters: dict) -> None:
-    assert set(changes_filters["docs"]) == {"docs/**"}
+def test_docs_filter_globs_match_the_documented_set(named_filters: dict) -> None:
+    assert set(named_filters["docs"]) == {"docs/**"}
 
 
-def test_ci_config_filter_globs_match_the_documented_set(changes_filters: dict) -> None:
-    assert set(changes_filters["ci_config"]) == {".github/workflows/**"}
+def test_ci_config_filter_globs_match_the_documented_set(named_filters: dict) -> None:
+    assert set(named_filters["ci_config"]) == {".github/workflows/**"}
 
 
 def test_other_filter_is_a_positive_catch_all_with_named_exclusions(
-    changes_filters: dict,
+    other_filter_globs: list[str],
 ) -> None:
     """FR-003: a genuinely unanticipated path must default every filtered job back on.
 
-    `dorny/paths-filter` composes a filter's match from its list of glob entries in order:
-    a bare `**` matches everything, and each subsequent `!`-prefixed entry excludes matches
-    from what came before. A single `!(a/**|b/**|...)` extglob string was tried first and is
-    silently unreliable once the alternatives contain `**` - live quickstart validation
-    showed a `specs/**` file still matching `other = true` even with `specs/**` inside that
-    negation string (data-model.md's Path Category "Correction" note, second entry). This
-    asserts the list form instead: `**` first, then only `!`-prefixed exclusion entries.
+    Under `predicate-quantifier: every` (asserted separately by
+    `test_other_filter_step_uses_every_quantifier`), `dorny/paths-filter` requires *every*
+    listed pattern to match: a bare `**` (always true) plus a `!`-prefixed entry per
+    excluded glob (true only for files outside that glob) together mean "matches something,
+    and isn't any of the named exclusions." This asserts the list shape: `**` first, then
+    only `!`-prefixed exclusion entries.
     """
-    other_globs = changes_filters["other"]
-    assert other_globs[0] == "**", "`other` must start with a bare `**` positive match"
-    exclusions = other_globs[1:]
+    assert other_filter_globs[0] == "**", "`other` must start with a bare `**` positive match"
+    exclusions = other_filter_globs[1:]
     assert len(set(exclusions)) == len(exclusions), "duplicate exclusion entries in `other`"
     for entry in exclusions:
         assert entry.startswith("!"), f"{entry!r} in `other` must be `!`-prefixed"
 
 
 def test_other_filter_excludes_every_named_and_known_non_code_glob(
-    changes_filters: dict,
+    other_filter_globs: list[str],
 ) -> None:
     """Every glob any other category *or* the known-non-code row uses must appear, negated,
-    in `other` - regression test for the bug live validation caught (see the docstring
-    above): a specs-only change matched `other` because `specs/**` was not excluded, running
-    every filtered job for the exact case US1 exists to skip it for.
+    in `other` - regression test for the bug live validation caught (see
+    `test_other_filter_step_uses_every_quantifier`'s docstring for the two-part fix): a
+    specs-only change matched `other` because `specs/**` was neither excluded nor - even
+    once it was - evaluated under a quantifier where the exclusion could take effect,
+    running every filtered job for the exact case US1 exists to skip it for.
     """
-    other_globs = set(changes_filters["other"])
+    other_globs = set(other_filter_globs)
     excluded_elsewhere = (
         EXPECTED_PYTHON_GLOBS | {"docs/**", ".github/workflows/**"} | EXPECTED_KNOWN_NON_CODE_GLOBS
     )
