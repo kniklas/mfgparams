@@ -75,8 +75,27 @@ jobs:
               - 'docs/**'
             ci_config:
               - '.github/workflows/**'
+            # A positive `**` (everything) with a `!`-prefixed exclusion per known
+            # category, per `dorny/paths-filter`'s documented negation idiom - NOT a
+            # single `!(a/**|b/**|...)` extglob string. That form was tried first and
+            # is silently unreliable when the alternatives contain `**`: live
+            # validation showed `specs/016-ci-path-based-selection/quickstart.md`
+            # still matching `other = true` even with `specs/**` inside the negation
+            # (data-model.md's Path Category "Correction" note, second entry).
             other:
-              - '!(src/**|tests/**|pyproject.toml|tox.ini|scripts/sync_agent_integrations.py|scripts/setup_skill_symlinks.py|docs/**|.github/workflows/**|specs/**|.github/skills/**|*.md|.claude/**)'
+              - '**'
+              - '!src/**'
+              - '!tests/**'
+              - '!pyproject.toml'
+              - '!tox.ini'
+              - '!scripts/sync_agent_integrations.py'
+              - '!scripts/setup_skill_symlinks.py'
+              - '!docs/**'
+              - '!.github/workflows/**'
+              - '!specs/**'
+              - '!.github/skills/**'
+              - '!*.md'
+              - '!.claude/**'
 
   lint:
     name: lint

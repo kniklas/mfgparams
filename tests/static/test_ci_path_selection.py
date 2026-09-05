@@ -128,36 +128,41 @@ def test_ci_config_filter_globs_match_the_documented_set(changes_filters: dict) 
     assert set(changes_filters["ci_config"]) == {".github/workflows/**"}
 
 
-def test_other_filter_is_a_catch_all_negation(changes_filters: dict) -> None:
+def test_other_filter_is_a_positive_catch_all_with_named_exclusions(
+    changes_filters: dict,
+) -> None:
     """FR-003: a genuinely unanticipated path must default every filtered job back on.
 
-    Asserted by construction here (a single negation glob covering every other category's
-    patterns) rather than duplicating `dorny/paths-filter`'s own matching logic in Python.
+    `dorny/paths-filter` composes a filter's match from its list of glob entries in order:
+    a bare `**` matches everything, and each subsequent `!`-prefixed entry excludes matches
+    from what came before. A single `!(a/**|b/**|...)` extglob string was tried first and is
+    silently unreliable once the alternatives contain `**` - live quickstart validation
+    showed a `specs/**` file still matching `other = true` even with `specs/**` inside that
+    negation string (data-model.md's Path Category "Correction" note, second entry). This
+    asserts the list form instead: `**` first, then only `!`-prefixed exclusion entries.
     """
     other_globs = changes_filters["other"]
-    assert len(other_globs) == 1
-    negation = other_globs[0]
-    assert negation.startswith("!(") and negation.endswith(")")
-    for glob in EXPECTED_PYTHON_GLOBS | {"docs/**", ".github/workflows/**"}:
-        assert glob in negation, f"{glob!r} missing from the `other` catch-all negation"
+    assert other_globs[0] == "**", "`other` must start with a bare `**` positive match"
+    exclusions = other_globs[1:]
+    assert len(set(exclusions)) == len(exclusions), "duplicate exclusion entries in `other`"
+    for entry in exclusions:
+        assert entry.startswith("!"), f"{entry!r} in `other` must be `!`-prefixed"
 
 
-def test_other_filter_also_excludes_known_non_code_paths(changes_filters: dict) -> None:
-    """A change to `specs/**`/`.github/skills/**`/root `*.md`/`.claude/**` must NOT match
-    `other` - regression test for the bug live quickstart validation caught: the first
-    implementation only excluded the three *named* categories from `other`'s negation,
-    which made a specs-only change match `other` (nothing else matched) and therefore run
-    every filtered job anyway - the exact opposite of what US1 exists to do. `other` is a
-    safety net for paths nobody anticipated, not a second catch-all for paths this same
-    contract already named and deliberately excluded.
+def test_other_filter_excludes_every_named_and_known_non_code_glob(
+    changes_filters: dict,
+) -> None:
+    """Every glob any other category *or* the known-non-code row uses must appear, negated,
+    in `other` - regression test for the bug live validation caught (see the docstring
+    above): a specs-only change matched `other` because `specs/**` was not excluded, running
+    every filtered job for the exact case US1 exists to skip it for.
     """
-    negation = changes_filters["other"][0]
-    for glob in EXPECTED_KNOWN_NON_CODE_GLOBS:
-        assert glob in negation, (
-            f"{glob!r} (a known-non-code path per spec.md Assumptions) is missing from the "
-            "`other` catch-all negation - a change limited to this path would incorrectly "
-            "run every filtered job"
-        )
+    other_globs = set(changes_filters["other"])
+    excluded_elsewhere = (
+        EXPECTED_PYTHON_GLOBS | {"docs/**", ".github/workflows/**"} | EXPECTED_KNOWN_NON_CODE_GLOBS
+    )
+    for glob in excluded_elsewhere:
+        assert f"!{glob}" in other_globs, f"{glob!r} is not excluded from `other`"
 
 
 def test_ci_ok_predicate_accepts_success_and_skipped(ci_jobs: dict) -> None:
