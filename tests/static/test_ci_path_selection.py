@@ -66,6 +66,17 @@ EXPECTED_PYTHON_GLOBS = {
     "scripts/setup_skill_symlinks.py",
 }
 
+# The "known-non-code" paths from spec.md's Assumptions: never trigger the toolchain on their
+# own, and MUST be excluded from `other`'s negation too - they are not unanticipated, they are
+# the everyday case this feature exists to skip the toolchain for (data-model.md's Path
+# Category "Correction" note; found by live quickstart validation, not planning).
+EXPECTED_KNOWN_NON_CODE_GLOBS = {
+    "specs/**",
+    ".github/skills/**",
+    "*.md",
+    ".claude/**",
+}
+
 
 @pytest.fixture(scope="module")
 def ci_jobs() -> dict:
@@ -118,7 +129,7 @@ def test_ci_config_filter_globs_match_the_documented_set(changes_filters: dict) 
 
 
 def test_other_filter_is_a_catch_all_negation(changes_filters: dict) -> None:
-    """FR-003: an unmatched path must default every filtered job back on.
+    """FR-003: a genuinely unanticipated path must default every filtered job back on.
 
     Asserted by construction here (a single negation glob covering every other category's
     patterns) rather than duplicating `dorny/paths-filter`'s own matching logic in Python.
@@ -129,6 +140,24 @@ def test_other_filter_is_a_catch_all_negation(changes_filters: dict) -> None:
     assert negation.startswith("!(") and negation.endswith(")")
     for glob in EXPECTED_PYTHON_GLOBS | {"docs/**", ".github/workflows/**"}:
         assert glob in negation, f"{glob!r} missing from the `other` catch-all negation"
+
+
+def test_other_filter_also_excludes_known_non_code_paths(changes_filters: dict) -> None:
+    """A change to `specs/**`/`.github/skills/**`/root `*.md`/`.claude/**` must NOT match
+    `other` - regression test for the bug live quickstart validation caught: the first
+    implementation only excluded the three *named* categories from `other`'s negation,
+    which made a specs-only change match `other` (nothing else matched) and therefore run
+    every filtered job anyway - the exact opposite of what US1 exists to do. `other` is a
+    safety net for paths nobody anticipated, not a second catch-all for paths this same
+    contract already named and deliberately excluded.
+    """
+    negation = changes_filters["other"][0]
+    for glob in EXPECTED_KNOWN_NON_CODE_GLOBS:
+        assert glob in negation, (
+            f"{glob!r} (a known-non-code path per spec.md Assumptions) is missing from the "
+            "`other` catch-all negation - a change limited to this path would incorrectly "
+            "run every filtered job"
+        )
 
 
 def test_ci_ok_predicate_accepts_success_and_skipped(ci_jobs: dict) -> None:

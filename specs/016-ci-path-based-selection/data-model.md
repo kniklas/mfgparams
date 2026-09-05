@@ -12,7 +12,7 @@ A named group of path globs that one or more CI jobs depend on.
 |---|---|
 | `name` | Stable identifier, also the `dorny/paths-filter` filter key and the `changes` job's output name (e.g. `needs.changes.outputs.python`). |
 | `globs` | Ordered list of glob patterns (`dorny/paths-filter` syntax) that put a changed file in this category. |
-| `is_catch_all` | `true` only for `other` — matches any path not matched by any other category's globs (FR-003). |
+| `is_catch_all` | `true` only for `other` — matches any *genuinely unanticipated* path (FR-003), explicitly excluding the known-non-code paths below, not just the other three named categories. |
 
 Instances (see research.md #2 for rationale):
 
@@ -21,7 +21,9 @@ Instances (see research.md #2 for rationale):
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` | false |
 | `docs` | `docs/**` | false |
 | `ci_config` | `.github/workflows/**` | false |
-| `other` | negation of every glob above | true |
+| `other` | negation of every glob above, **and** of the known-non-code paths from spec.md's Assumptions (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**`) | true |
+
+**Correction (found during live quickstart validation, not planning):** the first implementation of `other` negated only the three named categories' globs, omitting the known-non-code paths spec.md's own Assumptions section already named. That made a specs-only change match `other` (nothing else) and therefore run every filtered job anyway — exactly the case this feature exists to skip, and the opposite of `other`'s intent as a safety net for paths nobody anticipated rather than a catch-all for paths already named and deliberately excluded elsewhere in this same spec. `other`'s negation glob now excludes both.
 
 ## Job Path Policy
 

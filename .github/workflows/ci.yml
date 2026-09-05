@@ -40,8 +40,14 @@ jobs:
   # produce a `ci-ok` run at all, permanently blocking it (research.md #1;
   # the exact failure mode `ci-ok`'s own comment below warns about for a
   # different reason). `other` is a catch-all (negation of every named
-  # glob) so an unanticipated path always defaults every job below back on
-  # (FR-003) rather than silently escaping coverage.
+  # glob, INCLUDING the known-non-code paths below) so a genuinely
+  # unanticipated path always defaults every job back on (FR-003) rather
+  # than silently escaping coverage. Those known-non-code paths
+  # (`specs/**`, `.github/skills/**`, root `*.md`, `.claude/**` — spec.md
+  # Assumptions) are deliberately excluded from `other` too: they are not
+  # unanticipated, they are the everyday case this feature exists to
+  # skip the toolchain for, and folding them into the catch-all would
+  # re-run everything for the one class of change SC-001 is about.
   changes:
     name: changes
     runs-on: ubuntu-latest
@@ -70,7 +76,7 @@ jobs:
             ci_config:
               - '.github/workflows/**'
             other:
-              - '!(src/**|tests/**|pyproject.toml|tox.ini|scripts/sync_agent_integrations.py|scripts/setup_skill_symlinks.py|docs/**|.github/workflows/**)'
+              - '!(src/**|tests/**|pyproject.toml|tox.ini|scripts/sync_agent_integrations.py|scripts/setup_skill_symlinks.py|docs/**|.github/workflows/**|specs/**|.github/skills/**|*.md|.claude/**)'
 
   lint:
     name: lint

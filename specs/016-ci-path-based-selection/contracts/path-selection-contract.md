@@ -15,11 +15,18 @@ Every changed path in a `pull_request`/`push` run MUST be classified into at lea
 | `python` | `src/**`, `tests/**`, `pyproject.toml`, `tox.ini`, `scripts/sync_agent_integrations.py`, `scripts/setup_skill_symlinks.py` | `lint`, `complexity`, `typecheck`, `security`, `test`, `build`, `docs` |
 | `docs` | `docs/**` | `docs` |
 | `ci_config` | `.github/workflows/**` | all seven filtered jobs (FR-004 — unconditional) |
-| `other` (catch-all) | Anything matching none of the above | all seven filtered jobs (FR-003 — unconditional) |
+| *(none — no job runs for these)* | `specs/**`, `.github/skills/**`, root `*.md`, `.claude/**` — the known-non-code paths from spec.md's Assumptions | none of the seven filtered jobs |
+| `other` (catch-all) | Anything matching none of the above, **including** the known-non-code row above | all seven filtered jobs (FR-003 — unconditional) |
 
-A path MUST NOT be classified into zero categories — `other` exists precisely so this cannot
-happen. A path MAY be classified into more than one category (e.g. a change that touches both
-`src/**` and `docs/**` sets both `python` and `docs` true; both sets of jobs run).
+A path MUST NOT be classified into zero *outputs* being checkable — every path is covered by
+either a named triggering category, the known-non-code row, or `other`. A path MAY be
+classified into more than one triggering category (e.g. a change that touches both `src/**`
+and `docs/**` sets both `python` and `docs` true; both sets of jobs run). `other`'s negation
+MUST exclude the known-non-code row's globs as well as `python`/`docs`/`ci_config`'s — a path
+already named and deliberately excluded elsewhere in this contract is not "unanticipated," and
+folding it into `other` anyway defeats FR-003's actual purpose (never lose coverage for a path
+nobody thought about) by making it indistinguishable from "a path this contract already
+decided should skip everything."
 
 ## `ci-ok` blocking-predicate contract (supersedes the prior "any non-success blocks" rule)
 
