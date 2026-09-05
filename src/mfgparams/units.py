@@ -144,3 +144,6 @@ def n_per_mm2_to_psi(value_n_per_mm2: float) -> float:
     """
 
     return value_n_per_mm2 * PSI_PER_MPA
+
+# Deliberate mypy violation to validate US2 (throwaway, never merged).
+_deliberate_mypy_violation: int = "not an int"
