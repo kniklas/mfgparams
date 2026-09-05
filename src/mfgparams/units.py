@@ -144,3 +144,5 @@ def n_per_mm2_to_psi(value_n_per_mm2: float) -> float:
     """
 
     return value_n_per_mm2 * PSI_PER_MPA
+
+# Validation scratch: mixed-diff regression check comment (throwaway).
