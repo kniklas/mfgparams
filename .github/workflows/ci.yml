@@ -21,18 +21,77 @@ env:
 
 # Least-privilege default GITHUB_TOKEN scope for every job below that does
 # not define its own `permissions:` block (CodeQL actions/missing-workflow-
-# permissions). Only `quality-summary` (needs pull-requests: write to post
-# its comment) and `deploy-docs` (needs pages: write / id-token: write)
-# require broader scopes and already declare their own job-level
-# `permissions:`, which takes precedence over this default.
+# permissions). `quality-summary` (needs pull-requests: write to post its
+# comment), `deploy-docs` (needs pages: write / id-token: write), and
+# `changes` (needs pull-requests: read to fetch the PR's changed-files list;
+# specs/016-ci-path-based-selection) require different scopes and already
+# declare their own job-level `permissions:`, which takes precedence over
+# this default.
 permissions:
   contents: read
 
 jobs:
+  # Classifies the diff into path categories so the jobs below can skip
+  # themselves when nothing they cover changed (specs/016-ci-path-based-
+  # selection FR-001/FR-002/FR-003/FR-004; data-model.md's Path Category
+  # table). `dorny/paths-filter` is used rather than GitHub's native
+  # `paths:`/`paths-ignore:` workflow trigger because that mechanism is
+  # evaluated per-workflow, not per-job — a non-matching PR would never
+  # produce a `ci-ok` run at all, permanently blocking it (research.md #1;
+  # the exact failure mode `ci-ok`'s own comment below warns about for a
+  # different reason). `other` is a catch-all (negation of every named
+  # glob) so an unanticipated path always defaults every job below back on
+  # (FR-003) rather than silently escaping coverage.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    permissions:
+      pull-requests: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      docs: ${{ steps.filter.outputs.docs }}
+      ci_config: ${{ steps.filter.outputs.ci_config }}
+      other: ${{ steps.filter.outputs.other }}
+    steps:
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - 'src/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'tox.ini'
+              - 'scripts/sync_agent_integrations.py'
+              - 'scripts/setup_skill_symlinks.py'
+            docs:
+              - 'docs/**'
+            ci_config:
+              - '.github/workflows/**'
+            other:
+              - '!(src/**|tests/**|pyproject.toml|tox.ini|scripts/sync_agent_integrations.py|scripts/setup_skill_symlinks.py|docs/**|.github/workflows/**)'
+
   lint:
     name: lint
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Fail open (research.md #5): `!cancelled()` overrides GitHub Actions'
+    # implicit `success()`-gating on `needs:`, so a `changes` job that
+    # itself failed (a bad pin, an upstream outage, a malformed glob) does
+    # not silently skip this job — it runs anyway via the `result ==
+    # 'failure'` clause, exactly as if `python`/`ci_config`/`other` had
+    # matched. Without this override, a broken filter would make every job
+    # below `skipped`, and `ci-ok`'s updated predicate (below) treats an
+    # intentional skip as non-blocking — the two changes together would
+    # otherwise let a broken filter mechanism silently narrow the merge
+    # gate (contracts/path-selection-contract.md's fail-open contract).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -63,7 +122,15 @@ jobs:
   complexity:
     name: complexity
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Path-based selection + fail-open: same rationale as the `lint` job
+    # above (specs/016-ci-path-based-selection).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -86,7 +153,15 @@ jobs:
   typecheck:
     name: typecheck
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Path-based selection + fail-open: same rationale as the `lint` job
+    # above (specs/016-ci-path-based-selection).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -101,7 +176,15 @@ jobs:
   security:
     name: security
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Path-based selection + fail-open: same rationale as the `lint` job
+    # above (specs/016-ci-path-based-selection).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -189,7 +272,16 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Path-based selection + fail-open: same rationale as the `lint` job
+    # above (specs/016-ci-path-based-selection) — applied to the whole
+    # matrix job at once, not per-leg (research.md #7).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     # Verifies every officially supported Python version on every pull request
     # (specs/013-tox-multi-python-testing FR-005/FR-006), not just the single
     # `env.PYTHON_VERSION` every other job pins. `fail-fast: false` so a
@@ -427,7 +519,15 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Path-based selection + fail-open: same rationale as the `lint` job
+    # above (specs/016-ci-path-based-selection).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -449,7 +549,18 @@ jobs:
   docs:
     name: docs
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    needs: [changes]
+    # Path-based selection + fail-open: same rationale as the `lint` job
+    # above (specs/016-ci-path-based-selection), plus its own `docs`
+    # category — a Sphinx build also depends on docstrings in `src/**`, not
+    # just `docs/**` (data-model.md Job Path Policy).
+    if: >-
+      !cancelled() && github.event_name != 'schedule' &&
+      (needs.changes.result == 'failure' ||
+       needs.changes.outputs.python == 'true' ||
+       needs.changes.outputs.docs == 'true' ||
+       needs.changes.outputs.ci_config == 'true' ||
+       needs.changes.outputs.other == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -649,7 +760,11 @@ jobs:
   #      `performance` (continue-on-error by design), `quality-summary`
   #      (reporting), `deploy-docs` (main-only) and `sync-agent-integrations`
   #      (schedule-only) are deliberately absent. Adding any of them here
-  #      would silently promote it to a merge blocker.
+  #      would silently promote it to a merge blocker. `changes` is
+  #      included (specs/016-ci-path-based-selection): it produces the
+  #      path-selection outputs every other job below relies on, and has no
+  #      `needs:` of its own, so on a non-scheduled run it can only ever
+  #      report `success` or `failure` — never `skipped`.
   #   2. Results are asserted **explicitly**. With `if: always()` a job runs
   #      even when a dependency failed, and GitHub does *not* fail it
   #      implicitly — without the assertion below, `ci-ok` would report
@@ -663,11 +778,17 @@ jobs:
   # `ci-ok` excludes itself there — there is no pull request to gate.
   ci-ok:
     name: ci-ok
-    needs: [lint, complexity, typecheck, security, dependency-scan, test, build, docs]
+    needs: [changes, lint, complexity, typecheck, security, dependency-scan, test, build, docs]
     if: always() && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - name: Assert every required job succeeded
+      # A dependency's result is accepted as `"success"` OR `"skipped"`
+      # (specs/016-ci-path-based-selection FR-005; contracts/path-selection-
+      # contract.md's blocking-predicate table). `skipped` now happens
+      # routinely — a job intentionally excluded by path selection above —
+      # and MUST NOT block the merge; `failure`/`cancelled` still do,
+      # unchanged from before this feature.
+      - name: Assert every required job succeeded or was intentionally skipped
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
@@ -678,14 +799,14 @@ jobs:
           failures = {
               name: data.get("result")
               for name, data in sorted(needs.items())
-              if data.get("result") != "success"
+              if data.get("result") not in ("success", "skipped")
           }
           for name, data in sorted(needs.items()):
               print(f"{name:20} {data.get('result')}")
           if failures:
-              print("\nci-ok FAILED - not every required job succeeded:")
+              print("\nci-ok FAILED - not every required job succeeded or was skipped:")
               for name, result in failures.items():
                   print(f"  - {name}: {result}")
               sys.exit(1)
-          print(f"\nci-ok: all {len(needs)} required jobs succeeded.")
+          print(f"\nci-ok: all {len(needs)} required jobs succeeded or were intentionally skipped.")
           PY

@@ -33,6 +33,7 @@ CI_WORKFLOW = pathlib.Path(__file__).resolve().parents[2] / ".github" / "workflo
 # `ci-ok` entry - this list is what `ci-ok` expands to.
 REQUIRED_JOBS = frozenset(
     {
+        "changes",
         "lint",
         "complexity",
         "typecheck",
@@ -86,10 +87,13 @@ def test_ci_ok_only_excludes_scheduled_runs(ci_jobs: dict) -> None:
     condition = ci_jobs["ci-ok"]["if"]
     excluded_events = re.findall(r"github\.event_name\s*(==|!=)\s*'([a-z_]+)'", condition)
     assert ("!=", "schedule") in excluded_events, (
-        "ci-ok must exclude scheduled runs. On the weekly cron every "
-        "dependency except dependency-scan is skipped, so the assertion step "
-        "sees 'skipped' and fails - a permanently red scheduled run that "
-        "gates nothing."
+        "ci-ok must exclude scheduled runs: there is no pull request to gate "
+        "on a schedule run, only the weekly dependency-scan cron. (Before "
+        "specs/016-ci-path-based-selection, this was additionally required "
+        "because every dependency except dependency-scan was skipped on that "
+        "trigger and the assertion step treated 'skipped' as a failure; the "
+        "assertion now accepts 'skipped' as non-blocking, so that reason no "
+        "longer applies - the exclusion itself is still required.)"
     )
     for operator, event in excluded_events:
         if operator == "!=":
