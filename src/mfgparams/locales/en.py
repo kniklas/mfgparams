@@ -138,4 +138,18 @@ MESSAGES: dict[str, str] = {
     ),
     "error.missing_mill_tool": "A milling tool must be selected.",
     "error.unknown_mill_tool": "Unknown milling tool: {tool!r}.",
+    # --- Turning validation / structured errors (specs/019-turning-calculations) ---
+    "error.invalid_turning_diameter.zero": "Workpiece diameter must be greater than 0.",
+    "error.invalid_turning_diameter.max": (
+        "Workpiece diameter must not exceed {max_turning_diameter_mm:g} mm."
+    ),
+    "error.invalid_turning_depth_of_cut.zero": "Depth of cut must be greater than 0.",
+    "error.invalid_turning_depth_of_cut.max": (
+        "Depth of cut must not exceed {max_turning_depth_of_cut_mm:g} mm."
+    ),
+    "error.invalid_turning_depth_of_cut.exceeds_radius": (
+        "Depth of cut must be less than the workpiece radius ({radius_mm:g} mm)."
+    ),
+    "error.missing_turning_tool": "A turning tool must be selected.",
+    "error.unknown_turning_tool": "Unknown turning tool: {tool!r}.",
 }

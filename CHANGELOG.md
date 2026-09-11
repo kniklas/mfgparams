@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A new `turning` machining process (`mfgparams.calculate_turning`,
+  `mfgparams.list_turning_tools`), a sibling to the existing drilling and
+  milling processes, covering standard cylindrical (straight/outside-
+  diameter) turning across all three calculation modes (standard, fixed-
+  RPM, power-constrained): spindle speed, feed rate, machining time,
+  cutting force, torque, and power, reusing the existing workpiece-material
+  registry and configurable-tool pattern (specs/019-turning-calculations).
+  Exposed in the console text GUI as a third Machining tree leaf alongside
+  Milling and Drilling. `CalculationResult` gains a new optional
+  `cutting_force` field (populated for turning; `None` for drilling and
+  milling), following the same precedent `material_removal_rate` already
+  set for milling.
+
 ### Changed
 
 - The console text GUI's navigation model is replaced: a persistent

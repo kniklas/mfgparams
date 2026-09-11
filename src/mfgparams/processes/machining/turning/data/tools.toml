@@ -1,0 +1,32 @@
+# Bundled default turning tools (specs/019-turning-calculations FR-005).
+#
+# Factors are relative to the HSS baseline (factor 1.0) stored in
+# `mfgparams.registry`'s material reference values, exactly as drilling's
+# and milling's tool factors are; see research.md #5 and #1 for the
+# reasoning shared with drilling's identical-shaped tools.toml.
+#
+# Table key is `turning_tools`, matching the external override file's own
+# section name exactly (contracts/turning-tools-config-schema.md) --
+# verified against milling's own precedent, where
+# `end_milling/data/tools.toml` is itself keyed `[[end_mill_tools]]`, not
+# `[[tools]]`.
+#
+# Schema: specs/019-turning-calculations/contracts/turning-tools-config-schema.md
+
+[[turning_tools]]
+name = "HSS"
+cutting_speed_factor = 1.0
+feed_factor = 1.0
+unit_system = "metric"
+
+[[turning_tools]]
+name = "Cobalt"
+cutting_speed_factor = 1.2
+feed_factor = 1.0
+unit_system = "metric"
+
+[[turning_tools]]
+name = "Carbide"
+cutting_speed_factor = 2.4
+feed_factor = 1.05
+unit_system = "metric"

@@ -35,6 +35,7 @@ MESSAGES: dict[str, str] = {
     "tui.machining_menu.title": "Machining",
     "tui.machining_menu.milling": "Milling",
     "tui.machining_menu.drilling": "Drilling",
+    "tui.machining_menu.turning": "Turning",
     # --- Shared dialog chrome ---
     "tui.action.ok": "OK",
     "tui.action.back": "Back",
@@ -72,6 +73,14 @@ MESSAGES: dict[str, str] = {
     # placeholder while required inputs are incomplete -- operation-specific
     # wording, matching the prototype's own `_last_result_text` default.
     "tui.drilling.placeholder": "Enter a diameter and a hole depth to see a result.",
+    # --- Turning form (specs/019-turning-calculations) ---
+    "tui.turning.title": "Turning",
+    "tui.label.workpiece_diameter": "Workpiece diameter",
+    "tui.label.depth_of_cut": "Depth of cut",
+    "tui.label.turning_tool": "Turning tool",
+    "tui.turning.placeholder": (
+        "Enter a workpiece diameter, depth of cut, and length of cut to see a result."
+    ),
     # --- Milling form (FR-002) ---
     "tui.milling.title": "Milling",
     "tui.milling.placeholder": (
@@ -133,6 +142,7 @@ MESSAGES: dict[str, str] = {
     "tui.result.torque": "Torque:            {value} {unit}",
     "tui.result.power_required": "Power required:    {value} {unit}",
     "tui.result.material_removal_rate": "Material removal:  {value} {unit}",
+    "tui.result.cutting_force": "Cutting force:     {value} {unit}",
     "tui.result.warning": "\nWarning: {message}",
     "tui.result.error.title": "Calculation error",
     # --- Configuration screen (read-only, research.md #4) ---
@@ -147,6 +157,9 @@ MESSAGES: dict[str, str] = {
     # rebuilt for this feature, don't patch it twice.
     "tui.configuration.section.end_mill_tools": "End-mill tools: {items}",
     "tui.configuration.section.face_mill_tools": "Face-mill tools: {items}",
+    # specs/019-turning-calculations: same completeness requirement PR #94's
+    # review found for milling -- every tool registry must be listed here.
+    "tui.configuration.section.turning_tools": "Turning tools: {items}",
     # --- About screen ---
     "tui.about.title": "About",
     "tui.about.text": (

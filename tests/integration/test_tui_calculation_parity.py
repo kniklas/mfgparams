@@ -18,6 +18,7 @@ from mfgparams import (
     calculate,
     calculate_end_milling,
     calculate_face_milling,
+    calculate_turning,
 )
 from mfgparams.console.tui import forms
 from mfgparams.console.tui.app import FieldId, OperationScreen, SessionUI
@@ -25,6 +26,9 @@ from mfgparams.console.tui.screens.drilling import DrillingSessionState
 from mfgparams.console.tui.screens.drilling import calculate_result as drilling_calculate
 from mfgparams.console.tui.screens.drilling import rows_for as drilling_rows_for
 from mfgparams.console.tui.screens.milling import calculate_result as milling_calculate
+from mfgparams.console.tui.screens.turning import TurningSessionState
+from mfgparams.console.tui.screens.turning import calculate_result as turning_calculate
+from mfgparams.console.tui.screens.turning import rows_for as turning_rows_for
 
 
 def _row(rows, field_id: FieldId):
@@ -157,6 +161,40 @@ def test_face_milling_result_text_is_byte_identical_to_the_core_calculation():
         length_of_cut=100.0,
         material="Mild Steel",
         tool="HSS",
+        unit_system=UnitSystem.METRIC,
+        available_power=None,
+        locale="en",
+        mode=CalculationMode.STANDARD,
+        target_rpm=None,
+    )
+    direct_text = forms.format_result(direct_result, forms.UNIT_LABELS[UnitSystem.METRIC], "en")
+    assert tui_text == direct_text
+
+
+def test_turning_result_text_is_byte_identical_to_the_core_calculation():
+    screen = OperationScreen(
+        operation="turning",
+        session_state=TurningSessionState(),
+        selected_field=FieldId.UNIT_SYSTEM,
+    )
+    _row(turning_rows_for(screen, None, "en", "en"), FieldId.MATERIAL_TYPE).on_select("metal")
+    _row(turning_rows_for(screen, None, "en", "en"), FieldId.MATERIAL).on_select("Mild Steel")
+    _row(turning_rows_for(screen, None, "en", "en"), FieldId.TOOL).on_select("Carbide")
+    _row(turning_rows_for(screen, None, "en", "en"), FieldId.DIAMETER).on_commit(40.0)
+    _row(turning_rows_for(screen, None, "en", "en"), FieldId.DEPTH_OF_CUT).on_commit(2.0)
+    _row(turning_rows_for(screen, None, "en", "en"), FieldId.LENGTH_OF_CUT).on_commit(100.0)
+
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    tui_result = turning_calculate(state, None, "en")
+    tui_text = forms.format_result(tui_result, forms.UNIT_LABELS[state.unit_system], "en")
+
+    direct_result = calculate_turning(
+        diameter=40.0,
+        depth_of_cut=2.0,
+        length_of_cut=100.0,
+        material="Mild Steel",
+        tool="Carbide",
         unit_system=UnitSystem.METRIC,
         available_power=None,
         locale="en",

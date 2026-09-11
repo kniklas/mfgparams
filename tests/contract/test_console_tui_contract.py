@@ -42,15 +42,16 @@ def test_menu_bar_mnemonics_are_pairwise_unique_and_complete():
 
 
 def test_machining_tree_structure_matches_the_contract():
-    """§2's invariant: Milling and Drilling are Machining's only children,
-    both flat leaves -- there is no further sub-expansion under either
-    (FR-003 retired via `/speckit-clarify`, reopened after implementation),
-    so the tree's content no longer depends on any state beyond whether
-    it's shown at all."""
+    """§2's invariant: Milling, Drilling, and Turning are Machining's only
+    children, all flat leaves -- there is no further sub-expansion under
+    any of them (FR-003 retired via `/speckit-clarify`, reopened after
+    implementation; Turning added by specs/019-turning-calculations
+    following the same flat-leaf pattern), so the tree's content no longer
+    depends on any state beyond whether it's shown at all."""
 
     rows = machining_menu.tree_rows(MachiningTree())
     labels = [translate("en", row.label_key) for row in rows]
-    assert labels == ["Milling", "Drilling"]
+    assert labels == ["Milling", "Drilling", "Turning"]
 
 
 def test_machining_tree_mnemonics_are_pairwise_unique():

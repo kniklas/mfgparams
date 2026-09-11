@@ -42,6 +42,19 @@ def test_validate_target_rpm_no_upper_bound():
     assert validate_target_rpm(1e12) is None
 
 
+def test_validate_target_rpm_accepts_arbitrary_precision_int_without_overflowerror():
+    """Copilot review finding on specs/019-turning-calculations PR #100:
+    an int too large to convert to a C double (e.g. 10**1000) previously
+    raised OverflowError from a bare math.isfinite() call, reaching every
+    caller of this shared function (drilling, milling, and turning all
+    validate target_rpm through it) instead of the documented
+    INVALID_TARGET_RPM result. Python ints are always finite regardless
+    of magnitude, so this is accepted as valid — matching the same
+    int-branch precedent _is_positive_finite_number already established
+    for diameter/depth (issue #56)."""
+    assert validate_target_rpm(10**1000) is None
+
+
 def test_mode_conflict_power_constrained_with_target_rpm():
     error = validate_mode_arguments(
         CalculationMode.POWER_CONSTRAINED, available_power=1.0, target_rpm=1200

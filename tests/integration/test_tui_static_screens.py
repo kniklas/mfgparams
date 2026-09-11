@@ -24,13 +24,14 @@ from mfgparams.console.tui.screens.configuration import render_configuration
 from mfgparams.console.tui.screens.help import render_help
 
 
-def test_tree_rows_are_milling_then_drilling_both_flat_leaves():
+def test_tree_rows_are_milling_then_drilling_then_turning_all_flat_leaves():
     """Revised (tasks.md Phase 8): Drilling's tree-level tool-selection
-    shortcut is retired (FR-003) -- both rows open their floating window
-    directly, and the row list no longer depends on any tree sub-state."""
+    shortcut is retired (FR-003) -- every row opens its floating window
+    directly, and the row list no longer depends on any tree sub-state.
+    Turning added by specs/019-turning-calculations, same flat-leaf shape."""
 
     rows = machining_menu.tree_rows(MachiningTree())
-    assert [row.action for row in rows] == ["open_milling", "open_drilling"]
+    assert [row.action for row in rows] == ["open_milling", "open_drilling", "open_turning"]
 
 
 def test_tree_mnemonics_are_pairwise_unique():

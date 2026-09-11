@@ -38,6 +38,8 @@ the text GUI) is covered in:
    drilling-api
    milling
    milling-api
+   turning
+   turning-api
 
 Indices and tables
 ===================

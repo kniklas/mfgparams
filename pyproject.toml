@@ -121,6 +121,7 @@ mfgparams = [
     "processes/machining/drilling/data/*.toml",
     "processes/machining/milling/end_milling/data/*.toml",
     "processes/machining/milling/face_milling/data/*.toml",
+    "processes/machining/turning/data/*.toml",
 ]
 
 [tool.pytest.ini_options]

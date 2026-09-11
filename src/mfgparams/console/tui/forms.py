@@ -24,6 +24,7 @@ from mfgparams.console.i18n import DEFAULT_LOCALE, has_message, translate
 from mfgparams.models import CalculationMode, ErrorInfo
 from mfgparams.processes.machining.drilling.tools import DrillingTool
 from mfgparams.processes.machining.milling._tool_registry import MillingTool
+from mfgparams.processes.machining.turning.tools import TurningTool
 from mfgparams.registry import WorkpieceMaterial
 from mfgparams.units import hp_to_kw, in_to_mm, kw_to_hp, mm_to_in
 
@@ -36,6 +37,8 @@ UNIT_LABELS = {
         "power": "kW",
         "feed_per_tooth": "mm/tooth",
         "material_removal_rate": "cm³/min",
+        "depth_of_cut": "mm",
+        "cutting_force": "N",
     },
     UnitSystem.IMPERIAL: {
         "diameter": "in",
@@ -45,6 +48,8 @@ UNIT_LABELS = {
         "power": "HP",
         "feed_per_tooth": "in/tooth",
         "material_removal_rate": "in³/min",
+        "depth_of_cut": "in",
+        "cutting_force": "lbf",
     },
 }
 
@@ -91,7 +96,7 @@ def render_error(error: ErrorInfo, locale: str) -> str:
 
 
 def display_label(
-    entry: WorkpieceMaterial | DrillingTool | MillingTool,
+    entry: WorkpieceMaterial | DrillingTool | MillingTool | TurningTool,
     display_locale: str,
     message_locale: str,
 ) -> str:
@@ -180,6 +185,15 @@ def format_result(result, labels: dict[str, str], locale: str) -> str:
                 "tui.result.material_removal_rate",
                 value=f"{result.material_removal_rate:.2f}",
                 unit=labels["material_removal_rate"],
+            )
+        )
+    if result.cutting_force is not None:
+        lines.append(
+            translate(
+                locale,
+                "tui.result.cutting_force",
+                value=f"{result.cutting_force:.1f}",
+                unit=labels["cutting_force"],
             )
         )
     text = "\n".join(lines)

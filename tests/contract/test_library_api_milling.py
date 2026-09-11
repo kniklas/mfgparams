@@ -77,11 +77,13 @@ _PUBLIC_SURFACE = {
     "calculate": "function",
     "calculate_end_milling": "function",
     "calculate_face_milling": "function",
+    "calculate_turning": "function",
     "list_end_mill_tools": "function",
     "list_face_mill_tools": "function",
     "list_material_types": "function",
     "list_materials": "function",
     "list_tools": "function",
+    "list_turning_tools": "function",
     "UnitSystem": "enum",
     "CalculationMode": "enum",
     "CalculationResult": "dataclass",
@@ -193,8 +195,19 @@ def _python_files(relative: str) -> list[Path]:
     [
         ("processes/machining/milling", "mfgparams.processes.machining.drilling"),
         ("processes/machining/drilling", "mfgparams.processes.machining.milling"),
+        ("processes/machining/turning", "mfgparams.processes.machining.drilling"),
+        ("processes/machining/turning", "mfgparams.processes.machining.milling"),
+        ("processes/machining/drilling", "mfgparams.processes.machining.turning"),
+        ("processes/machining/milling", "mfgparams.processes.machining.turning"),
     ],
-    ids=["milling_does_not_import_drilling", "drilling_does_not_import_milling"],
+    ids=[
+        "milling_does_not_import_drilling",
+        "drilling_does_not_import_milling",
+        "turning_does_not_import_drilling",
+        "turning_does_not_import_milling",
+        "drilling_does_not_import_turning",
+        "milling_does_not_import_turning",
+    ],
 )
 def test_operations_do_not_import_each_other(package, forbidden):
     offenders = {
@@ -211,7 +224,11 @@ def test_operations_do_not_import_each_other(package, forbidden):
 def test_operations_depend_only_on_shared_top_level_modules():
     """Anything an operation imports from the package must be a shared module."""
 
-    for package in ("processes/machining/milling", "processes/machining/drilling"):
+    for package in (
+        "processes/machining/milling",
+        "processes/machining/drilling",
+        "processes/machining/turning",
+    ):
         own_prefix = f"mfgparams.{package.replace('/', '.')}"
         for path in _python_files(package):
             for module in _imported_modules(path):

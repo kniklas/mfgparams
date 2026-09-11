@@ -26,10 +26,12 @@ from mfgparams.console.tui.app import MachiningTree
 from mfgparams.console.tui.menu import MenuEntry, _assign_mnemonics
 
 #: A row's `action` names what selecting it does (app.py dispatches on
-#: this): both actions open an operation's floating window directly
+#: this): every action opens an operation's floating window directly
 #: (FR-004) -- there is no longer a toggle/shortcut action, since
 #: Drilling's tree-level tool-selection sub-expansion is retired (FR-003).
-RowAction = Literal["open_milling", "open_drilling"]
+#: `open_turning` added by specs/019-turning-calculations, following the
+#: identical flat-leaf pattern.
+RowAction = Literal["open_milling", "open_drilling", "open_turning"]
 
 
 @dataclass(frozen=True)
@@ -40,16 +42,18 @@ class TreeRow:
 
 
 def tree_rows(tree: MachiningTree) -> list[TreeRow]:
-    """The tree's rows, in display order -- always exactly Milling and
-    Drilling, both flat leaves (FR-002/FR-003). ``tree`` is accepted for
-    interface symmetry with the tree-state-dependent shape this had before
-    the revision, and in case a future operation's own presence ever needs
-    to depend on `SessionUI` state; today it's unused."""
+    """The tree's rows, in display order -- Milling, Drilling, and Turning,
+    all flat leaves (FR-002/FR-003; specs/019-turning-calculations adds the
+    third). ``tree`` is accepted for interface symmetry with the
+    tree-state-dependent shape this had before the revision, and in case a
+    future operation's own presence ever needs to depend on `SessionUI`
+    state; today it's unused."""
 
     del tree
     return [
         TreeRow("tui.machining_menu.milling", "open_milling", indent=0),
         TreeRow("tui.machining_menu.drilling", "open_drilling", indent=0),
+        TreeRow("tui.machining_menu.turning", "open_turning", indent=0),
     ]
 
 

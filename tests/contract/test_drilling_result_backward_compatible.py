@@ -36,11 +36,20 @@ def test_pre_existing_fields_keep_their_names_and_order():
     assert names[: len(_PRE_EXISTING_FIELDS)] == _PRE_EXISTING_FIELDS
 
 
-def test_material_removal_rate_is_appended_last_and_optional():
-    fields = dataclasses.fields(CalculationResult)
+def test_material_removal_rate_and_cutting_force_are_appended_after_pre_existing_fields():
+    """``material_removal_rate`` (009-milling-calculations) and
+    ``cutting_force`` (019-turning-calculations) are each appended after
+    every pre-existing field, in the order their features were added, and
+    both default to ``None`` -- preserving positional construction for
+    every earlier call site regardless of how many such fields accumulate."""
 
-    assert fields[-1].name == "material_removal_rate"
+    fields = dataclasses.fields(CalculationResult)
+    trailing_names = [field.name for field in fields[len(_PRE_EXISTING_FIELDS) :]]
+
+    assert trailing_names == ["material_removal_rate", "cutting_force"]
+    assert fields[-1].name == "cutting_force"
     assert fields[-1].default is None
+    assert next(f for f in fields if f.name == "material_removal_rate").default is None
 
 
 def test_result_is_constructible_without_the_new_field():

@@ -63,10 +63,14 @@ class MachiningOperation(Enum):
             introduction of this enum (FR-002).
         MILLING: The milling flow, which prompts for a
             :class:`MillingSubOperation` before any material/tool prompt.
+        TURNING: The turning flow (``processes.machining.turning``,
+            specs/019-turning-calculations), a single-subtype process like
+            drilling rather than a multi-subtype one like milling.
     """
 
     DRILLING = "drilling"
     MILLING = "milling"
+    TURNING = "turning"
 
 
 class MillingSubOperation(Enum):
@@ -188,6 +192,13 @@ class CalculationResult:
             existing drilling code and tests keeps working unchanged.
             Drilling results always leave this ``None``; milling results
             set it on success and leave it ``None`` on error.
+        cutting_force: Tangential cutting force (Fc), in newtons under
+            METRIC and lbf under IMPERIAL (specs/019-turning-calculations
+            data-model.md). Declared last, after every pre-existing field
+            including ``material_removal_rate``, for the same positional-
+            construction-compatibility reason. Turning results set it on
+            success and leave it ``None`` on error; drilling and milling
+            results always leave this ``None``.
     """
 
     spindle_speed_rpm: float | None
@@ -200,3 +211,4 @@ class CalculationResult:
     error: ErrorInfo | None = None
     mode: CalculationMode = CalculationMode.STANDARD
     material_removal_rate: float | None = None
+    cutting_force: float | None = None

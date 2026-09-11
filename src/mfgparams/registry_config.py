@@ -17,6 +17,8 @@ responsibility of the per-kind callers (FR-006, FR-017).
 from __future__ import annotations
 
 import functools
+import math
+import unicodedata
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -28,6 +30,18 @@ except ModuleNotFoundError:  # Python 3.9 / 3.10 fall back to the tomli backport
     import tomli as tomllib  # type: ignore[no-redef]  # tomli is a drop-in tomllib backport; mypy sees this as an invalid redefinition, but it's the intended fallback for Python <3.11
 
 _VALID_UNIT_SYSTEMS = ("metric", "imperial")
+
+#: Unicode general categories rejected in a registry entry's `name` (Copilot
+#: review finding on specs/019-turning-calculations PR #100): a name
+#: containing one of these is later emitted as a TUI option label, where it
+#: can corrupt the menu display or inject terminal control sequences.
+#: ``Cc`` covers the C0/C1 control ranges (including tab, newline, and DEL,
+#: and — critically — ESC, the lead byte of every ANSI escape sequence);
+#: ``Zl``/``Zp`` the line and paragraph separators. Mirrors
+#: ``mfgparams.registry``'s identical ``_FORBIDDEN_ID_CATEGORIES``, applied
+#: there to ``material_type`` — duplicated rather than imported, since
+#: ``registry.py`` imports *from* this lower-level module, not the reverse.
+_FORBIDDEN_NAME_CATEGORIES = frozenset({"Cc", "Zl", "Zp"})
 
 
 class RegistryConfigError(Exception):
@@ -76,6 +90,93 @@ class RawRegistryEntry:
     source_path: str = ""
 
 
+def require_positive_finite_field(
+    fields: dict[str, Any],
+    field_name: str,
+    *,
+    source_path: str,
+    kind: str,
+    name: str,
+) -> float:
+    """Extract and validate a required, positive, finite numeric field from
+    a :class:`RawRegistryEntry`'s ``fields`` mapping.
+
+    Shared by every per-kind tool-registry converter (drilling, milling,
+    turning) so this exact validation is defined once rather than
+    hand-copied per operation — this module's own docstring says it exists
+    "so that any future operation-specific registry can reuse this module
+    unchanged" (Constitution Principle VI); before this helper existed,
+    each converter re-implemented (and could independently drift from) the
+    same checks.
+
+    Args:
+        fields: The entry's raw ``fields`` mapping (``RawRegistryEntry.fields``).
+        field_name: The TOML key to extract, e.g. ``"cutting_speed_factor"``.
+        source_path: The bundled resource name or user-supplied path this
+            entry came from, for an accurate error location.
+        kind: The entry kind for the error message, e.g. ``"tool"``.
+        name: The entry's own name, for the error message.
+
+    Returns:
+        The validated value as a ``float``.
+
+    Raises:
+        RegistryConfigError: If ``field_name`` is missing, a TOML boolean
+            or a quoted numeric string (both would otherwise pass silently
+            through ``float()``, e.g. ``true`` -> ``1.0``, ``"1.8"`` ->
+            ``1.8``), non-finite, or not positive.
+    """
+
+    try:
+        raw_value = fields[field_name]
+    except KeyError as exc:
+        raise RegistryConfigError(
+            "error.materials_config.invalid_entry",
+            path=source_path,
+            kind=kind,
+            name=name,
+            details=f"missing required field {field_name!r}",
+        ) from exc
+
+    if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+        raise RegistryConfigError(
+            "error.materials_config.invalid_entry",
+            path=source_path,
+            kind=kind,
+            name=name,
+            details=f"field {field_name!r} must be a number, got {raw_value!r}",
+        )
+
+    try:
+        value = float(raw_value)
+    except OverflowError as exc:
+        # A TOML integer literal too large to convert to a C double (e.g.
+        # `cutting_speed_factor = 10**1000`) — tomllib/tomli impose no
+        # bound on integer literals, so this reaches here as a plain
+        # arbitrary-precision Python int rather than being rejected at
+        # parse time (Copilot review finding on PR #100). Not usable as a
+        # real multiplier either way, so this is reported the same as any
+        # other invalid field rather than escaping as an unhandled
+        # OverflowError, keeping this function's documented "always
+        # returns a float or raises RegistryConfigError" contract intact.
+        raise RegistryConfigError(
+            "error.materials_config.invalid_entry",
+            path=source_path,
+            kind=kind,
+            name=name,
+            details=f"field {field_name!r} is too large to represent, got {raw_value!r}",
+        ) from exc
+    if not math.isfinite(value) or value <= 0:
+        raise RegistryConfigError(
+            "error.materials_config.invalid_entry",
+            path=source_path,
+            kind=kind,
+            name=name,
+            details=f"{field_name} must be positive",
+        )
+    return value
+
+
 def _parse_entries(data: dict[str, Any], table_key: str, path: str) -> list[RawRegistryEntry]:
     """Parse the ``[[materials]]``/``[[tools]]`` array-of-tables into entries."""
 
@@ -90,6 +191,28 @@ def _parse_entries(data: dict[str, Any], table_key: str, path: str) -> list[RawR
                 kind=table_key[:-1],
                 name=name or "",
                 details="missing required 'name' field",
+            )
+        # A non-string `name` (e.g. `name = 123`) passes the truthiness
+        # check above but breaks every caller's `list[str]` contract
+        # (`list_tools()`/`list_turning_tools()`/... all declare this
+        # return type) and can raise deep in duplicate-checking/merging
+        # rather than being rejected up front (Copilot review finding on
+        # specs/019-turning-calculations PR #100).
+        if not isinstance(name, str):
+            raise RegistryConfigError(
+                "error.materials_config.invalid_entry",
+                path=path,
+                kind=table_key[:-1],
+                name=str(name),
+                details=f"'name' must be a string, got {name!r}",
+            )
+        if any(unicodedata.category(character) in _FORBIDDEN_NAME_CATEGORIES for character in name):
+            raise RegistryConfigError(
+                "error.materials_config.invalid_entry",
+                path=path,
+                kind=table_key[:-1],
+                name=name,
+                details=(f"'name' must be a single line without control characters, got {name!r}"),
             )
         unit_system = raw.get("unit_system", "metric")
         if unit_system not in _VALID_UNIT_SYSTEMS:

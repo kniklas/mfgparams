@@ -19,6 +19,9 @@ DEFAULT_MAX_DEPTH_MM = 500.0
 DEFAULT_MAX_MILL_DIAMETER_MM = 200.0
 DEFAULT_MAX_DEPTH_OF_CUT_MM = 50.0
 DEFAULT_MAX_LENGTH_OF_CUT_MM = 1000.0
+DEFAULT_MAX_TURNING_DIAMETER_MM = 500.0
+DEFAULT_MAX_TURNING_DEPTH_OF_CUT_MM = 10.0
+DEFAULT_MAX_TURNING_LENGTH_OF_CUT_MM = 1000.0
 
 
 @dataclass(frozen=True)
@@ -34,10 +37,22 @@ class Configuration:
             depth/width of cut, in mm (FR-018).
         max_length_of_cut_mm: Maximum allowed milling length of cut, in mm
             (FR-018).
+        max_turning_diameter_mm: Maximum allowed turning workpiece diameter,
+            in mm (specs/019-turning-calculations FR-010). A distinct field
+            from ``max_diameter_mm``/``max_mill_diameter_mm``, following the
+            same per-operation-bound precedent those two already set.
+        max_turning_depth_of_cut_mm: Maximum allowed turning depth of cut,
+            in mm (FR-010). Deliberately much smaller than milling's
+            ``max_depth_of_cut_mm`` (50 mm): a single-point turning tool's
+            realistic depth of cut per pass is far shallower than a milling
+            cutter's, so the two bounds cannot share one field
+            (specs/019-turning-calculations research.md #3).
+        max_turning_length_of_cut_mm: Maximum allowed turning length of cut,
+            in mm (FR-010).
 
-    The milling bounds are generous sanity limits intended to catch typos
-    and unit mistakes, not machining recommendations; they are overridable
-    through the same optional TOML file as the drilling bounds
+    The milling and turning bounds are generous sanity limits intended to
+    catch typos and unit mistakes, not machining recommendations; they are
+    overridable through the same optional TOML file as the drilling bounds
     (specs/009-milling-calculations/research.md #8).
     """
 
@@ -46,6 +61,9 @@ class Configuration:
     max_mill_diameter_mm: float = DEFAULT_MAX_MILL_DIAMETER_MM
     max_depth_of_cut_mm: float = DEFAULT_MAX_DEPTH_OF_CUT_MM
     max_length_of_cut_mm: float = DEFAULT_MAX_LENGTH_OF_CUT_MM
+    max_turning_diameter_mm: float = DEFAULT_MAX_TURNING_DIAMETER_MM
+    max_turning_depth_of_cut_mm: float = DEFAULT_MAX_TURNING_DEPTH_OF_CUT_MM
+    max_turning_length_of_cut_mm: float = DEFAULT_MAX_TURNING_LENGTH_OF_CUT_MM
 
 
 def load_configuration(config_path: str | None = None) -> Configuration:
@@ -54,11 +72,13 @@ def load_configuration(config_path: str | None = None) -> Configuration:
     Args:
         config_path: Path to a TOML file with optional ``max_diameter_mm``,
             ``max_depth_mm``, ``max_mill_diameter_mm``,
-            ``max_depth_of_cut_mm`` and ``max_length_of_cut_mm`` keys — one
-            shared file for every operation's bounds, not one file per
-            operation (specs/009-milling-calculations FR-018). If ``None``
-            or the file does not exist, built-in defaults are used. If the
-            file exists but a key is missing, that key's default is used.
+            ``max_depth_of_cut_mm``, ``max_length_of_cut_mm``,
+            ``max_turning_diameter_mm``, ``max_turning_depth_of_cut_mm``,
+            and ``max_turning_length_of_cut_mm`` keys — one shared file for
+            every operation's bounds, not one file per operation
+            (specs/009-milling-calculations FR-018). If ``None`` or the
+            file does not exist, built-in defaults are used. If the file
+            exists but a key is missing, that key's default is used.
 
     Returns:
         A :class:`Configuration` with the effective bounds.
@@ -80,4 +100,13 @@ def load_configuration(config_path: str | None = None) -> Configuration:
         max_mill_diameter_mm=float(data.get("max_mill_diameter_mm", DEFAULT_MAX_MILL_DIAMETER_MM)),
         max_depth_of_cut_mm=float(data.get("max_depth_of_cut_mm", DEFAULT_MAX_DEPTH_OF_CUT_MM)),
         max_length_of_cut_mm=float(data.get("max_length_of_cut_mm", DEFAULT_MAX_LENGTH_OF_CUT_MM)),
+        max_turning_diameter_mm=float(
+            data.get("max_turning_diameter_mm", DEFAULT_MAX_TURNING_DIAMETER_MM)
+        ),
+        max_turning_depth_of_cut_mm=float(
+            data.get("max_turning_depth_of_cut_mm", DEFAULT_MAX_TURNING_DEPTH_OF_CUT_MM)
+        ),
+        max_turning_length_of_cut_mm=float(
+            data.get("max_turning_length_of_cut_mm", DEFAULT_MAX_TURNING_LENGTH_OF_CUT_MM)
+        ),
     )

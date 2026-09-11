@@ -23,11 +23,14 @@ already-shipped drilling flow (see
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import TypeVar
 
-from mfgparams.registry_config import RawRegistryEntry, RegistryConfigError, load_and_merge
+from mfgparams.registry_config import (
+    RawRegistryEntry,
+    load_and_merge,
+    require_positive_finite_field,
+)
 
 
 @dataclass(frozen=True)
@@ -93,39 +96,13 @@ def _to_tool(
     """
 
     source_path = entry.source_path or bundled_resource
-    try:
-        raw_factor = entry.fields["cutting_speed_factor"]
-    except KeyError as exc:
-        raise RegistryConfigError(
-            "error.materials_config.invalid_entry",
-            path=source_path,
-            kind=kind,
-            name=entry.name,
-            details="missing required field 'cutting_speed_factor'",
-        ) from exc
-
-    # TOML deserializes booleans as a bool subtype of int and quoted values
-    # as str; both would otherwise pass silently through float() (e.g.
-    # `true` -> 1.0, `"1.8"` -> 1.8), so reject them explicitly rather than
-    # accepting a mistyped config value as a valid multiplier.
-    if isinstance(raw_factor, bool) or not isinstance(raw_factor, (int, float)):
-        raise RegistryConfigError(
-            "error.materials_config.invalid_entry",
-            path=source_path,
-            kind=kind,
-            name=entry.name,
-            details=f"field 'cutting_speed_factor' must be a number, got {raw_factor!r}",
-        )
-    cutting_speed_factor = float(raw_factor)
-
-    if not math.isfinite(cutting_speed_factor) or cutting_speed_factor <= 0:
-        raise RegistryConfigError(
-            "error.materials_config.invalid_entry",
-            path=source_path,
-            kind=kind,
-            name=entry.name,
-            details="cutting_speed_factor must be positive",
-        )
+    cutting_speed_factor = require_positive_finite_field(
+        entry.fields,
+        "cutting_speed_factor",
+        source_path=source_path,
+        kind=kind,
+        name=entry.name,
+    )
 
     return tool_cls(
         name=entry.name,

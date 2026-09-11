@@ -96,14 +96,24 @@ def test_material_validate_rejects_non_positive_fields():
     )
 
 
-def test_tool_validate_rejects_non_positive_fields():
-    from mfgparams.processes.machining.drilling.tools import DrillingTool
-    from mfgparams.processes.machining.drilling.tools import _validate as validate_tool
+def test_tool_rejects_non_positive_fields(tmp_path):
+    """Reworked from a direct call into the (now-removed) private
+    ``_validate`` helper: validation moved into field extraction itself
+    (``registry_config.require_positive_finite_field``, shared with
+    milling's and turning's tool converters — Constitution Principle VI),
+    so this exercises the same rejection through the public ``get_tool``
+    entry point instead, exactly as the registry's other invalid-entry
+    tests already do."""
 
+    zero_speed = tmp_path / "zero_speed.toml"
+    zero_speed.write_text('[[tools]]\nname = "Bad"\ncutting_speed_factor = 0\nfeed_factor = 1.0\n')
     with pytest.raises(RegistryConfigError):
-        validate_tool(DrillingTool("Bad", 0, 1.0))
+        get_tool("Bad", str(zero_speed))
+
+    zero_feed = tmp_path / "zero_feed.toml"
+    zero_feed.write_text('[[tools]]\nname = "Bad"\ncutting_speed_factor = 1.0\nfeed_factor = 0\n')
     with pytest.raises(RegistryConfigError):
-        validate_tool(DrillingTool("Bad", 1.0, 0))
+        get_tool("Bad", str(zero_feed))
 
 
 def test_list_materials_zero_config_matches_expected_names_and_values():

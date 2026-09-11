@@ -149,6 +149,17 @@ def test_selecting_a_leaf_opens_the_corresponding_operation_screen():
     assert any(s[2] == "milling" and s[3] is True for s in snapshots)
 
 
+def test_selecting_turning_opens_its_floating_window_directly():
+    """specs/019-turning-calculations: Turning is a third flat leaf, below
+    Milling (row 0) and Drilling (row 1) -- two "j" presses reach it,
+    exercising the real keyboard-driven Application wiring end-to-end
+    (not just calling `_open_turning`/`rows_for` directly, which
+    test_tui_turning.py already covers)."""
+
+    snapshots = _drive(["m", "j", "j", "\r", "\x1b", "\x1b", "\x1b"])
+    assert any(s[2] == "turning" and s[3] is True for s in snapshots)
+
+
 def test_drilling_opens_on_unit_system_with_no_tree_shortcut_specific_field():
     """Drilling now opens with the same default `selected_field` as
     Milling (`UNIT_SYSTEM`) -- there is no more tree-shortcut-specific

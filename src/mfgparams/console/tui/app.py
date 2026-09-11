@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 
     from mfgparams.console.tui.screens.drilling import DrillingSessionState
     from mfgparams.console.tui.screens.milling import MillingSessionState
+    from mfgparams.console.tui.screens.turning import TurningSessionState
 
 
 # -- 018-tui-splitpane-redesign: UI-state entities (data-model.md) --------
@@ -78,6 +79,7 @@ class FieldId(Enum):
     FEED_PER_TOOTH = "feed_per_tooth"
     NUMBER_OF_TEETH = "number_of_teeth"
     LENGTH_OF_CUT = "length_of_cut"
+    DEPTH_OF_CUT = "depth_of_cut"
     TARGET_RPM = "target_rpm"
     AVAILABLE_POWER = "available_power"
 
@@ -131,8 +133,8 @@ class OperationScreen:
     the ordinary keyboard hint instead.
     """
 
-    operation: Literal["drilling", "milling"]
-    session_state: DrillingSessionState | MillingSessionState
+    operation: Literal["drilling", "milling", "turning"]
+    session_state: DrillingSessionState | MillingSessionState | TurningSessionState
     selected_field: FieldId
     field_buffer: str = ""
     status: str | None = None
@@ -157,6 +159,7 @@ class SessionUI:
     milling_states: dict[MillingSubOperation, MillingSessionState] = field(
         default_factory=lambda: _default_milling_states()
     )
+    turning_state: TurningSessionState = field(default_factory=lambda: _default_turning_state())
     locale: str = "en"
     materials_config_path: str | None = None
 
@@ -178,6 +181,16 @@ def _default_milling_states() -> dict[MillingSubOperation, MillingSessionState]:
     return {sub: MillingSessionState() for sub in MillingSubOperation}
 
 
+def _default_turning_state() -> TurningSessionState:
+    """Deferred import, mirroring `_default_drilling_state` -- turning has
+    no sub-operations, so (like drilling) this is a single state object,
+    not a dict keyed by sub-operation the way milling's is."""
+
+    from mfgparams.console.tui.screens.turning import TurningSessionState
+
+    return TurningSessionState()
+
+
 def _resolve_materials_config(materials_config_path: str | None, locale: str) -> None:
     """Validate ``materials_config_path`` once at startup. Ported unchanged
     from `console/cli.py`'s `_resolve_materials_config` (research.md #3):
@@ -187,7 +200,13 @@ def _resolve_materials_config(materials_config_path: str | None, locale: str) ->
     does nothing if ``materials_config_path`` is ``None``.
     """
 
-    from mfgparams import list_end_mill_tools, list_face_mill_tools, list_materials, list_tools
+    from mfgparams import (
+        list_end_mill_tools,
+        list_face_mill_tools,
+        list_materials,
+        list_tools,
+        list_turning_tools,
+    )
     from mfgparams.registry import materials_load_notice
 
     if materials_config_path is None:
@@ -198,6 +217,7 @@ def _resolve_materials_config(materials_config_path: str | None, locale: str) ->
         list_tools(config_path=materials_config_path)
         list_end_mill_tools(config_path=materials_config_path)
         list_face_mill_tools(config_path=materials_config_path)
+        list_turning_tools(config_path=materials_config_path)
     except RegistryConfigError as exc:
         print(_translate_core(locale, exc.message_key, **exc.kwargs))
         raise SystemExit(1) from exc
@@ -293,6 +313,29 @@ def _open_drilling(
     )
     ui.open_operation = screen
     rows = drilling.rows_for(screen, materials_config_path, ui.locale, display_locale)
+    split_pane.sync_buffer(rows, screen)
+    return screen
+
+
+def _open_turning(
+    ui: SessionUI, materials_config_path: str | None, display_locale: str
+) -> OperationScreen:
+    """Opens on Unit system by default, identical to Drilling/Milling
+    (FR-009's identical-pattern requirement). Structurally identical to
+    `_open_drilling` -- turning is a single-subtype process with no
+    sub-operation dict to key into (specs/019-turning-calculations
+    data-model.md "Structure Decision")."""
+
+    from mfgparams.console.tui.screens import split_pane, turning
+
+    assert ui.open_operation is None, "Turning opened while another operation was still open"
+    screen = OperationScreen(
+        operation="turning",
+        session_state=ui.turning_state,
+        selected_field=FieldId.UNIT_SYSTEM,
+    )
+    ui.open_operation = screen
+    rows = turning.rows_for(screen, materials_config_path, ui.locale, display_locale)
     split_pane.sync_buffer(rows, screen)
     return screen
 
@@ -417,7 +460,7 @@ def build_app(  # noqa: C901
     from mfgparams.console.i18n import translate
     from mfgparams.console.tui import forms, machining_menu
     from mfgparams.console.tui.menu import _assign_mnemonics, default_entries, render_menu_bar
-    from mfgparams.console.tui.screens import drilling, milling, split_pane
+    from mfgparams.console.tui.screens import drilling, milling, split_pane, turning
     from mfgparams.console.tui.screens.about import render_about
     from mfgparams.console.tui.screens.configuration import render_configuration
     from mfgparams.console.tui.screens.help import render_help
@@ -601,6 +644,8 @@ def build_app(  # noqa: C901
             return _pane_rows_cache_value
         if op.operation == "drilling":
             rows = drilling.rows_for(op, materials_config_path, ui.locale, display_locale)
+        elif op.operation == "turning":
+            rows = turning.rows_for(op, materials_config_path, ui.locale, display_locale)
         else:
             rows = milling.rows_for(ui, op, materials_config_path, ui.locale, display_locale)
         _pane_rows_cache_key = cache_key
@@ -630,6 +675,10 @@ def build_app(  # noqa: C901
             return drilling.calculate_result(
                 cast("DrillingSessionState", op.session_state), materials_config_path, ui.locale
             )
+        if op.operation == "turning":
+            return turning.calculate_result(
+                cast("TurningSessionState", op.session_state), materials_config_path, ui.locale
+            )
         return milling.calculate_result(
             ui, cast("MillingSessionState", op.session_state), materials_config_path, ui.locale
         )
@@ -638,9 +687,11 @@ def build_app(  # noqa: C901
         op = ui.open_operation
         assert op is not None
         labels = forms.UNIT_LABELS[op.session_state.unit_system]
-        placeholder_key = (
-            "tui.drilling.placeholder" if op.operation == "drilling" else "tui.milling.placeholder"
-        )
+        placeholder_key = {
+            "drilling": "tui.drilling.placeholder",
+            "milling": "tui.milling.placeholder",
+            "turning": "tui.turning.placeholder",
+        }[op.operation]
         return split_pane.render_right_pane(
             _current_pane_rows(),
             op,
@@ -680,7 +731,11 @@ def build_app(  # noqa: C901
         # simply correct here, not a mismatch to work around.)
         op = ui.open_operation
         assert op is not None
-        key = "tui.drilling.title" if op.operation == "drilling" else "tui.milling.title"
+        key = {
+            "drilling": "tui.drilling.title",
+            "milling": "tui.milling.title",
+            "turning": "tui.turning.title",
+        }[op.operation]
         return translate(ui.locale, key)
 
     # FR-004 (revised via `/speckit-clarify`, reopened after implementation,
@@ -875,6 +930,8 @@ def build_app(  # noqa: C901
         row = rows[view.tree_selected]
         if row.action == "open_milling":
             _open_milling(ui, materials_config_path, display_locale)
+        elif row.action == "open_turning":
+            _open_turning(ui, materials_config_path, display_locale)
         else:
             _open_drilling(ui, materials_config_path, display_locale)
         app.layout.focus(left_control)

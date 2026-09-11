@@ -19,7 +19,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from mfgparams.registry_config import RawRegistryEntry, RegistryConfigError, load_and_merge
+from mfgparams.registry_config import (
+    RawRegistryEntry,
+    load_and_merge,
+    require_positive_finite_field,
+)
 
 _BUNDLED_PACKAGE = "mfgparams.processes.machining.drilling.data"
 _BUNDLED_RESOURCE = "tools.toml"
@@ -68,62 +72,32 @@ class DrillingTool:
         return self.translations.get(locale, self.name)
 
 
-def _validate(tool: DrillingTool, source_path: str = _BUNDLED_RESOURCE) -> None:
-    """Validate ``tool``'s numeric fields, raising ``RegistryConfigError`` if invalid.
-
-    Args:
-        source_path: The bundled resource name or user-supplied path this
-            tool was parsed from (``RawRegistryEntry.source_path``), used
-            to report an accurate error location (FR-007) rather than
-            always pointing at the bundled file.
-    """
-
-    if tool.cutting_speed_factor <= 0:
-        raise RegistryConfigError(
-            "error.materials_config.invalid_entry",
-            path=source_path,
-            kind="tool",
-            name=tool.name,
-            details="cutting_speed_factor must be positive",
-        )
-    if tool.feed_factor <= 0:
-        raise RegistryConfigError(
-            "error.materials_config.invalid_entry",
-            path=source_path,
-            kind="tool",
-            name=tool.name,
-            details="feed_factor must be positive",
-        )
-
-
 def _to_tool(entry: RawRegistryEntry) -> DrillingTool:
     """Convert a merged :class:`RawRegistryEntry` into a `DrillingTool`.
 
     No unit conversion is performed regardless of ``entry.unit_system`` —
     ``cutting_speed_factor``/``feed_factor`` are dimensionless (research.md
     #5) — the declared unit system is stored/displayed only.
+
+    Raises:
+        RegistryConfigError: If a required factor field is missing,
+            non-numeric (including a TOML boolean or a quoted numeric
+            string), non-finite, or not positive — via
+            :func:`~mfgparams.registry_config.require_positive_finite_field`,
+            shared with milling's and turning's own tool converters
+            (Constitution Principle VI) rather than re-implemented here.
+            The reported path is the entry's own ``source_path`` so a
+            user-supplied file is blamed accurately rather than the
+            bundled file (FR-007).
     """
 
-    values: dict[str, float] = {}
-    for toml_key, dataclass_field in _FIELD_MAP.items():
-        try:
-            values[dataclass_field] = float(entry.fields[toml_key])
-        except KeyError as exc:
-            raise RegistryConfigError(
-                "error.materials_config.invalid_entry",
-                path=entry.source_path or _BUNDLED_RESOURCE,
-                kind="tool",
-                name=entry.name,
-                details=f"missing required field {toml_key!r}",
-            ) from exc
-        except (TypeError, ValueError) as exc:
-            raise RegistryConfigError(
-                "error.materials_config.invalid_entry",
-                path=entry.source_path or _BUNDLED_RESOURCE,
-                kind="tool",
-                name=entry.name,
-                details=f"field {toml_key!r} must be a number, got {entry.fields[toml_key]!r}",
-            ) from exc
+    source_path = entry.source_path or _BUNDLED_RESOURCE
+    values = {
+        dataclass_field: require_positive_finite_field(
+            entry.fields, toml_key, source_path=source_path, kind="tool", name=entry.name
+        )
+        for toml_key, dataclass_field in _FIELD_MAP.items()
+    }
 
     tool = DrillingTool(
         name=entry.name,
@@ -132,7 +106,6 @@ def _to_tool(entry: RawRegistryEntry) -> DrillingTool:
         unit_system=entry.unit_system,
         translations=dict(entry.translations),
     )
-    _validate(tool, entry.source_path or _BUNDLED_RESOURCE)
     return tool
 
 

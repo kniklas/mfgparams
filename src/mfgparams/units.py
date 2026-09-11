@@ -8,6 +8,8 @@ and convert metric results to imperial for display/output when
 
 from __future__ import annotations
 
+import math
+
 from mfgparams.models import UnitSystem
 
 MM_PER_INCH = 25.4
@@ -15,6 +17,7 @@ CM3_PER_IN3 = 16.387064
 NM_PER_IN_LB = 1.0 / 8.850745791327185
 HP_PER_KW = 1.3410220895
 M_PER_FT = 0.3048
+N_PER_LBF = 4.4482216152605  # exact, by the international pound-force definition
 PSI_PER_MPA = 145.037738  # N/mm^2 == MPa (specs/005-configurable-materials-tools/research.md #5)
 
 
@@ -59,6 +62,38 @@ def to_metric_length(value: float, unit_system: UnitSystem) -> float:
         # either way, so the validators still reject it with the documented
         # bound error instead of the conversion raising.
         return value
+
+
+def to_metric_power(value: float, unit_system: UnitSystem) -> float:
+    """Convert a power input to canonical kW when the caller used imperial.
+
+    Non-numeric, ``None``, and ``bool`` values are passed through
+    unconverted, mirroring :func:`to_metric_length`'s identical guard
+    (issue #56) — downstream ``_is_positive_finite_number``-based
+    validators reject them with a structured error instead of this call
+    raising ``TypeError``.
+
+    Unlike :func:`to_metric_length`, an int too large to convert to a C
+    double is mapped to ``math.inf`` rather than returned unconverted:
+    available power has no configured upper bound for a downstream
+    validator to reject it with (unlike diameter/depth), so an
+    unconverted huge int would itself raise ``OverflowError`` the next
+    time it is divided (e.g. power-constrained mode's
+    ``available_power_kw / power_kw`` algebra). ``math.inf`` is the
+    mathematically sensible value for an unrepresentably large power
+    budget — "effectively infinite power available" — and is safe in
+    every downstream comparison/division (Copilot review finding on
+    specs/019-turning-calculations PR #100).
+    """
+
+    if unit_system is not UnitSystem.IMPERIAL:
+        return value
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    try:
+        return hp_to_kw(value)
+    except OverflowError:
+        return math.inf
 
 
 def cm3_min_to_in3_min(value_cm3_min: float) -> float:
@@ -144,3 +179,19 @@ def n_per_mm2_to_psi(value_n_per_mm2: float) -> float:
     """
 
     return value_n_per_mm2 * PSI_PER_MPA
+
+
+def n_to_lbf(value_n: float) -> float:
+    """Convert newtons to pounds-force (lbf).
+
+    Used to report turning's cutting force under ``UnitSystem.IMPERIAL``
+    (specs/019-turning-calculations data-model.md).
+    """
+
+    return value_n / N_PER_LBF
+
+
+def lbf_to_n(value_lbf: float) -> float:
+    """Convert pounds-force (lbf) to newtons; the inverse of :func:`n_to_lbf`."""
+
+    return value_lbf * N_PER_LBF

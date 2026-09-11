@@ -22,6 +22,7 @@ from mfgparams import (
     list_material_types,
     list_materials,
     list_tools,
+    list_turning_tools,
 )
 from mfgparams.console.i18n import translate
 from mfgparams.console.tui import forms
@@ -99,6 +100,17 @@ def render_configuration(
                 locale,
                 "tui.configuration.section.face_mill_tools",
                 items=", ".join(list_face_mill_tools(config_path=materials_config_path)) or "-",
+            )
+            + "\n",
+        )
+    )
+    fragments.append(
+        (
+            "",
+            translate(
+                locale,
+                "tui.configuration.section.turning_tools",
+                items=", ".join(list_turning_tools(config_path=materials_config_path)) or "-",
             )
             + "\n",
         )

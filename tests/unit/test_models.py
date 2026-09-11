@@ -19,7 +19,7 @@ def test_machining_operation_values_are_pinned():
 
 
 def test_machining_operation_has_no_extra_members():
-    assert [member.name for member in MachiningOperation] == ["DRILLING", "MILLING"]
+    assert [member.name for member in MachiningOperation] == ["DRILLING", "MILLING", "TURNING"]
 
 
 def test_milling_sub_operation_values_are_pinned():

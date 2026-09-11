@@ -161,6 +161,7 @@ def test_wheel_contains_bundled_materials_and_tools_toml(built_wheel):
         "mfgparams/processes/machining/drilling/data/tools.toml",
         "mfgparams/processes/machining/milling/end_milling/data/tools.toml",
         "mfgparams/processes/machining/milling/face_milling/data/tools.toml",
+        "mfgparams/processes/machining/turning/data/tools.toml",
     }
     missing = expected - names
     assert (

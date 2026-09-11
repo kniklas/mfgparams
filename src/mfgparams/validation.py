@@ -366,6 +366,145 @@ def validate_mill_tool_present(tool: str | None, locale: str = DEFAULT_LOCALE) -
     return None
 
 
+def validate_turning_diameter_mm(
+    diameter_mm: float, config: Configuration, locale: str = DEFAULT_LOCALE
+) -> ErrorInfo | None:
+    """Validate a turning workpiece diameter (in mm).
+
+    Mirrors :func:`validate_mill_diameter_mm`'s shape: reuses drilling's
+    ``INVALID_DIAMETER`` code but checks the turning-specific
+    ``max_turning_diameter_mm`` bound rather than drilling's
+    ``max_diameter_mm`` or milling's ``max_mill_diameter_mm``
+    (specs/019-turning-calculations FR-010).
+    """
+
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
+    if not _is_positive_finite_number(diameter_mm):
+        return ErrorInfo(
+            "INVALID_DIAMETER",
+            translate(locale, "error.invalid_turning_diameter.zero"),
+            message_key="error.invalid_turning_diameter.zero",
+        )
+    if diameter_mm > config.max_turning_diameter_mm:
+        return ErrorInfo(
+            "INVALID_DIAMETER",
+            translate(
+                locale,
+                "error.invalid_turning_diameter.max",
+                max_turning_diameter_mm=config.max_turning_diameter_mm,
+            ),
+            message_key="error.invalid_turning_diameter.max",
+            kwargs=(("max_turning_diameter_mm", config.max_turning_diameter_mm),),
+        )
+    return None
+
+
+def validate_turning_depth_of_cut_mm(
+    depth_of_cut_mm: float,
+    diameter_mm: float,
+    config: Configuration,
+    locale: str = DEFAULT_LOCALE,
+) -> ErrorInfo | None:
+    """Validate a turning depth of cut (in mm) (specs/019-turning-calculations FR-010).
+
+    Three checks, all returning the same ``INVALID_DEPTH_OF_CUT`` code
+    (one code, multiple message templates, per ``ErrorInfo.code``'s own
+    documented contract): positive/finite, within the turning-specific
+    ``max_turning_depth_of_cut_mm`` bound, and strictly less than the
+    workpiece radius (``diameter_mm / 2``) — a depth of cut at or beyond
+    the radius is physically impossible (spec.md Edge Cases). The radius
+    check runs only once ``diameter_mm`` is itself known to be a positive,
+    finite number, so a simultaneously-invalid diameter is reported as
+    ``INVALID_DIAMETER`` by :func:`validate_turning_diameter_mm` rather than
+    surfacing a confusing radius comparison against a bad value.
+    """
+
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
+    if not _is_positive_finite_number(depth_of_cut_mm):
+        return ErrorInfo(
+            "INVALID_DEPTH_OF_CUT",
+            translate(locale, "error.invalid_turning_depth_of_cut.zero"),
+            message_key="error.invalid_turning_depth_of_cut.zero",
+        )
+    if depth_of_cut_mm > config.max_turning_depth_of_cut_mm:
+        return ErrorInfo(
+            "INVALID_DEPTH_OF_CUT",
+            translate(
+                locale,
+                "error.invalid_turning_depth_of_cut.max",
+                max_turning_depth_of_cut_mm=config.max_turning_depth_of_cut_mm,
+            ),
+            message_key="error.invalid_turning_depth_of_cut.max",
+            kwargs=(("max_turning_depth_of_cut_mm", config.max_turning_depth_of_cut_mm),),
+        )
+    if _is_positive_finite_number(diameter_mm) and depth_of_cut_mm >= diameter_mm / 2:
+        radius_mm = diameter_mm / 2
+        return ErrorInfo(
+            "INVALID_DEPTH_OF_CUT",
+            translate(
+                locale,
+                "error.invalid_turning_depth_of_cut.exceeds_radius",
+                radius_mm=radius_mm,
+            ),
+            message_key="error.invalid_turning_depth_of_cut.exceeds_radius",
+            kwargs=(("radius_mm", radius_mm),),
+        )
+    return None
+
+
+def validate_turning_length_of_cut_mm(
+    length_of_cut_mm: float, config: Configuration, locale: str = DEFAULT_LOCALE
+) -> ErrorInfo | None:
+    """Validate a turning length of cut (in mm) (specs/019-turning-calculations FR-010).
+
+    Reuses milling's existing ``INVALID_LENGTH_OF_CUT`` code and message
+    templates verbatim (``error.invalid_length_of_cut.zero``/``.max``) —
+    only the checked bound differs, via the turning-specific
+    ``max_turning_length_of_cut_mm`` field rather than milling's shared
+    ``max_length_of_cut_mm`` (research.md #3).
+    """
+
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
+    if not _is_positive_finite_number(length_of_cut_mm):
+        return ErrorInfo(
+            "INVALID_LENGTH_OF_CUT",
+            translate(locale, "error.invalid_length_of_cut.zero"),
+            message_key="error.invalid_length_of_cut.zero",
+        )
+    if length_of_cut_mm > config.max_turning_length_of_cut_mm:
+        return ErrorInfo(
+            "INVALID_LENGTH_OF_CUT",
+            translate(
+                locale,
+                "error.invalid_length_of_cut.max",
+                max_length_of_cut_mm=config.max_turning_length_of_cut_mm,
+            ),
+            message_key="error.invalid_length_of_cut.max",
+            kwargs=(("max_length_of_cut_mm", config.max_turning_length_of_cut_mm),),
+        )
+    return None
+
+
+def validate_turning_tool_present(
+    tool: str | None, locale: str = DEFAULT_LOCALE
+) -> ErrorInfo | None:
+    """Validate that a turning tool name was supplied (non-empty).
+
+    Mirrors :func:`validate_mill_tool_present`: drilling's
+    ``validate_tool_present`` wording names a *drilling* tool specifically,
+    so turning needs its own message the same way milling already does.
+    """
+
+    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
+    if not tool:
+        return ErrorInfo(
+            "MISSING_TOOL",
+            translate(locale, "error.missing_turning_tool"),
+            message_key="error.missing_turning_tool",
+        )
+    return None
+
+
 def validate_target_rpm(target_rpm: float | None, locale: str = DEFAULT_LOCALE) -> ErrorInfo | None:
     """Validate a supplied target spindle RPM (fixed-RPM mode, FR-007).
 
@@ -379,18 +518,22 @@ def validate_target_rpm(target_rpm: float | None, locale: str = DEFAULT_LOCALE) 
     value (not supplied) is not an error here — callers decide whether a
     missing ``target_rpm`` is itself an error (e.g. required in fixed-RPM
     mode) via :func:`validate_mode_arguments`.
+
+    Delegates to :func:`_is_positive_finite_number` (Copilot review
+    finding on specs/019-turning-calculations PR #100): an inline
+    ``math.isfinite(target_rpm)`` call here previously raised
+    ``OverflowError`` for an arbitrary-precision Python ``int`` too large
+    to convert to a C double (e.g. ``target_rpm=10**1000``), reaching
+    every caller (drilling, milling, and turning all share this
+    function) instead of the documented ``INVALID_TARGET_RPM`` result —
+    the exact class of bug ``_is_positive_finite_number`` already exists
+    to prevent for every other dimensional input.
     """
 
     locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if target_rpm is None:
         return None
-    if not isinstance(target_rpm, (int, float)) or isinstance(target_rpm, bool):
-        return ErrorInfo(
-            "INVALID_TARGET_RPM",
-            translate(locale, "error.invalid_target_rpm"),
-            message_key="error.invalid_target_rpm",
-        )
-    if not math.isfinite(target_rpm) or target_rpm <= 0:
+    if not _is_positive_finite_number(target_rpm):
         return ErrorInfo(
             "INVALID_TARGET_RPM",
             translate(locale, "error.invalid_target_rpm"),
