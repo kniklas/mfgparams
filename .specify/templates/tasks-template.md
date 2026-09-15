@@ -167,9 +167,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
-- [ ] TXXX **REQUIRED (Constitution Principle XIII)** Manually verify [feature] against a real
-      terminal/display or the cited external reference (see note below) — not satisfied by a
-      passing automated test suite alone
+- [ ] TXXX **REQUIRED (Constitution Principle XIII)** Manually verify [feature] against a real terminal/display, or against the reference artifact cited in research.md/spec.md (see NOTE below) — not satisfied by automated tests alone
 
 > **NOTE (Principle XIII, both apply where relevant — do not drop either when adapting the
 > task above)**: (1) Interactive console/TUI/GUI surface — verify against a real

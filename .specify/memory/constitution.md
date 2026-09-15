@@ -6,13 +6,16 @@ Modified principles: none redefined.
 Added sections:
   - Principle XIII (Manual Verification for Interactive & Reference-Fidelity Features,
     NON-NEGOTIABLE) — new principle. First bullet: a feature whose correctness depends on
-    how it looks/behaves to a human (an interactive console/TUI or GUI surface) MUST NOT be
-    marked complete on automated tests alone — `tasks.md` MUST carry a distinct, named
-    manual-walkthrough item (developer/reviewer-performed when the agent has no real
-    terminal/display access), e.g. walking `quickstart.md` against a real terminal/display,
-    separate from test tasks; a passing
-    test suite MUST NOT be treated as evidence a rendering/interaction detail (color,
-    position, focus highlighting, shading, layout) is correct. Second bullet: a claim that
+    how it looks/behaves to a human (an interactive console/TUI or GUI surface), OR that
+    claims to match an external reference exactly (a non-interactive reference-fidelity
+    case), MUST NOT be marked complete on automated tests alone — `tasks.md` MUST carry a
+    distinct, named manual-verification task for either case, separate from test tasks. For
+    the interactive case this MUST be developer/reviewer-performed (the agent has no real
+    terminal/display access), e.g. walking `quickstart.md` against a real terminal/display;
+    for the reference-fidelity case the agent MAY perform it itself by directly comparing
+    output against the cited artifact. A passing test suite MUST NOT be treated as evidence a
+    rendering/interaction detail (color, position, focus highlighting, shading, layout) is
+    correct. Second bullet: a claim that
     reference material a feature must match (a prototype, mockup, screenshot, prior
     discarded code) is unavailable/lost/superseded MUST be verified against the actual
     current filesystem/repository state when written, not carried forward from a prior
@@ -21,6 +24,10 @@ Added sections:
 Expanded sections: Development Workflow (Review Process) — reviewer checklist gains item (5),
   requiring confirmation that a Principle XIII manual-verification task was actually completed
   (see Correction 5 below for why this item exists but was missing from this line originally).
+  Governance — the amendment-propagation paragraph was substantially rewritten to correctly
+  distinguish `.specify/templates/*` (hand-edited customization points) from generated
+  per-agent instruction files (never hand-patched, and not reconciled by local edits either);
+  see Correction 2 below.
 Removed sections: none
 Rationale: specs/018-tui-splitpane-redesign needed two full implementation passes rejected
   outright by the user before a third, prototype-fidelity rewrite finally matched, plus 8
@@ -122,6 +129,40 @@ Correction 6 (same PR, before merge - not a separate version bump): the required
   caught both; the task is now a single compliant checklist line, with the two-case detail
   moved into an adjacent NOTE (not itself a checklist item, so not subject to the single-line
   rule) that the EXCEPTION carve-out above now also names explicitly as required to keep.
+Correction 7 (same PR, before merge - not a separate version bump): Correction 6's fix still
+  soft-wrapped the checklist line across three physical lines in the template source, and
+  omitted anything resembling the "exact file path" every other example in
+  `.github/agents/speckit.tasks.agent.md`'s Checklist Format section carries. Copilot review
+  on this PR (round 2) caught it: as the one sample this template requires to survive
+  generation verbatim, a malformed physical layout could propagate. Reformatted to one true
+  physical line, pointing to the feature's quickstart.md/spec.md reference artifact in place
+  of a source-file path, since this task verifies against a reference rather than edits a file.
+Correction 8 (same PR, before merge - not a separate version bump): Correction 7's fix pointed
+  to "quickstart.md/spec.md" for a feature's reference-fidelity citation, but this repo's own
+  precedent (specs/009-milling-calculations/research.md:144, a manufacturer's cutting-data
+  chart citation) and `.github/agents/speckit.tasks.agent.md`'s own doc-mapping ("research.md
+  (decisions)" vs. "quickstart.md (test scenarios)") place that kind of citation in
+  research.md, not quickstart.md. A local code-review pass caught it; changed to point to
+  research.md/spec.md instead.
+Correction 9 (same PR, before merge - not a separate version bump): two more self-consistency
+  gaps, caught by a local code-review pass. (a) Principle XIII's first bullet (above) said
+  every manual-verification task "MUST be... performed by the developer or a reviewer, since a
+  coding agent without access to a real terminal/display cannot perform it itself" — true for
+  the interactive case, but not for the non-interactive reference-fidelity case, which
+  tasks-template.md's own NOTE (case 2, added by Correction 4) already lets an agent perform by
+  directly comparing against the cited artifact; the two, both edited in this same PR, had
+  disagreed on who may execute case-2 verification. The bullet now scopes the human-only
+  requirement to the interactive case and states the agent-permitted path for the
+  reference-fidelity case explicitly. (b) This report's "Expanded sections" line named only
+  the Development Workflow checklist change and omitted the Governance section's own rewrite
+  (Correction 2) — the same reporting gap Corrections 1 and 5 already caught twice; now named.
+Correction 10 (same PR, before merge - not a separate version bump): the "Added sections"
+  summary of Principle XIII's first bullet, at the top of this report, described the tasks.md
+  manual-verification requirement as applying only to the interactive console/TUI/GUI case,
+  omitting that it applies equally to the non-interactive reference-fidelity case — the same
+  omission Correction 4 already had to fix once in tasks-template.md itself, now recurring in
+  this report's own summary. A local code-review pass caught it; the summary now states both
+  cases and each one's performer rule, matching Correction 9(a)'s principle-text fix.
 -->
 
 <!--
@@ -684,12 +725,17 @@ MUST NOT be marked complete on the strength of automated tests alone.
 - `tasks.md` MUST carry at least one distinct, explicitly-named manual-verification task for
   such a feature (e.g., "manually walk `quickstart.md` Scenario N against a real terminal/
   display"), separate from and in addition to its automated test tasks; that task MUST be
-  completed — performed by the developer or a reviewer, since a coding agent without access
-  to a real terminal/display cannot perform it itself — before the feature's implementation
-  phase is considered done. A fully passing automated test suite MUST NOT be treated as
-  evidence that a rendering or interaction detail (color, position, focus highlighting,
-  shading, spacing/layout, or any other property the project's test strategy does not
-  directly assert against) is correct, when that test strategy cannot observe it.
+  completed before the feature's implementation phase is considered done. For the interactive
+  console/TUI/GUI case, this MUST be performed by the developer or a reviewer, since a coding
+  agent without access to a real terminal/display cannot observe color, position, focus
+  highlighting, shading, or spacing/layout itself. For the non-interactive reference-fidelity
+  case, the implementing agent MAY perform this task itself, provided it directly reads and
+  compares against the cited reference artifact rather than relying on a prior paraphrase or
+  its own memory of that artifact's content — the constraint this bullet's second point below
+  exists to enforce, not the absence of a terminal. A fully passing automated test suite MUST
+  NOT be treated as evidence that a rendering or interaction detail (color, position, focus
+  highlighting, shading, spacing/layout, or any other property the project's test strategy
+  does not directly assert against) is correct, when that test strategy cannot observe it.
 - When a spec, plan, or clarification session asserts that reference material a feature must
   match (a prototype, a mockup, a screenshot, prior discarded code) is unavailable, lost, or
   superseded, that claim MUST be verified against the actual current filesystem/repository
