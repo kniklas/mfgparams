@@ -42,6 +42,13 @@ description: "Task list template for feature implementation"
   - Delivered as an MVP increment
 
   DO NOT keep these sample tasks in the generated tasks.md file.
+
+  EXCEPTION: the Polish-phase task below marked "REQUIRED (Constitution Principle XIII)" is
+  not illustrative. For any feature whose correctness depends on how it looks or behaves to
+  a human (an interactive console/TUI or GUI surface), /speckit.tasks MUST still emit an
+  equivalent named manual-verification task in the generated tasks.md — reworded for the
+  actual feature, but not dropped — even though every other sample task in this file is
+  freely discarded.
   ============================================================================
 -->
 
@@ -157,13 +164,13 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
-- [ ] TXXX Manually verify [feature] against a real terminal/display, not just the automated
-      suite — REQUIRED, as its own named task (not folded into "Run quickstart.md
-      validation" above), for any feature whose correctness depends on how it looks or
-      behaves to a human (an interactive console/TUI or GUI surface): color, position,
-      focus highlighting, shading, spacing/layout, or any other property this project's
-      test strategy does not directly assert against (Constitution Principle XIII). A
-      passing test suite does not satisfy this task. If the implementing agent has no
+- [ ] TXXX **REQUIRED (Constitution Principle XIII)**: Manually verify [feature] against a
+      real terminal/display, not just the automated suite — as its own named task (not
+      folded into "Run quickstart.md validation" above), for any feature whose correctness
+      depends on how it looks or behaves to a human (an interactive console/TUI or GUI
+      surface): color, position, focus highlighting, shading, spacing/layout, or any other
+      property this project's test strategy does not directly assert against. A passing
+      test suite does not satisfy this task. If the implementing agent has no
       access to a real terminal/display, this task MUST be completed by the developer or a
       reviewer before the feature is considered done — leave it unchecked and say so rather
       than marking it complete on the agent's behalf.

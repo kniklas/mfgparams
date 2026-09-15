@@ -9,7 +9,8 @@ Added sections:
     how it looks/behaves to a human (an interactive console/TUI or GUI surface) MUST NOT be
     marked complete on automated tests alone — `tasks.md` MUST carry a distinct, named
     manual-walkthrough item (developer/reviewer-performed when the agent has no real
-    terminal/display access) covering `quickstart.md`, separate from test tasks; a passing
+    terminal/display access), e.g. walking `quickstart.md` against a real terminal/display,
+    separate from test tasks; a passing
     test suite MUST NOT be treated as evidence a rendering/interaction detail (color,
     position, focus highlighting, shading, layout) is correct. Second bullet: a claim that
     reference material a feature must match (a prototype, mockup, screenshot, prior
@@ -40,23 +41,48 @@ MINOR rather than PATCH: this is new, materially expanded guidance — an explic
   verification gate and a reference-material-verification requirement did not exist in any
   prior version — not a wording clarification of existing guidance.
 Templates requiring updates:
-  ⚠️ .specify/templates/tasks-template.md (SHOULD gain a named manual-verification task slot
-     for interactive/rendering features, distinct from test tasks — not applied in this
-     constitution-only change per the Scope Guard; tracked as a Next Action below)
+  OK .specify/templates/tasks-template.md (gained a named, REQUIRED manual-verification task
+     slot in the Polish phase for interactive/rendering features, distinct from test tasks.
+     `/speckit-constitution`'s own Scope Guard did not do this — its automated scope stays
+     limited to this file — so it was done as a separate, explicit hand-edit alongside the
+     constitution edit in this same PR. That is the Governance section's "explicit follow-up
+     step" (deliberate, verified action) rather than the "assumed to happen automatically"
+     case that sentence rules out; it is not one of the generated per-agent artifacts
+     Principle XI forbids hand-patching (`.claude/skills/*`, `.github/agents/*`, etc.) —
+     tasks-template.md is a hand-authored Spec Kit customization point)
   OK .specify/templates/plan-template.md (no changes needed — Constitution Check section
      already surfaces any principle by name during `/speckit-plan`)
   OK .specify/templates/spec-template.md (no changes needed)
   OK .github/copilot-instructions.md (no changes needed — does not enumerate principles)
-Propagation: NOT done in this change (Scope Guard: this command's scope is this file alone).
-  See Next Actions in the completion report for the deferred, non-governance follow-up work
-  this amendment implies (tasks-template.md, a possible `/speckit-clarify`/`/speckit-plan`
-  checklist item for reference-material verification, and a possible design-before-build
-  step for net-new UI surfaces with no existing exact reference).
+Propagation: tasks-template.md updated in this same change (see above). Still deferred, as a
+  separate future decision (not tracked as a Next Action of this amendment specifically): a
+  possible `/speckit-clarify`/`/speckit-plan` checklist item for reference-material
+  verification, and a possible design-before-build step for net-new UI surfaces with no
+  existing exact reference — both flagged as options by the PR-96 retrospective and left
+  open.
 Follow-up TODOs:
   - Run /speckit-analyze (or an equivalent cross-artifact consistency check) against a
     representative in-flight spec per the Governance section's amendment-propagation
     requirement — not run here since this introduces a new governance principle with no
     directly affected feature spec/plan/tasks of its own yet.
+Correction (same PR, before merge - not a separate version bump): the Templates requiring
+  updates / Propagation text above originally (as first pushed on this PR) said the
+  tasks-template.md slot was not yet applied and was tracked as a future Next Action; it was
+  in fact applied in the same commit, and the report was inaccurate about its own change. A
+  local code-review pass caught the mismatch before merge; corrected in place per the same
+  precedent as the v1.11.0 amendment's own correction note above, since this is still the
+  v1.12.0 draft landing, not a change to an already-released version.
+Correction 2 (same PR, before merge - not a separate version bump): the Governance section's
+  paragraph on propagating amendments (pre-existing text, not otherwise touched by this
+  amendment) stated that both `.specify/templates/*` and generated per-agent instruction
+  files "remain generated artifacts of the Spec Kit integration mechanism, never hand-patched
+  directly (Principle XI)", then two sentences later instructed reconciling
+  `.specify/templates/*` content manually — a direct self-contradiction, and also a
+  misstatement of Principle XI itself, which (see its own text above) designates
+  `.specify/templates/*` as a customization point meant to be hand-patched and restricts only
+  generated per-agent files. A local code-review pass on this PR caught it while reviewing
+  this same paragraph's applicability to the tasks-template.md edit above; corrected in place
+  to match Principle XI, under the same before-merge precedent as Correction 1.
 -->
 
 <!--
@@ -696,13 +722,18 @@ require: (1) a documented rationale for the change, (2) a version bump per the p
 and (3) propagation of any dependent changes to `.specify/templates/*` and agent guidance
 files, verified as an explicit follow-up step rather than assumed to happen automatically
 within the amending change itself. Spec Kit's own `/speckit-constitution` command
-deliberately limits its own scope to this file alone (its "Scope Guard") and does not
-propagate changes into dependent templates or agent guidance — those remain generated
-artifacts of the Spec Kit integration mechanism, never hand-patched directly (Principle XI).
+deliberately limits its own scope to this file alone (its "Scope Guard") and does not itself
+propagate changes into either kind of dependent file — but the two kinds are reconciled
+differently, per Principle XI: `.specify/templates/*` (and `.specify/extensions.yml` hooks)
+are designated customization points and MUST be reconciled by a manual, hand-authored edit,
+same as this file; generated per-agent instruction files (`.github/agents/`, `.claude/skills/`,
+and any future integration's equivalent) are never hand-patched directly and are instead
+reconciled by running `specify integration upgrade` against the updated customization points.
 Concretely: after amending this constitution, run `/speckit-analyze` (or an equivalent
 cross-artifact consistency check) against any affected or representative spec before
-considering the amendment complete, and reconcile `.specify/templates/*`/agent guidance
-content manually if it no longer matches.
+considering the amendment complete; hand-edit `.specify/templates/*` content that no longer
+matches, and run `specify integration upgrade` for any per-agent file that needs to pick up
+the change.
 
 Versioning policy (semantic versioning applied to governance):
 - MAJOR: Backward-incompatible removal or redefinition of a principle.
