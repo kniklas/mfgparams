@@ -42,6 +42,16 @@ description: "Task list template for feature implementation"
   - Delivered as an MVP increment
 
   DO NOT keep these sample tasks in the generated tasks.md file.
+
+  EXCEPTION: the Polish-phase task below marked "REQUIRED (Constitution Principle XIII)",
+  together with the NOTE immediately following it, is not illustrative. For any feature whose
+  correctness depends on how it looks or behaves to a human (an interactive console/TUI or
+  GUI surface), OR that claims to match an external reference exactly (a non-interactive
+  reference-fidelity case), /speckit.tasks MUST still emit an equivalent named
+  manual-verification task in the generated tasks.md, worded to fit the single-line Checklist
+  Format the tasks-generation instructions require — reworded for the actual feature, and
+  covering whichever of the NOTE's two cases actually applies, but not dropped — even though
+  every other sample task in this file is freely discarded.
   ============================================================================
 -->
 
@@ -157,6 +167,19 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
+- [ ] TXXX **REQUIRED (Constitution Principle XIII)** Manually verify [feature] against a real terminal/display, or against the reference artifact cited in research.md/spec.md (see NOTE below) — not satisfied by automated tests alone
+
+> **NOTE (Principle XIII, both apply where relevant — do not drop either when adapting the
+> task above)**: (1) Interactive console/TUI/GUI surface — verify against a real
+> terminal/display: color, position, focus highlighting, shading, spacing/layout, or any
+> other property this project's test strategy does not directly assert against. If the
+> implementing agent has no access to a real terminal/display, this task MUST be completed by
+> the developer or a reviewer before the feature is considered done — leave it unchecked and
+> say so rather than marking it complete on the agent's behalf. (2) Non-interactive
+> reference-fidelity claim (e.g. matching a manufacturer's published table, a file format
+> spec, or another exact external reference) — verify by directly comparing the
+> implementation's output against the cited reference artifact, not by re-deriving or
+> paraphrasing the reference from memory.
 
 ---
 

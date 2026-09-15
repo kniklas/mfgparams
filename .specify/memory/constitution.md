@@ -1,6 +1,173 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 1.11.0 -> 1.12.0
+Modified principles: none redefined.
+Added sections:
+  - Principle XIII (Manual Verification for Interactive & Reference-Fidelity Features,
+    NON-NEGOTIABLE) — new principle. First bullet: a feature whose correctness depends on
+    how it looks/behaves to a human (an interactive console/TUI or GUI surface), OR that
+    claims to match an external reference exactly (a non-interactive reference-fidelity
+    case), MUST NOT be marked complete on automated tests alone — `tasks.md` MUST carry a
+    distinct, named manual-verification task for either case, separate from test tasks. For
+    the interactive case this MUST be developer/reviewer-performed (the agent has no real
+    terminal/display access), e.g. walking `quickstart.md` against a real terminal/display;
+    for the reference-fidelity case the agent MAY perform it itself by directly comparing
+    output against the cited artifact. A passing test suite MUST NOT be treated as evidence a
+    rendering/interaction detail (color, position, focus highlighting, shading, layout) is
+    correct. Second bullet: a claim that
+    reference material a feature must match (a prototype, mockup, screenshot, prior
+    discarded code) is unavailable/lost/superseded MUST be verified against the actual
+    current filesystem/repository state when written, not carried forward from a prior
+    session's memory; if the artifact does exist, its literal content MUST be read and
+    cited before any prose paraphrase of its behavior is written into a spec.
+Expanded sections: Development Workflow (Review Process) — reviewer checklist gains item (5),
+  requiring confirmation that a Principle XIII manual-verification task was actually completed
+  (see Correction 5 below for why this item exists but was missing from this line originally).
+  Governance — the amendment-propagation paragraph was substantially rewritten to correctly
+  distinguish `.specify/templates/*` (hand-edited customization points) from generated
+  per-agent instruction files (never hand-patched, and not reconciled by local edits either);
+  see Correction 2 below.
+Removed sections: none
+Rationale: specs/018-tui-splitpane-redesign needed two full implementation passes rejected
+  outright by the user before a third, prototype-fidelity rewrite finally matched, plus 8
+  further user-reported correction rounds after that rewrite was itself marked "done" — all
+  invisible to a fully green CI run throughout. Root causes, per the retrospective posted to
+  PR #96 (https://github.com/kniklas/mfgparams/pull/96#issuecomment-5637032822): (a) the
+  spec's own Carried-Over Items section asserted the pre-plan prototype scripts were
+  "discarded", a claim never checked against the filesystem — the scripts were on disk the
+  whole time, at a known path, and two implementation passes were built from prose
+  descriptions of them instead of their actual source; (b) this codebase's TUI test
+  strategy (`DummyOutput`-based, state/text-only assertions) structurally cannot detect a
+  color, layout, shading, or focus-highlight regression, so "tests pass" repeatedly gave
+  false confidence that a feature depending on exactly those properties was done; (c) the
+  one gate that could have caught most of this — a human looking at the running app — never
+  ran before the feature was first declared complete, only afterward, one round at a time,
+  in direct user feedback. This principle makes both failure modes structurally checkable
+  (a required, named tasks.md item; a required verification step) rather than relying on
+  an agent's memory or assumption holding true across a long, possibly-compacted session.
+MINOR rather than PATCH: this is new, materially expanded guidance — an explicit manual-
+  verification gate and a reference-material-verification requirement did not exist in any
+  prior version — not a wording clarification of existing guidance.
+Templates requiring updates:
+  OK .specify/templates/tasks-template.md (gained a named, REQUIRED manual-verification task
+     slot in the Polish phase for interactive/rendering features, distinct from test tasks.
+     `/speckit-constitution`'s own Scope Guard did not do this — its automated scope stays
+     limited to this file — so it was done as a separate, explicit hand-edit alongside the
+     constitution edit in this same PR. That is the Governance section's "explicit follow-up
+     step" (deliberate, verified action) rather than the "assumed to happen automatically"
+     case that sentence rules out; it is not one of the generated per-agent artifacts
+     Principle XI forbids hand-patching (`.claude/skills/*`, `.github/agents/*`, etc.) —
+     tasks-template.md is a hand-authored Spec Kit customization point)
+  OK .specify/templates/plan-template.md (no changes needed — Constitution Check section
+     already surfaces any principle by name during `/speckit-plan`)
+  OK .specify/templates/spec-template.md (no changes needed)
+  OK .github/copilot-instructions.md (no changes needed — does not enumerate principles)
+Propagation: tasks-template.md updated in this same change (see above). Still deferred, as a
+  separate future decision (not tracked as a Next Action of this amendment specifically): a
+  possible `/speckit-clarify`/`/speckit-plan` checklist item for reference-material
+  verification, and a possible design-before-build step for net-new UI surfaces with no
+  existing exact reference — both flagged as options by the PR-96 retrospective and left
+  open.
+Follow-up TODOs: none — see Correction 3 below (the representative-spec check the Governance
+  section requires when there is no directly affected spec, run and passed before merge).
+Correction 1 (same PR, before merge - not a separate version bump): the Templates requiring
+  updates / Propagation text above originally (as first pushed on this PR) said the
+  tasks-template.md slot was not yet applied and was tracked as a future Next Action; it was
+  in fact applied in the same commit, and the report was inaccurate about its own change. A
+  local code-review pass caught the mismatch before merge; corrected in place per the same
+  precedent as the v1.11.0 amendment's own correction note above, since this is still the
+  v1.12.0 draft landing, not a change to an already-released version.
+Correction 2 (same PR, before merge - not a separate version bump): the Governance section's
+  paragraph on propagating amendments (pre-existing text, not otherwise touched by this
+  amendment) stated that both `.specify/templates/*` and generated per-agent instruction
+  files "remain generated artifacts of the Spec Kit integration mechanism, never hand-patched
+  directly (Principle XI)", then two sentences later instructed reconciling
+  `.specify/templates/*` content manually — a direct self-contradiction, and also a
+  misstatement of Principle XI itself, which (see its own text above) designates
+  `.specify/templates/*` as a customization point meant to be hand-patched and restricts only
+  generated per-agent files. A local code-review pass on this PR caught it while reviewing
+  this same paragraph's applicability to the tasks-template.md edit above; corrected in place
+  to match Principle XI, under the same before-merge precedent as Correction 1.
+Correction 3 (same PR, before merge - not a separate version bump): the Follow-up TODOs above
+  originally deferred the Governance section's required `/speckit-analyze`-or-equivalent
+  check entirely, reasoning this amendment has no directly affected spec of its own — but the
+  Governance section explicitly anticipates exactly that case by offering a *representative*
+  spec as the alternative, so skipping the check was wrong; Copilot review on this PR caught
+  it. `specs/018-tui-splitpane-redesign` — the spec this principle's own rationale cites as
+  the motivating incident, and the more recent of the two — has only `spec.md` (no
+  `plan.md`/`tasks.md`), so the required `tasks.md` check is not possible against it. Run
+  instead before merge against `specs/017-console-text-gui` (the next most recent spec
+  sharing Principle XIII's subject matter, an interactive TUI feature, with a complete
+  spec/plan/tasks triplet): its `tasks.md` T037 ("Run every scenario in quickstart.md
+  manually, end-to-end, on a real terminal") already is a distinct, named manual-verification
+  task separate from its automated test tasks — no conflict with Principle XIII's wording
+  found, and no remediation needed on that spec.
+Correction 4 (same PR, before merge - not a separate version bump): the required
+  tasks-template.md task added by this amendment (see the diff above) named only the
+  interactive-console/TUI/GUI case, omitting Principle XIII's other, equally-required case —
+  a change claiming to match an external reference exactly (constitution.md's own Principle
+  XIII text above covers both from its first sentence). A feature generated from the
+  pre-correction template that was reference-fidelity but non-interactive could therefore
+  satisfy the letter of the template while skipping the principle's actual requirement.
+  Copilot review on this PR caught it; the task now names both cases with a verification
+  method for each.
+Correction 5 (same PR, before merge - not a separate version bump): this amendment added
+  item (5) to the Development Workflow reviewer checklist (requiring reviewers to confirm a
+  Principle XIII task was actually completed, not just present) but the Sync Impact Report
+  above originally said "Expanded sections: none" — the same class of self-referential
+  reporting gap Correction 1 already caught once in this PR. A local code-review pass caught
+  it; the "Expanded sections" line now names the checklist change.
+Correction 6 (same PR, before merge - not a separate version bump): the required
+  tasks-template.md task (see Correction 4) was written as a multi-line checklist item with
+  nested sub-bullets for its two cases, and its own trailing prose referenced a specific
+  illustrative sample task ("Run quickstart.md validation") by name — but
+  `.github/agents/speckit.tasks.agent.md`'s Checklist Format (REQUIRED) section mandates every
+  generated task be a single line, and that sample task is itself one `/speckit.tasks` is
+  instructed to discard, so neither would have survived generation intact: the two-case split
+  would be collapsed away and the cross-reference would dangle. A local code-review pass
+  caught both; the task is now a single compliant checklist line, with the two-case detail
+  moved into an adjacent NOTE (not itself a checklist item, so not subject to the single-line
+  rule) that the EXCEPTION carve-out above now also names explicitly as required to keep.
+Correction 7 (same PR, before merge - not a separate version bump): Correction 6's fix still
+  soft-wrapped the checklist line across three physical lines in the template source, and
+  omitted anything resembling the "exact file path" every other example in
+  `.github/agents/speckit.tasks.agent.md`'s Checklist Format section carries. Copilot review
+  on this PR (round 2) caught it: as the one sample this template requires to survive
+  generation verbatim, a malformed physical layout could propagate. Reformatted to one true
+  physical line, pointing to the feature's quickstart.md/spec.md reference artifact in place
+  of a source-file path, since this task verifies against a reference rather than edits a file.
+Correction 8 (same PR, before merge - not a separate version bump): Correction 7's fix pointed
+  to "quickstart.md/spec.md" for a feature's reference-fidelity citation, but this repo's own
+  precedent (specs/009-milling-calculations/research.md:144, a manufacturer's cutting-data
+  chart citation) and `.github/agents/speckit.tasks.agent.md`'s own doc-mapping ("research.md
+  (decisions)" vs. "quickstart.md (test scenarios)") place that kind of citation in
+  research.md, not quickstart.md. A local code-review pass caught it; changed to point to
+  research.md/spec.md instead.
+Correction 9 (same PR, before merge - not a separate version bump): two more self-consistency
+  gaps, caught by a local code-review pass. (a) Principle XIII's first bullet (above) said
+  every manual-verification task "MUST be... performed by the developer or a reviewer, since a
+  coding agent without access to a real terminal/display cannot perform it itself" — true for
+  the interactive case, but not for the non-interactive reference-fidelity case, which
+  tasks-template.md's own NOTE (case 2, added by Correction 4) already lets an agent perform by
+  directly comparing against the cited artifact; the two, both edited in this same PR, had
+  disagreed on who may execute case-2 verification. The bullet now scopes the human-only
+  requirement to the interactive case and states the agent-permitted path for the
+  reference-fidelity case explicitly. (b) This report's "Expanded sections" line named only
+  the Development Workflow checklist change and omitted the Governance section's own rewrite
+  (Correction 2) — the same reporting gap Corrections 1 and 5 already caught twice; now named.
+Correction 10 (same PR, before merge - not a separate version bump): the "Added sections"
+  summary of Principle XIII's first bullet, at the top of this report, described the tasks.md
+  manual-verification requirement as applying only to the interactive console/TUI/GUI case,
+  omitting that it applies equally to the non-interactive reference-fidelity case — the same
+  omission Correction 4 already had to fix once in tasks-template.md itself, now recurring in
+  this report's own summary. A local code-review pass caught it; the summary now states both
+  cases and each one's performer rule, matching Correction 9(a)'s principle-text fix.
+-->
+
+<!--
+Sync Impact Report (previous amendment)
+==================
 Version change: 1.10.1 -> 1.11.0
 Modified principles: Principle IX gains a new bullet (path-based job selection exception),
   inserted immediately after its intro sentence. Its bandit bullet is amended to qualify
@@ -551,6 +718,42 @@ into one PR or merged to `main` in a partially-built state.
   PR-sized review and CI discipline apply throughout, while keeping `main` always
   releasable per the Principle VII/Additional Constraints continuous-publish requirement.
 
+### XIII. Manual Verification for Interactive & Reference-Fidelity Features (NON-NEGOTIABLE)
+A feature whose correctness depends on how it looks or behaves to a human — an interactive
+console/TUI or GUI surface, or any change claiming to match an external reference exactly —
+MUST NOT be marked complete on the strength of automated tests alone.
+- `tasks.md` MUST carry at least one distinct, explicitly-named manual-verification task for
+  such a feature (e.g., "manually walk `quickstart.md` Scenario N against a real terminal/
+  display"), separate from and in addition to its automated test tasks; that task MUST be
+  completed before the feature's implementation phase is considered done. For the interactive
+  console/TUI/GUI case, this MUST be performed by the developer or a reviewer, since a coding
+  agent without access to a real terminal/display cannot observe color, position, focus
+  highlighting, shading, or spacing/layout itself. For the non-interactive reference-fidelity
+  case, the implementing agent MAY perform this task itself, provided it directly reads and
+  compares against the cited reference artifact rather than relying on a prior paraphrase or
+  its own memory of that artifact's content — the constraint this bullet's second point below
+  exists to enforce, not the absence of a terminal. A fully passing automated test suite MUST
+  NOT be treated as evidence that a rendering or interaction detail (color, position, focus
+  highlighting, shading, spacing/layout, or any other property the project's test strategy
+  does not directly assert against) is correct, when that test strategy cannot observe it.
+- When a spec, plan, or clarification session asserts that reference material a feature must
+  match (a prototype, a mockup, a screenshot, prior discarded code) is unavailable, lost, or
+  superseded, that claim MUST be verified against the actual current filesystem/repository
+  state at the time it is written, not carried forward from a prior session's memory or an
+  earlier artifact's own unverified claim. If the reference artifact does in fact exist, its
+  literal content MUST be read and directly cited (or linked/embedded in the spec) before any
+  prose paraphrase of its behavior is written; a description re-derived without reading the
+  actual artifact MUST NOT be treated as an equivalent substitute for having read it.
+- Rationale: specs/018-tui-splitpane-redesign needed two full implementation passes rejected
+  outright before a prototype-fidelity rewrite finally matched, and a further 8 user-reported
+  correction rounds after that rewrite was itself marked "done" — none of it caught by CI,
+  because this project's TUI test strategy asserts against state and rendered text, not
+  color/position/shading, and because a spec's own claim that the reference prototype was
+  "discarded" was carried forward for two full implementation passes without ever being
+  checked against the filesystem, where the prototype had been the entire time. Automated
+  tests and human visual review catch structurally different classes of defect; treating the
+  former as satisfying the latter is exactly the gap this principle closes.
+
 ## Additional Constraints (Quality Gates)
 
 - CI MUST run linting, the full automated test suite, and a package build check on every
@@ -587,7 +790,9 @@ into one PR or merged to `main` in a partially-built state.
   self-reviewed against this constitution's checklist) before merge.
 - Reviewers MUST explicitly confirm: (1) tests exist and cover edge cases, (2) calculation
   logic is documented with units/sources, (3) no floating-point exact-equality bugs,
-  (4) packaging/version metadata is consistent with Principle IV.
+  (4) packaging/version metadata is consistent with Principle IV, (5) for a feature Principle
+  XIII applies to, its named manual-verification task in `tasks.md` was actually completed
+  (not merely present) — a green CI run MUST NOT be accepted as a substitute confirmation.
 - Automated Principle IX gates (complexity, maintainability, type-checking, static
   security analysis, dependency scanning, CodeQL) MUST pass before merge, gating `main`
   either directly or through an aggregate check per Principle IX; reviewers are not
@@ -604,13 +809,32 @@ require: (1) a documented rationale for the change, (2) a version bump per the p
 and (3) propagation of any dependent changes to `.specify/templates/*` and agent guidance
 files, verified as an explicit follow-up step rather than assumed to happen automatically
 within the amending change itself. Spec Kit's own `/speckit-constitution` command
-deliberately limits its own scope to this file alone (its "Scope Guard") and does not
-propagate changes into dependent templates or agent guidance — those remain generated
-artifacts of the Spec Kit integration mechanism, never hand-patched directly (Principle XI).
-Concretely: after amending this constitution, run `/speckit-analyze` (or an equivalent
-cross-artifact consistency check) against any affected or representative spec before
-considering the amendment complete, and reconcile `.specify/templates/*`/agent guidance
-content manually if it no longer matches.
+deliberately limits its own scope to this file alone (its "Scope Guard") and does not itself
+propagate changes into either kind of dependent file — and the two kinds are not equivalent,
+per Principle XI: `.specify/templates/*` (and `.specify/extensions.yml` hooks) are designated
+customization points, read directly by the Spec Kit commands that use them (e.g.
+`/speckit-tasks` reads `tasks-template.md`), so a hand-authored edit here takes effect on its
+own, the same way this file does. Generated per-agent instruction files (`.github/agents/`,
+`.claude/skills/`, and any future integration's equivalent) are a separate mechanism entirely:
+they are never hand-patched directly, but they are also NOT regenerated from this repo's own
+`.specify/templates/*` — `specify integration upgrade` instead reproduces whatever template
+pack is bundled inside the currently-installed, pinned `specify-cli` version (verified in
+specs/011-multi-agent-skill-sync/research.md's addendum), which is independent of any local
+customization made here. Concretely, propagating an amendment therefore means: after amending
+this constitution, run `/speckit-analyze` (or an equivalent cross-artifact consistency check)
+against any affected or representative spec before considering the amendment complete;
+hand-edit `.specify/templates/*` content that no longer matches (that edit alone is sufficient
+for it to take effect). Generated per-agent instruction files almost never need a change for
+this at all: the Spec Kit commands they define (`/speckit-plan`, `/speckit-analyze`, etc.)
+read `.specify/memory/constitution.md` live at invocation time rather than embedding its
+content (e.g. `/speckit-analyze`'s own "Load constitution.md for principle validation" step),
+so an amendment here is already visible to them on their next run, with no propagation step
+required. The rare case where a generated file's own *structure* — not the constitution
+content it reads — would need to change to fully support a new principle (for example, a
+command needing a new step, not just a new fact to read) is an upstream Spec Kit template
+concern: propose it against the spec-kit project, not as a local hand-edit, since Principle
+XI forbids hand-patching these files and, per the previous paragraph, `specify integration
+upgrade` cannot pick up a local change even if one were made.
 
 Versioning policy (semantic versioning applied to governance):
 - MAJOR: Backward-incompatible removal or redefinition of a principle.
@@ -623,4 +847,4 @@ recurring pattern, MUST trigger a proposed constitution amendment rather than re
 ad-hoc exceptions. Use `.specify/memory/constitution.md` as the authoritative source for
 runtime development guidance until a dedicated guidance file is introduced.
 
-**Version**: 1.11.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-09-05
+**Version**: 1.12.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-09-11
