@@ -18,7 +18,9 @@ Added sections:
     current filesystem/repository state when written, not carried forward from a prior
     session's memory; if the artifact does exist, its literal content MUST be read and
     cited before any prose paraphrase of its behavior is written into a spec.
-Expanded sections: none
+Expanded sections: Development Workflow (Review Process) — reviewer checklist gains item (5),
+  requiring confirmation that a Principle XIII manual-verification task was actually completed
+  (see Correction 5 below for why this item exists but was missing from this line originally).
 Removed sections: none
 Rationale: specs/018-tui-splitpane-redesign needed two full implementation passes rejected
   outright by the user before a third, prototype-fidelity rewrite finally matched, plus 8
@@ -60,12 +62,9 @@ Propagation: tasks-template.md updated in this same change (see above). Still de
   verification, and a possible design-before-build step for net-new UI surfaces with no
   existing exact reference — both flagged as options by the PR-96 retrospective and left
   open.
-Follow-up TODOs:
-  - Run /speckit-analyze (or an equivalent cross-artifact consistency check) against a
-    representative in-flight spec per the Governance section's amendment-propagation
-    requirement — not run here since this introduces a new governance principle with no
-    directly affected feature spec/plan/tasks of its own yet.
-Correction (same PR, before merge - not a separate version bump): the Templates requiring
+Follow-up TODOs: none — see Correction 3 below (the representative-spec check the Governance
+  section requires when there is no directly affected spec, run and passed before merge).
+Correction 1 (same PR, before merge - not a separate version bump): the Templates requiring
   updates / Propagation text above originally (as first pushed on this PR) said the
   tasks-template.md slot was not yet applied and was tracked as a future Next Action; it was
   in fact applied in the same commit, and the report was inaccurate about its own change. A
@@ -83,6 +82,46 @@ Correction 2 (same PR, before merge - not a separate version bump): the Governan
   generated per-agent files. A local code-review pass on this PR caught it while reviewing
   this same paragraph's applicability to the tasks-template.md edit above; corrected in place
   to match Principle XI, under the same before-merge precedent as Correction 1.
+Correction 3 (same PR, before merge - not a separate version bump): the Follow-up TODOs above
+  originally deferred the Governance section's required `/speckit-analyze`-or-equivalent
+  check entirely, reasoning this amendment has no directly affected spec of its own — but the
+  Governance section explicitly anticipates exactly that case by offering a *representative*
+  spec as the alternative, so skipping the check was wrong; Copilot review on this PR caught
+  it. `specs/018-tui-splitpane-redesign` — the spec this principle's own rationale cites as
+  the motivating incident, and the more recent of the two — has only `spec.md` (no
+  `plan.md`/`tasks.md`), so the required `tasks.md` check is not possible against it. Run
+  instead before merge against `specs/017-console-text-gui` (the next most recent spec
+  sharing Principle XIII's subject matter, an interactive TUI feature, with a complete
+  spec/plan/tasks triplet): its `tasks.md` T037 ("Run every scenario in quickstart.md
+  manually, end-to-end, on a real terminal") already is a distinct, named manual-verification
+  task separate from its automated test tasks — no conflict with Principle XIII's wording
+  found, and no remediation needed on that spec.
+Correction 4 (same PR, before merge - not a separate version bump): the required
+  tasks-template.md task added by this amendment (see the diff above) named only the
+  interactive-console/TUI/GUI case, omitting Principle XIII's other, equally-required case —
+  a change claiming to match an external reference exactly (constitution.md's own Principle
+  XIII text above covers both from its first sentence). A feature generated from the
+  pre-correction template that was reference-fidelity but non-interactive could therefore
+  satisfy the letter of the template while skipping the principle's actual requirement.
+  Copilot review on this PR caught it; the task now names both cases with a verification
+  method for each.
+Correction 5 (same PR, before merge - not a separate version bump): this amendment added
+  item (5) to the Development Workflow reviewer checklist (requiring reviewers to confirm a
+  Principle XIII task was actually completed, not just present) but the Sync Impact Report
+  above originally said "Expanded sections: none" — the same class of self-referential
+  reporting gap Correction 1 already caught once in this PR. A local code-review pass caught
+  it; the "Expanded sections" line now names the checklist change.
+Correction 6 (same PR, before merge - not a separate version bump): the required
+  tasks-template.md task (see Correction 4) was written as a multi-line checklist item with
+  nested sub-bullets for its two cases, and its own trailing prose referenced a specific
+  illustrative sample task ("Run quickstart.md validation") by name — but
+  `.github/agents/speckit.tasks.agent.md`'s Checklist Format (REQUIRED) section mandates every
+  generated task be a single line, and that sample task is itself one `/speckit.tasks` is
+  instructed to discard, so neither would have survived generation intact: the two-case split
+  would be collapsed away and the cross-reference would dangle. A local code-review pass
+  caught both; the task is now a single compliant checklist line, with the two-case detail
+  moved into an adjacent NOTE (not itself a checklist item, so not subject to the single-line
+  rule) that the EXCEPTION carve-out above now also names explicitly as required to keep.
 -->
 
 <!--
@@ -705,7 +744,9 @@ MUST NOT be marked complete on the strength of automated tests alone.
   self-reviewed against this constitution's checklist) before merge.
 - Reviewers MUST explicitly confirm: (1) tests exist and cover edge cases, (2) calculation
   logic is documented with units/sources, (3) no floating-point exact-equality bugs,
-  (4) packaging/version metadata is consistent with Principle IV.
+  (4) packaging/version metadata is consistent with Principle IV, (5) for a feature Principle
+  XIII applies to, its named manual-verification task in `tasks.md` was actually completed
+  (not merely present) — a green CI run MUST NOT be accepted as a substitute confirmation.
 - Automated Principle IX gates (complexity, maintainability, type-checking, static
   security analysis, dependency scanning, CodeQL) MUST pass before merge, gating `main`
   either directly or through an aggregate check per Principle IX; reviewers are not
@@ -723,17 +764,31 @@ and (3) propagation of any dependent changes to `.specify/templates/*` and agent
 files, verified as an explicit follow-up step rather than assumed to happen automatically
 within the amending change itself. Spec Kit's own `/speckit-constitution` command
 deliberately limits its own scope to this file alone (its "Scope Guard") and does not itself
-propagate changes into either kind of dependent file — but the two kinds are reconciled
-differently, per Principle XI: `.specify/templates/*` (and `.specify/extensions.yml` hooks)
-are designated customization points and MUST be reconciled by a manual, hand-authored edit,
-same as this file; generated per-agent instruction files (`.github/agents/`, `.claude/skills/`,
-and any future integration's equivalent) are never hand-patched directly and are instead
-reconciled by running `specify integration upgrade` against the updated customization points.
-Concretely: after amending this constitution, run `/speckit-analyze` (or an equivalent
-cross-artifact consistency check) against any affected or representative spec before
-considering the amendment complete; hand-edit `.specify/templates/*` content that no longer
-matches, and run `specify integration upgrade` for any per-agent file that needs to pick up
-the change.
+propagate changes into either kind of dependent file — and the two kinds are not equivalent,
+per Principle XI: `.specify/templates/*` (and `.specify/extensions.yml` hooks) are designated
+customization points, read directly by the Spec Kit commands that use them (e.g.
+`/speckit-tasks` reads `tasks-template.md`), so a hand-authored edit here takes effect on its
+own, the same way this file does. Generated per-agent instruction files (`.github/agents/`,
+`.claude/skills/`, and any future integration's equivalent) are a separate mechanism entirely:
+they are never hand-patched directly, but they are also NOT regenerated from this repo's own
+`.specify/templates/*` — `specify integration upgrade` instead reproduces whatever template
+pack is bundled inside the currently-installed, pinned `specify-cli` version (verified in
+specs/011-multi-agent-skill-sync/research.md's addendum), which is independent of any local
+customization made here. Concretely, propagating an amendment therefore means: after amending
+this constitution, run `/speckit-analyze` (or an equivalent cross-artifact consistency check)
+against any affected or representative spec before considering the amendment complete;
+hand-edit `.specify/templates/*` content that no longer matches (that edit alone is sufficient
+for it to take effect). Generated per-agent instruction files almost never need a change for
+this at all: the Spec Kit commands they define (`/speckit-plan`, `/speckit-analyze`, etc.)
+read `.specify/memory/constitution.md` live at invocation time rather than embedding its
+content (e.g. `/speckit-analyze`'s own "Load constitution.md for principle validation" step),
+so an amendment here is already visible to them on their next run, with no propagation step
+required. The rare case where a generated file's own *structure* — not the constitution
+content it reads — would need to change to fully support a new principle (for example, a
+command needing a new step, not just a new fact to read) is an upstream Spec Kit template
+concern: propose it against the spec-kit project, not as a local hand-edit, since Principle
+XI forbids hand-patching these files and, per the previous paragraph, `specify integration
+upgrade` cannot pick up a local change even if one were made.
 
 Versioning policy (semantic versioning applied to governance):
 - MAJOR: Backward-incompatible removal or redefinition of a principle.
