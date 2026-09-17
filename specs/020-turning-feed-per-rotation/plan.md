@@ -125,9 +125,15 @@ one an initial draft of this plan assumed away.
   extending already-shared, operation-agnostic infrastructure
   (`CalculationMode`, `validate_mode_arguments`, `CalculationResult`) — the
   same pattern `010-milling-calculation-modes` used to extend mode support
-  to milling without touching drilling's files; here the new mode is
-  turning-only, so drilling's and milling's own dispatch files are
-  untouched (FR-014, research.md #3). The TUI's per-row nudge step and the
+  to milling without touching drilling's files; here the new mode's
+  *calculation* is turning-only, so drilling's and milling's own dispatch
+  gains no `FEED_RATE_CONSTRAINED` branch and their existing calculation
+  behavior is unaffected (FR-014, research.md #3). Each does gain one
+  small, operation-local guard in its own `_validate_mode_inputs()`
+  rejecting the mode with `UNSUPPORTED_MODE` if a caller supplies it
+  directly — necessary because the enum member itself is shared and still
+  reachable through their own public signatures (research.md #3, Copilot
+  review finding). The TUI's per-row nudge step and the
   `power_and_rpm_rows()` extension are both additive/defaulted, so
   drilling's and milling's screens require zero code changes. PASS.
 - **Principle VII (Documentation & Publishing)**: Sphinx docs
@@ -202,11 +208,18 @@ src/mfgparams/
             ├── __init__.py            # MODIFY: calculate_turning() gains target_feed_rate param; _compute_metrics() gains a FEED_RATE_CONSTRAINED branch; _validate_mode_inputs() gains target_feed_rate validation + metric conversion; _build_result()/_error_result() gain feed_per_rotation; _reject_if_invalid() guards feed_per_rev_mm
             └── formulas.py            # MODIFY: TurningMetrics.feed_per_rev_mm (new field); calculate_turning_metrics_at_rpm() gains optional feed_per_rev_mm param; + calculate_turning_feed_rate_constrained_metrics() (new)
 
-# NOT modified (reused verbatim, research.md #3):
-#   src/mfgparams/processes/machining/drilling/**     # no FEED_RATE_CONSTRAINED branch added
-#   src/mfgparams/processes/machining/milling/**      # no FEED_RATE_CONSTRAINED branch added
+# Calculation behavior NOT modified (reused verbatim, research.md #3):
+#   src/mfgparams/processes/machining/drilling/**     # no FEED_RATE_CONSTRAINED calculation branch added
+#   src/mfgparams/processes/machining/milling/**      # no FEED_RATE_CONSTRAINED calculation branch added
 #   src/mfgparams/console/tui/screens/drilling.py     # power_and_rpm_rows() call site unchanged (new params defaulted)
 #   src/mfgparams/console/tui/screens/milling.py      # power_and_rpm_rows() call site unchanged (new params defaulted)
+#
+# Each of drilling/__init__.py and milling/_calculate.py DOES gain one
+# small addition: an operation-local _validate_mode_inputs() guard
+# rejecting a directly-supplied FEED_RATE_CONSTRAINED as UNSUPPORTED_MODE
+# (added after a Copilot review round found the enum member reachable
+# through their own public signatures regardless of the console's
+# restricted mode list; research.md #3).
 
 docs/source/
 ├── turning.rst                        # MODIFY: document feed_per_rotation and the new mode

@@ -556,9 +556,11 @@ def calculate_turning(
             formatting. Defaults to ``UnitSystem.METRIC``.
         available_power: Optional available lathe/tool power, in the power
             unit of ``unit_system`` (kW for METRIC, HP for IMPERIAL).
-            Semantics depend on ``mode``: in ``STANDARD`` and ``FIXED_RPM``
-            modes it is optional/advisory; in ``POWER_CONSTRAINED`` mode it
-            is a **required** hard constraint.
+            Semantics depend on ``mode``: in ``STANDARD``, ``FIXED_RPM``,
+            and ``FEED_RATE_CONSTRAINED`` modes it is optional/advisory
+            (a feasibility warning is included if the estimated required
+            power exceeds it); in ``POWER_CONSTRAINED`` mode it is a
+            **required** hard constraint.
         config_path: Optional path to a TOML file overriding the default
             diameter/depth-of-cut/length-of-cut validation bounds.
         locale: Optional locale used to translate ``feasibility_warning``

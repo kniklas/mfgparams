@@ -29,10 +29,13 @@ class UnitSystem(Enum):
 
 
 class CalculationMode(Enum):
-    """Selects which of the three ways a drilling calculation is performed.
+    """Selects which way a calculation is performed, across every process
+    that shares this enum (drilling, milling, and turning).
 
     See ``specs/002-constrained-calculation-modes/data-model.md`` for the
-    authoritative definition.
+    three operation-independent modes' authoritative definition, and
+    ``specs/020-turning-feed-per-rotation/data-model.md`` for the
+    turning-only fourth member.
 
     Attributes:
         STANDARD: Spindle speed derived from material/tool reference
