@@ -44,6 +44,7 @@ behaviors, all taken from the prototype's own code, not reinvented:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Callable, Union
 
 from prompt_toolkit.formatted_text import StyleAndTextTuples
@@ -313,16 +314,24 @@ def nudge_selected(rows: list[Row], screen: OperationScreen, direction: int) -> 
             current = float(text) if text else 0.0
         except ValueError:
             current = row.value if row.value is not None else 0.0
-        # Rounded to 6 decimal places: `row.step` values below 1.0 (e.g.
-        # 0.1 mm/rev, 0.005 in/rev -- specs/020-turning-feed-per-rotation
+        # Decimal-safe addition: `row.step` values below 1.0 (e.g. 0.1
+        # mm/rev, 0.005 in/rev -- specs/020-turning-feed-per-rotation
         # research.md #7) are not exactly representable in binary
-        # floating-point, so repeated nudging accumulates visible drift
-        # (0.1 + 0.1 + 0.1 == 0.30000000000000004) that `_buffer_text`'s
-        # exact-round-trip `repr()` would otherwise show to the user
-        # verbatim. 6 decimal places is far finer than any field's actual
-        # resolution, so this only ever removes float noise, never real
-        # precision.
-        new_value = round(current + direction * row.step, 6)
+        # floating-point, so plain `float` addition accumulates visible
+        # drift (0.1 + 0.1 + 0.1 == 0.30000000000000004) that
+        # `_buffer_text`'s exact-round-trip `repr()` would otherwise show
+        # to the user verbatim. `Decimal(str(x))` reconstructs the exact
+        # decimal value `x`'s own shortest round-tripping representation
+        # already denotes (the same digits `repr`/`str` would print), so
+        # the addition itself introduces no binary rounding error --
+        # unlike blanket-rounding the result (an earlier version of this
+        # fix, caught by Copilot review: it truncated a pre-existing
+        # high-precision buffer on every other field too, e.g. nudging
+        # `1.123456789` by the default step to `2.123457` instead of the
+        # exact `2.123456789`).
+        current_decimal = Decimal(str(current))
+        step_decimal = Decimal(str(row.step))
+        new_value = float(current_decimal + direction * step_decimal)
         screen.field_buffer = "" if new_value <= 0 else _buffer_text(new_value)
         return
     if not row.options:

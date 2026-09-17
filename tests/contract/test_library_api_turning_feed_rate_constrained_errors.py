@@ -53,6 +53,28 @@ def test_feed_rate_constrained_with_target_rpm_is_mode_conflict():
     assert result.error.code == "MODE_CONFLICT"
 
 
+def test_invalid_target_feed_rate_combined_with_target_rpm_is_still_mode_conflict():
+    """Copilot review finding on this PR: when *two* mode-driving inputs are
+    supplied at once (target_feed_rate and target_rpm, under
+    FEED_RATE_CONSTRAINED), MODE_CONFLICT must win even if the
+    target_feed_rate value is itself individually invalid -- mirroring
+    POWER_CONSTRAINED's own established precedent (its target_rpm-conflict
+    check already runs before its available_power validity check inside
+    validate_mode_arguments). Previously, target_feed_rate's own
+    positive/finite check ran first and returned INVALID_TARGET_FEED_RATE
+    before the target_rpm conflict was ever considered."""
+
+    result = calculate_turning(
+        **_ARGS,
+        mode=CalculationMode.FEED_RATE_CONSTRAINED,
+        target_feed_rate=-1,
+        target_rpm=900,
+    )
+
+    assert result.error is not None
+    assert result.error.code == "MODE_CONFLICT"
+
+
 @pytest.mark.parametrize(
     "mode",
     [CalculationMode.STANDARD, CalculationMode.POWER_CONSTRAINED, CalculationMode.FIXED_RPM],

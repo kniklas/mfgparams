@@ -108,6 +108,18 @@ def calculate_turning_metrics_at_rpm(
 
     if feed_per_rev_mm is None:
         feed_per_rev_mm = material.reference_feed_per_rev_mm * tool.feed_factor
+    else:
+        # Mirrors spindle_speed_rpm's identical guard above: an arbitrary-
+        # precision Python int too large to convert to a C double (e.g.
+        # target_feed_rate=10**1000 in FEED_RATE_CONSTRAINED mode --
+        # validate_target_feed_rate's finiteness check accepts it, since
+        # Python ints are always "finite") would otherwise raise
+        # OverflowError from the multiplication just below (Copilot review
+        # finding on this PR).
+        try:
+            feed_per_rev_mm = float(feed_per_rev_mm)
+        except OverflowError:
+            feed_per_rev_mm = math.inf
 
     # Feed rate: vf = n * fn
     feed_rate_mm_min = spindle_speed_rpm * feed_per_rev_mm

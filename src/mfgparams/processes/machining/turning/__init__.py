@@ -341,6 +341,20 @@ def _validate_mode_inputs(
     the shared ``validate_mode_arguments`` (research.md #3/data-model.md),
     since that function's signature is otherwise unchanged and shared
     verbatim by drilling and milling.
+
+    Mode-conflict checks (this function's reverse-direction check above,
+    and the shared ``validate_mode_arguments()`` call below) run before
+    ``target_feed_rate``'s own positive/finite validation, mirroring
+    ``POWER_CONSTRAINED``'s own established precedent inside
+    ``validate_mode_arguments`` (its ``target_rpm``-conflict check runs
+    before its ``available_power`` validity check): a request supplying
+    *two* mode-driving inputs at once (e.g. both ``target_feed_rate`` and
+    ``target_rpm`` under ``FEED_RATE_CONSTRAINED``) is reported as
+    ``MODE_CONFLICT`` regardless of whether one of those inputs also
+    happens to be individually invalid (Copilot review finding on this
+    PR: the previous order let an invalid ``target_feed_rate`` return
+    ``INVALID_TARGET_FEED_RATE`` before the ``target_rpm`` conflict was
+    ever checked).
     """
     if target_feed_rate is not None and mode is not CalculationMode.FEED_RATE_CONSTRAINED:
         return _error_result(
@@ -352,6 +366,10 @@ def _validate_mode_inputs(
             ),
             mode,
         )
+
+    mode_conflict_error = validate_mode_arguments(mode, available_power, target_rpm, locale)
+    if mode_conflict_error:
+        return _error_result(unit_system, mode_conflict_error, mode)
 
     if mode is CalculationMode.FIXED_RPM:
         target_rpm_error = validate_target_rpm(target_rpm, locale)
@@ -383,11 +401,7 @@ def _validate_mode_inputs(
                 mode,
             )
 
-    return (
-        _error_result(unit_system, mode_error, mode)
-        if (mode_error := validate_mode_arguments(mode, available_power, target_rpm, locale))
-        else None
-    )
+    return None
 
 
 def _validate_and_prepare(
@@ -516,8 +530,8 @@ def calculate_turning(
     locale: str = DEFAULT_LOCALE,
     mode: CalculationMode = CalculationMode.STANDARD,
     target_rpm: float | None = None,
-    target_feed_rate: float | None = None,
     materials_config_path: str | None = None,
+    target_feed_rate: float | None = None,
 ) -> CalculationResult:
     """Calculate turning parameters for the given inputs.
 
@@ -560,6 +574,10 @@ def calculate_turning(
             together with ``mode is CalculationMode.POWER_CONSTRAINED`` or
             ``mode is CalculationMode.FEED_RATE_CONSTRAINED`` is a
             ``MODE_CONFLICT``.
+        materials_config_path: Optional path to a user-supplied
+            materials/tools configuration file that adds new materials/
+            tools or overrides built-in ones. Defaults to ``None`` (bundled
+            defaults only).
         target_feed_rate: Required when ``mode is
             CalculationMode.FEED_RATE_CONSTRAINED`` (specs/020-turning-
             feed-per-rotation): the caller-supplied feed rate per workpiece
@@ -568,11 +586,13 @@ def calculate_turning(
             tool's reference feed value. Spindle speed is still derived
             exactly as ``STANDARD`` mode derives it. Supplying it together
             with any other mode (``STANDARD``, ``POWER_CONSTRAINED``, or
-            ``FIXED_RPM``) is a ``MODE_CONFLICT``.
-        materials_config_path: Optional path to a user-supplied
-            materials/tools configuration file that adds new materials/
-            tools or overrides built-in ones. Defaults to ``None`` (bundled
-            defaults only).
+            ``FIXED_RPM``) is a ``MODE_CONFLICT``. Appended after
+            ``materials_config_path`` (rather than immediately after
+            ``target_rpm``) so this addition does not shift that
+            pre-existing parameter's positional index for existing
+            callers (Copilot review finding on this PR: an inserted
+            parameter ahead of an existing one silently breaks
+            positional callers).
 
     Returns:
         A :class:`CalculationResult`. On success, ``error`` is ``None`` and:

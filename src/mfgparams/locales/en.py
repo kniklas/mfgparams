@@ -89,9 +89,14 @@ MESSAGES: dict[str, str] = {
     "error.invalid_target_rpm": "Target spindle speed must be a positive, finite number.",
     "error.invalid_target_feed_rate": "Feed rate per rotation must be a positive, finite number.",
     "error.mode_conflict": (
-        "Power-constrained and fixed-RPM inputs cannot be combined in one "
-        "request, and power-constrained mode requires an available power "
-        "value."
+        "A calculation-mode-specific input (available power, target spindle "
+        "speed, or target feed rate) belongs to a different mode than the "
+        "one selected, or a required input for the selected mode is "
+        "missing."
+    ),
+    "error.unsupported_mode": (
+        "Feed-rate-constrained mode is only supported for turning and is "
+        "not available for this process."
     ),
     "error.infeasible_power_budget": (
         "No spindle speed keeps the required power within the supplied " "available power budget."

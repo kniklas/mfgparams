@@ -78,6 +78,22 @@ def test_end_milling_fixed_rpm_without_target_rpm_is_invalid_target_rpm():
     assert result.spindle_speed_rpm is None
 
 
+def test_end_milling_feed_rate_constrained_mode_is_unsupported():
+    """Copilot review finding on specs/020-turning-feed-per-rotation PR
+    #101 (HIGH): FEED_RATE_CONSTRAINED is turning-only, but the shared
+    CalculationMode enum member still passes milling's own type contract.
+    Without an explicit rejection, milling's mode dispatch silently fell
+    through to its STANDARD branch and returned standard metrics tagged
+    with FEED_RATE_CONSTRAINED instead of a structured error."""
+
+    result = calculate_end_milling(**_END_MILLING_ARGS, mode=CalculationMode.FEED_RATE_CONSTRAINED)
+
+    assert result.error is not None
+    assert result.error.code == "UNSUPPORTED_MODE"
+    assert result.spindle_speed_rpm is None
+    assert result.mode is CalculationMode.FEED_RATE_CONSTRAINED
+
+
 def test_end_milling_standard_mode_ignores_target_rpm_and_available_power_together():
     """STANDARD mode never conflicts: any supplied target_rpm/available_power
     is simply unused/ignored (mode is authoritative)."""
@@ -130,6 +146,20 @@ def test_face_milling_fixed_rpm_without_target_rpm_is_invalid_target_rpm():
     assert result.error is not None
     assert result.error.code == "INVALID_TARGET_RPM"
     assert result.spindle_speed_rpm is None
+
+
+def test_face_milling_feed_rate_constrained_mode_is_unsupported():
+    """Mirrors test_end_milling_feed_rate_constrained_mode_is_unsupported
+    for face milling's own entry point."""
+
+    result = calculate_face_milling(
+        **_FACE_MILLING_ARGS, mode=CalculationMode.FEED_RATE_CONSTRAINED
+    )
+
+    assert result.error is not None
+    assert result.error.code == "UNSUPPORTED_MODE"
+    assert result.spindle_speed_rpm is None
+    assert result.mode is CalculationMode.FEED_RATE_CONSTRAINED
 
 
 def test_face_milling_standard_mode_ignores_target_rpm_and_available_power_together():

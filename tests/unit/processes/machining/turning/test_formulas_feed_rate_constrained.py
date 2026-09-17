@@ -65,6 +65,25 @@ def test_dependent_metrics_recomputed_from_the_supplied_feed_rate():
     )
 
 
+def test_arbitrary_precision_int_target_feed_rate_does_not_overflow():
+    """Copilot review finding on this PR: an int too large to convert to a
+    C double (e.g. target_feed_rate=10**1000, which validate_target_feed_rate()
+    accepts -- Python ints are always "finite") must not raise OverflowError
+    from the feed-rate multiplication -- inf is the mathematically sensible
+    limit, caught by the orchestration layer's finiteness check afterwards
+    (mirroring test_formulas_at_rpm.py's identical spindle-speed coverage)."""
+
+    material = get_material("Mild Steel")
+    tool = get_turning_tool("Carbide")
+
+    metrics = calculate_turning_feed_rate_constrained_metrics(
+        40, 2, 100, material, tool, target_feed_per_rev_mm=10**1000
+    )
+
+    assert metrics.feed_per_rev_mm == float("inf")
+    assert metrics.feed_rate_mm_min == float("inf")
+
+
 def test_all_registered_materials_and_tools_produce_positive_results():
     from mfgparams.processes.machining.turning.tools import list_turning_tools
     from mfgparams.registry import list_materials

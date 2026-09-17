@@ -95,23 +95,26 @@ mechanism, formula citation, message-catalog split between
   it were `FIXED_RPM` — wrong (it would never check the new
   `target_feed_rate` parameter this validator doesn't know about) and unsafe
   to leave un-covered.
-- **Consequence documented, not fixed**: If a caller passed
-  `mode=CalculationMode.FEED_RATE_CONSTRAINED` directly to `calculate()`
-  (drilling) or `calculate_end_milling()`/`calculate_face_milling()`
-  (milling) — bypassing the console, which only ever offers each
-  operation's own mode list — `validate_mode_arguments()` would validate it
-  as described above, but neither operation's own dispatch has a matching
-  branch, so it would fall through to that operation's `else: standard`
-  branch and silently compute a **standard**-mode result instead. This is
-  the same latent shape drilling/milling's dispatch already has for any
-  mode value their own `if`/`elif` chain doesn't name explicitly; it is
-  unreachable through any interface this feature or its predecessors ship
-  (each operation's console screen and documented parameter only advertise
-  the modes that operation actually implements), so no guard is added to
-  drilling's or milling's own files for a mode this feature does not extend
-  them to support (FR-014) — doing so would mean editing modules this
-  feature's Assumptions and Constitution Principle VI both say stay
-  untouched, for a call shape no shipped caller can produce.
+- **Consequence found by review, then fixed**: `calculate()` (drilling) and
+  `calculate_end_milling()`/`calculate_face_milling()` (milling) are shipped
+  public library functions accepting the shared `CalculationMode` enum
+  directly — not gated by the console, which only ever offers each
+  operation's own mode list. A caller passing
+  `mode=CalculationMode.FEED_RATE_CONSTRAINED` to any of them is therefore a
+  reachable call shape, not a hypothetical one: an initial draft of this
+  feature assumed otherwise (see below) and left it unhandled, which a
+  Copilot review on this PR correctly flagged — `validate_mode_arguments()`
+  would validate the request as described above, but neither operation's
+  own dispatch had a matching branch, so it silently fell through to that
+  operation's `else: standard` branch and computed a **standard**-mode
+  result while still echoing `mode=FEED_RATE_CONSTRAINED` back to the
+  caller, mislabeling the result. Fixed by adding an explicit
+  `FEED_RATE_CONSTRAINED` rejection (`UNSUPPORTED_MODE`) as the first check
+  in drilling's and milling's own `_validate_mode_inputs()` — a small,
+  operation-local addition, not the shared `validate_mode_arguments()`
+  edit Constitution Principle VI and this feature's Assumptions still rule
+  out, since the rejection is specific to each unsupporting operation
+  rather than a cross-cutting concern.
 
 ## 4. `CalculationResult` gains `feed_per_rotation`, appended last (positional-construction precedent)
 

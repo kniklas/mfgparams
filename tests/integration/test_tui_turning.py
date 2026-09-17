@@ -200,7 +200,7 @@ def test_feed_rate_constrained_mode_reaches_a_result_matching_the_core_calculati
     # The result panel renders without KeyError (research.md #9) and shows
     # the new mode's spindle-speed label.
     text = forms.format_result(result, forms.UNIT_LABELS[UnitSystem.METRIC], "en")
-    assert "derived from specified feed rate" in text
+    assert "derived from cutting speed" in text
 
 
 def test_feed_rate_row_nudges_by_a_finer_step_than_other_turning_rows():

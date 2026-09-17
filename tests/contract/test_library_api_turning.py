@@ -25,6 +25,7 @@ error in this docstring's manual arithmetic silently becoming the source
 of truth a future reader trusts over the code.)
 """
 
+import inspect
 import math
 
 import pytest
@@ -387,3 +388,26 @@ def test_arbitrary_precision_int_imperial_available_power_does_not_raise():
 
     assert result.error is None
     assert result.feasibility_warning is None
+
+
+def test_target_feed_rate_is_appended_after_materials_config_path_not_before_it():
+    """CRITICAL Copilot review finding on this PR: target_feed_rate was
+    originally inserted immediately after target_rpm, ahead of the
+    pre-existing materials_config_path parameter -- silently breaking any
+    caller passing materials_config_path positionally (as
+    005-configurable-materials-tools's already-shipped contract allows):
+    code written against 2.3.0-in-progress as
+    calculate_turning(..., mode, target_rpm, path) would bind path to
+    target_feed_rate instead of materials_config_path, returning
+    MODE_CONFLICT instead of loading that configuration. A new optional
+    parameter must only ever be appended after every pre-existing one,
+    never inserted ahead of one, to keep positional calls backward
+    compatible."""
+
+    params = list(inspect.signature(calculate_turning).parameters)
+
+    assert params.index("materials_config_path") < params.index("target_feed_rate")
+    # Pins materials_config_path's own index against its pre-existing
+    # (019-turning-calculations/005-configurable-materials-tools) contract,
+    # not merely its position relative to the newly added parameter.
+    assert params.index("materials_config_path") == 11

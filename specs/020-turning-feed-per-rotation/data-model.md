@@ -16,7 +16,7 @@ unchanged and not repeated.
 | `STANDARD` | `"standard"` | Unchanged. |
 | `POWER_CONSTRAINED` | `"power-constrained"` | Unchanged. |
 | `FIXED_RPM` | `"fixed-rpm"` | Unchanged. |
-| `FEED_RATE_CONSTRAINED` | `"feed-rate-constrained"` | **NEW.** Spindle speed is derived exactly as `STANDARD` (from the material's/tool's reference cutting speed and the diameter); the caller supplies a target feed rate per workpiece rotation directly instead of it being derived from the material's/tool's reference feed value (spec.md FR-004/FR-005). Turning-only by convention (research.md #3) — drilling's and milling's own dispatch never construct or handle this member. |
+| `FEED_RATE_CONSTRAINED` | `"feed-rate-constrained"` | **NEW.** Spindle speed is derived exactly as `STANDARD` (from the material's/tool's reference cutting speed and the diameter); the caller supplies a target feed rate per workpiece rotation directly instead of it being derived from the material's/tool's reference feed value (spec.md FR-004/FR-005). Turning-only by convention (research.md #3) — drilling's and milling's own dispatch never construct this member, and explicitly reject it (`UNSUPPORTED_MODE`) if a caller supplies it directly, since their own dispatch has no calculation branch for it. |
 
 ## TurningOperation (request) — extended
 

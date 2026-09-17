@@ -20,8 +20,8 @@ def calculate_turning(
     locale: str = DEFAULT_LOCALE,
     mode: CalculationMode = CalculationMode.STANDARD,
     target_rpm: float | None = None,
-    target_feed_rate: float | None = None,   # NEW
     materials_config_path: str | None = None,
+    target_feed_rate: float | None = None,   # NEW
 ) -> CalculationResult: ...
 ```
 
@@ -36,13 +36,19 @@ def calculate_turning(
   `validate_mode_arguments()` (data-model.md). Supplying a `target_rpm`
   together with `mode is CalculationMode.FEED_RATE_CONSTRAINED` is also a
   `MODE_CONFLICT` (checked in the shared `validate_mode_arguments()`,
-  mirroring `POWER_CONSTRAINED`'s identical rejection).
-- Every other parameter's contract is unchanged. Existing callers that never
-  pass `target_feed_rate` (the new parameter's default is `None`) see no
-  behavior change — this is an additive, backward-compatible signature
-  extension (MINOR version bump, Constitution Principle IV), exactly as
-  `target_rpm` itself was when `002-constrained-calculation-modes` introduced
-  it.
+  mirroring `POWER_CONSTRAINED`'s identical rejection). **Appended after
+  `materials_config_path`, not immediately after `target_rpm`** — a
+  Copilot review finding on this PR caught an earlier draft that inserted
+  it ahead of `materials_config_path`, which would have silently broken
+  any caller passing that pre-existing parameter positionally (its own
+  index must stay unchanged for backward compatibility).
+- Every other parameter's contract is unchanged, including
+  `materials_config_path`'s own positional index. Existing callers that
+  never pass `target_feed_rate` (the new parameter's default is `None`)
+  see no behavior change — this is an additive, backward-compatible
+  signature extension (MINOR version bump, Constitution Principle IV),
+  exactly as `target_rpm` itself was when
+  `002-constrained-calculation-modes` introduced it.
 
 ## Result field addition
 

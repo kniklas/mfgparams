@@ -10,6 +10,7 @@ from it. Mirrors tests/contract/test_library_api_turning_fixed_rpm.py.
 import math
 
 from mfgparams import CalculationMode, UnitSystem, calculate_turning
+from mfgparams.units import n_to_lbf
 
 _ARGS = dict(
     diameter=40,
@@ -79,3 +80,40 @@ def test_turning_feed_rate_constrained_feasibility_warning_when_power_exceeded()
     )
     assert sufficient.error is None
     assert sufficient.feasibility_warning is None
+
+
+def test_turning_feed_rate_constrained_imperial_round_trip_matches_metric():
+    """MEDIUM Copilot review finding on this PR: no contract test exercised
+    target_feed_rate under IMPERIAL. An imperial call converts diameter/
+    depth/length/target_feed_rate to canonical metric internally and
+    converts results back, so it must describe the same physical
+    feed-rate-constrained operation as the equivalent metric call --
+    mirroring test_library_api_turning.py's own imperial/metric round-trip
+    test for the base (non-mode) contract."""
+
+    metric = calculate_turning(
+        **_ARGS,
+        mode=CalculationMode.FEED_RATE_CONSTRAINED,
+        target_feed_rate=0.5,
+        unit_system=UnitSystem.METRIC,
+    )
+    imperial = calculate_turning(
+        diameter=_ARGS["diameter"] / 25.4,
+        depth_of_cut=_ARGS["depth_of_cut"] / 25.4,
+        length_of_cut=_ARGS["length_of_cut"] / 25.4,
+        material=_ARGS["material"],
+        tool=_ARGS["tool"],
+        mode=CalculationMode.FEED_RATE_CONSTRAINED,
+        target_feed_rate=0.5 / 25.4,
+        unit_system=UnitSystem.IMPERIAL,
+    )
+
+    assert imperial.error is None
+    # feed_per_rotation echoes the supplied in/rev value directly.
+    assert math.isclose(imperial.feed_per_rotation, 0.5 / 25.4, rel_tol=1e-9)
+    # Spindle speed (RPM) and machining time (minutes) are unit-independent.
+    assert math.isclose(imperial.spindle_speed_rpm, metric.spindle_speed_rpm, rel_tol=1e-6)
+    assert math.isclose(imperial.machining_time, metric.machining_time, rel_tol=1e-6)
+    # Cutting force/torque/power drive the same physical operation, just
+    # expressed in imperial units.
+    assert math.isclose(imperial.cutting_force, n_to_lbf(metric.cutting_force), rel_tol=1e-6)

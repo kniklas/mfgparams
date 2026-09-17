@@ -242,6 +242,28 @@ def _validate_mode_inputs(
     cyclomatic complexity/Maintainability Index thresholds configured in
     ``pyproject.toml`` (FR-001/FR-002).
     """
+    # FEED_RATE_CONSTRAINED (specs/020-turning-feed-per-rotation) is
+    # turning-only: the shared CalculationMode enum member still passes
+    # this function's type contract, but drilling has no feed-per-rotation
+    # concept to constrain by. Without this explicit rejection,
+    # _compute_metrics()'s dispatch below falls through to its STANDARD
+    # branch and silently returns standard metrics tagged with this mode
+    # (Copilot review finding on specs/020-turning-feed-per-rotation PR
+    # #101) -- reject it as its own first check here, ahead of the
+    # target_rpm/available_power mode-argument validation below, since the
+    # mode itself is invalid for this process regardless of any other
+    # mode-specific input.
+    if mode is CalculationMode.FEED_RATE_CONSTRAINED:
+        return _error_result(
+            unit_system,
+            ErrorInfo(
+                "UNSUPPORTED_MODE",
+                translate(locale, "error.unsupported_mode"),
+                message_key="error.unsupported_mode",
+            ),
+            mode,
+        )
+
     # Mode-argument validation runs only after the base spec's existing
     # material/tool/diameter/depth checks — unchanged order/precedence
     # (/speckit.analyze finding U1; data-model.md Validation order).

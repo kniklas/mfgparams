@@ -47,7 +47,10 @@ class CalculationMode(Enum):
             rotation). Spindle speed derived exactly as ``STANDARD``; feed
             rate per workpiece rotation supplied directly via
             ``target_feed_rate`` instead of derived from the material/tool.
-            Drilling and milling never construct or handle this member.
+            Drilling and milling never construct this member, and explicitly
+            reject it with an ``UNSUPPORTED_MODE`` error if a caller
+            supplies it directly (their own dispatch has no calculation
+            branch for it).
     """
 
     STANDARD = "standard"
