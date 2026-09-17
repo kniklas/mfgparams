@@ -133,7 +133,14 @@ field is purely an input-gathering row that calls the same
 ## Scope note (FR-014)
 
 `calculate()` (drilling), `calculate_end_milling()`, and
-`calculate_face_milling()` are **not** modified by this feature and do not
-gain a `target_feed_rate` parameter. `CalculationMode.FEED_RATE_CONSTRAINED`
-exists on the shared enum (data-model.md), but only `calculate_turning()`'s
-dispatch acts on it (research.md #3).
+`calculate_face_milling()` do **not** gain a `target_feed_rate` parameter,
+and their calculation behavior for every mode they do support is
+unaffected by this feature. `CalculationMode.FEED_RATE_CONSTRAINED` exists
+on the shared enum (data-model.md), but only `calculate_turning()`'s
+dispatch acts on it — the other three functions each gain one small,
+explicit guard: since the enum member is still constructible and passable
+to their own public signatures regardless of the console's own restricted
+mode list, each rejects it with a structured `UNSUPPORTED_MODE` error
+(research.md #3) rather than silently falling through to a standard-mode
+result mislabeled with that mode — a Copilot review finding on this PR
+established this call shape is reachable, not hypothetical.

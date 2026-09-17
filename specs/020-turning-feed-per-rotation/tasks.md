@@ -80,7 +80,7 @@
 ### Implementation for User Story 2
 
 - [X] T019 [US2] Add `FEED_RATE_CONSTRAINED = "feed-rate-constrained"` to `CalculationMode` in `src/mfgparams/models.py`; add a matching `Attributes:` entry to the enum's docstring, mirroring the existing `STANDARD`/`POWER_CONSTRAINED`/`FIXED_RPM` entries (Constitution I) (data-model.md)
-- [X] T020 [US2] Add a `CalculationMode.FEED_RATE_CONSTRAINED` entry to `_SPINDLE_SPEED_MODE_LABEL_KEYS` (`"tui.result.spindle_speed.mode.feed_rate_constrained"`) in `src/mfgparams/console/tui/forms.py`, and add that catalog key (`"derived from specified feed rate"`) to `src/mfgparams/console/locales/en.py` — required to prevent a `KeyError` on every feed-rate-constrained result (research.md #9; depends on T019)
+- [X] T020 [US2] Add a `CalculationMode.FEED_RATE_CONSTRAINED` entry to `_SPINDLE_SPEED_MODE_LABEL_KEYS` (`"tui.result.spindle_speed.mode.feed_rate_constrained"`) in `src/mfgparams/console/tui/forms.py`, and add that catalog key (`"derived from cutting speed"` — corrected from an earlier draft's physically-inaccurate `"derived from specified feed rate"` per a Copilot review finding) to `src/mfgparams/console/locales/en.py` — required to prevent a `KeyError` on every feed-rate-constrained result (research.md #9; depends on T019)
 - [X] T021 [US2] Add `validate_target_feed_rate(target_feed_rate, locale)` to `src/mfgparams/validation.py`, mirroring `validate_target_rpm()`'s shape exactly (positive/finite required when supplied, `None` is not itself an error); add the `error.invalid_target_feed_rate` catalog entry to `src/mfgparams/locales/en.py` (research.md #5; depends on T019)
 - [X] T022 [US2] Extend `validate_mode_arguments()` in `src/mfgparams/validation.py` with a `CalculationMode.FEED_RATE_CONSTRAINED` branch: reject a simultaneously supplied `target_rpm` as `MODE_CONFLICT` (mirroring `POWER_CONSTRAINED`'s existing rejection), otherwise delegate to the existing `_validate_advisory_available_power()` (research.md #3; depends on T019)
 - [X] T023 [US2] Add `calculate_turning_feed_rate_constrained_metrics(diameter_mm, depth_of_cut_mm, length_of_cut_mm, material, tool, target_feed_per_rev_mm)` to `src/mfgparams/processes/machining/turning/formulas.py`: derive spindle speed exactly as `calculate_turning_metrics()`, then delegate to `calculate_turning_metrics_at_rpm(..., feed_per_rev_mm=target_feed_per_rev_mm)` (research.md #2; depends on T002, T019)
@@ -225,10 +225,73 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate a story independently
 - No new runtime dependencies, CI workflows, or top-level modules are introduced by this feature (plan.md); Polish phase reuses the existing CI/CD, Sphinx, and README infrastructure from `019-turning-calculations`
-- No drilling or milling source file is modified by any task above (FR-014) — every shared-infrastructure task (T003, T019, T022, T027, T033) is additive/defaulted so drilling's and milling's existing call sites are unaffected
+- No task above modifies drilling's or milling's own calculation behavior (FR-014) — every shared-infrastructure task (T003, T019, T022, T027, T033) is additive/defaulted so drilling's and milling's existing call sites are unaffected. Phase 8 (added after a Copilot review round found the enum member was reachable through drilling's/milling's own public signatures) adds one small, explicit guard to each — see below.
 
 ---
 
 ## Phase 7: Convergence
 
 - [X] T042 Add a contract test asserting `CALCULATION_OVERFLOW` (not a silently-wrong success) for an extreme-input feed-rate-constrained request (e.g. a subnormal `target_feed_rate` combined with a subnormal `diameter`/`depth_of_cut`) in `tests/contract/test_library_api_turning_feed_rate_constrained_errors.py`, mirroring the existing `test_extreme_subnormal_geometry_returns_structured_overflow_error_not_a_stale_success` test already covering `STANDARD` mode per spec.md Edge Cases (partial)
+
+---
+
+## Phase 8: PR #101 review-round fixes
+
+Added after this feature's implementation was opened as a PR and reviewed;
+not part of the original task breakdown above. Each item traces to a
+specific Copilot review finding.
+
+- [X] T043 Append `target_feed_rate` after the pre-existing
+  `materials_config_path` parameter in `calculate_turning()`
+  (`src/mfgparams/processes/machining/turning/__init__.py`), instead of
+  before it, to keep positional callers backward compatible (CRITICAL
+  finding); add a regression test pinning `materials_config_path`'s
+  positional index in `tests/contract/test_library_api_turning.py`
+- [X] T044 Add an explicit `CalculationMode.FEED_RATE_CONSTRAINED` →
+  `UNSUPPORTED_MODE` rejection to drilling's `_validate_mode_inputs()`
+  (`src/mfgparams/processes/machining/drilling/__init__.py`) and milling's
+  `_validate_mode_inputs()` (`src/mfgparams/processes/machining/milling/
+  _calculate.py`); add the `error.unsupported_mode` catalog entry
+  (`src/mfgparams/locales/en.py`) and contract tests in
+  `tests/contract/test_mode_conflict.py`/`test_milling_mode_conflict.py`
+  (HIGH finding)
+- [X] T045 Reorder turning's `_validate_mode_inputs()` so the shared
+  `validate_mode_arguments()` mode-conflict check runs before
+  `target_feed_rate`'s own positive/finite validation, mirroring
+  `POWER_CONSTRAINED`'s own established precedent; add a mixed-invalid
+  regression test in `tests/contract/test_library_api_turning_feed_rate_constrained_errors.py`
+  (HIGH finding)
+- [X] T046 Reword the shared `error.mode_conflict` catalog entry
+  (`src/mfgparams/locales/en.py`) to be mode-generic instead of naming
+  only power-constrained/fixed-RPM inputs (two HIGH findings, one message)
+- [X] T047 Correct `tui.result.spindle_speed.mode.feed_rate_constrained`
+  from `"derived from specified feed rate"` to `"derived from cutting
+  speed"` (`src/mfgparams/console/locales/en.py`); update the matching
+  test assertion in `tests/integration/test_tui_turning.py` (MEDIUM
+  finding)
+- [X] T048 Replace `nudge_selected()`'s blanket `round(..., 6)` (a same-
+  round local-review fix for fractional-step float drift that also
+  truncated legitimate high-precision input on unrelated fields) with
+  `Decimal(str(x))`-based addition in
+  `src/mfgparams/console/tui/screens/split_pane.py` (MEDIUM finding)
+- [X] T049 Add an IMPERIAL round-trip contract test for
+  `target_feed_rate` in
+  `tests/contract/test_library_api_turning_feed_rate_constrained.py`,
+  asserting `feed_per_rotation`, spindle speed, machining time, cutting
+  force, torque, and power required all round-trip correctly (MEDIUM
+  finding, then a MEDIUM follow-up finding that torque/power were missing
+  from the first draft's assertions)
+- [X] T050 Guard `calculate_turning_metrics_at_rpm()`'s externally-supplied
+  `feed_per_rev_mm` against `OverflowError` for an arbitrary-precision
+  int, mirroring the existing `spindle_speed_rpm` guard
+  (`src/mfgparams/processes/machining/turning/formulas.py`); add a
+  regression test in
+  `tests/unit/processes/machining/turning/test_formulas_feed_rate_constrained.py`
+  (LOW finding)
+- [X] T051 Correct every spec-kit artifact (`data-model.md`, `research.md`,
+  `plan.md`, `spec.md` Assumptions, both `contracts/*.md` deltas,
+  `docs/source/turning-api.rst`, this file) that still stated the
+  pre-T043/T044 claims — parameter order, "drilling/milling untouched",
+  and the stale result label — after a second Copilot review round found
+  the T043-T050 fixes had left those documents internally inconsistent
+  with the code they describe (multiple MEDIUM findings)

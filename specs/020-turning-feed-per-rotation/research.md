@@ -76,10 +76,19 @@ mechanism, formula citation, message-catalog split between
   simultaneously-supplied `target_rpm`), and `available_power` is
   type/finiteness-checked as an advisory value via the existing
   `_validate_advisory_available_power()` helper (mirroring `STANDARD`/
-  `FIXED_RPM`). No drilling or milling source file is modified — neither
-  operation's own dispatch (`drilling/__init__.py::_compute_metrics`,
-  `milling/_calculate.py`) gains a `FEED_RATE_CONSTRAINED` branch, so neither
-  can actually produce a feed-rate-constrained result (FR-014's scoping).
+  `FIXED_RPM`). Neither operation's own dispatch (`drilling/__init__.py::
+  _compute_metrics`, `milling/_calculate.py`) gains a `FEED_RATE_CONSTRAINED`
+  calculation branch, so neither can actually produce a feed-rate-constrained
+  result (FR-014's scoping) — but each *does* gain a small, explicit
+  rejection of the mode in its own `_validate_mode_inputs()` (see the
+  "Consequence found by review, then fixed" note below): the enum member
+  being merely unhandled, rather than actively rejected, left drilling and
+  milling free to silently compute a mislabeled standard-mode result
+  instead, which a Copilot review on this PR correctly treated as a real
+  defect rather than out-of-scope polish. This guard is operation-local
+  (each function's own `_validate_mode_inputs()`), not a further edit to
+  the shared `validate_mode_arguments()` above, so it does not reopen the
+  cross-cutting-concern question this decision addresses.
 - **Rationale**: `CalculationMode` and `validate_mode_arguments()` are
   already explicitly operation-agnostic, shared infrastructure — exactly the
   kind of "cross-cutting concern" Constitution Principle VI requires to live
@@ -260,10 +269,13 @@ mechanism, formula citation, message-catalog split between
   `STANDARD`/`POWER_CONSTRAINED`/`FIXED_RPM`. Add a fourth entry,
   `CalculationMode.FEED_RATE_CONSTRAINED:
   "tui.result.spindle_speed.mode.feed_rate_constrained"`, with a new
-  catalog value (`"derived from specified feed rate"` — spindle speed is
-  *derived*, exactly as standard mode's, not user-specified, so it reuses
-  standard's underlying derivation but needs its own label distinguishing
-  *why* the mode is not `STANDARD`).
+  catalog value (`"derived from cutting speed"` — spindle speed is
+  *derived*, exactly as standard mode's, from cutting speed and diameter,
+  not from the supplied feed rate, so the label names the actual
+  derivation input rather than the mode's own defining input, to avoid
+  implying feed determines spindle speed — a Copilot review finding on
+  this PR caught an earlier draft's `"derived from specified feed rate"`,
+  which said the opposite of this same paragraph's own reasoning).
 - **Rationale**: This dict is a hard lookup — an unhandled key raises
   `KeyError`, which would crash the console's result rendering (not return
   a graceful error) for every single feed-rate-constrained-mode result,

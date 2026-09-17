@@ -26,8 +26,8 @@ Both names are importable directly from ``mfgparams``.
             locale="en",
             mode=CalculationMode.STANDARD,
             target_rpm=None,
-            target_feed_rate=None,
             materials_config_path=None,
+            target_feed_rate=None,
         ) -> CalculationResult
 
 ``list_turning_tools(config_path=None) -> list[str]``
@@ -99,9 +99,13 @@ from drilling's derivation, and ``FIXED_RPM`` mode's ``cutting_force`` and
 
 Turning also has a fourth mode, ``CalculationMode.FEED_RATE_CONSTRAINED``
 (specs/020-turning-feed-per-rotation), which only ``calculate_turning``
-implements — drilling's and milling's own dispatch never construct or
-handle it, even though the enum member itself lives on the shared
-``CalculationMode``. It derives spindle speed exactly as ``STANDARD``
+implements. Drilling's and milling's own dispatch never construct this
+member, but since it lives on the shared ``CalculationMode`` enum, a
+caller can still pass it directly to ``calculate()``/
+``calculate_end_milling()``/``calculate_face_milling()`` — both explicitly
+reject it with a structured ``UNSUPPORTED_MODE`` error rather than
+silently falling through to a standard-mode result mislabeled with this
+mode. In turning, it derives spindle speed exactly as ``STANDARD``
 (from cutting speed and diameter), then computes every dependent metric
 from the caller-supplied ``target_feed_rate`` instead of the material/
 tool's reference feed value — so, unlike ``FIXED_RPM``'s ``cutting_force``/

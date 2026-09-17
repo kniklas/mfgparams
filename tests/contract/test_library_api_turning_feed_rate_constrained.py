@@ -10,7 +10,7 @@ from it. Mirrors tests/contract/test_library_api_turning_fixed_rpm.py.
 import math
 
 from mfgparams import CalculationMode, UnitSystem, calculate_turning
-from mfgparams.units import n_to_lbf
+from mfgparams.units import kw_to_hp, n_to_lbf, nm_to_in_lb
 
 _ARGS = dict(
     diameter=40,
@@ -115,5 +115,8 @@ def test_turning_feed_rate_constrained_imperial_round_trip_matches_metric():
     assert math.isclose(imperial.spindle_speed_rpm, metric.spindle_speed_rpm, rel_tol=1e-6)
     assert math.isclose(imperial.machining_time, metric.machining_time, rel_tol=1e-6)
     # Cutting force/torque/power drive the same physical operation, just
-    # expressed in imperial units.
+    # expressed in imperial units (Copilot review finding on this PR: this
+    # comment previously promised all three but only asserted cutting_force).
     assert math.isclose(imperial.cutting_force, n_to_lbf(metric.cutting_force), rel_tol=1e-6)
+    assert math.isclose(imperial.torque, nm_to_in_lb(metric.torque), rel_tol=1e-6)
+    assert math.isclose(imperial.power_required, kw_to_hp(metric.power_required), rel_tol=1e-6)

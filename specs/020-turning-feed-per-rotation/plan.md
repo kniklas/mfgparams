@@ -78,7 +78,13 @@ one shared enum member (`CalculationMode`), one shared result field
 files, and one small, backward-compatible extension to the shared
 `split_pane.py`/`app.py` TUI infrastructure (a per-row nudge step, a new
 `FieldId` member, two new defaulted parameters on `power_and_rpm_rows()`).
-No drilling or milling source file is modified (FR-014).
+Neither drilling's nor milling's own calculation behavior changes
+(FR-014); each does gain one small, operation-local guard in its own
+`_validate_mode_inputs()` rejecting a directly-supplied
+`CalculationMode.FEED_RATE_CONSTRAINED` as `UNSUPPORTED_MODE` — a Copilot
+review finding during implementation established this call shape is
+reachable through their own public signatures, not merely a hypothetical
+one an initial draft of this plan assumed away.
 
 ## Constitution Check
 

@@ -121,7 +121,12 @@ would raise `KeyError` the moment `format_result()` runs (research.md #9) —
 this is a required correctness fix, not optional polish. New entry:
 `CalculationMode.FEED_RATE_CONSTRAINED:
 "tui.result.spindle_speed.mode.feed_rate_constrained"`, new catalog value
-`"derived from specified feed rate"`.
+`"derived from cutting speed"` — spindle speed is derived from cutting
+speed and diameter exactly as `STANDARD` mode's is (FR-005); the supplied
+feed rate only affects downstream metrics, so a label implying feed
+determines spindle speed would be physically inaccurate (Copilot review
+finding on this PR: an earlier draft used `"derived from specified feed
+rate"`).
 
 ## Result display: new "Feed per rotation" line
 

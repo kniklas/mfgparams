@@ -103,11 +103,12 @@ new optional field, appended after the existing `cutting_force` field
 All other `CalculationResult` fields, including `feed_rate` itself, are
 reused with **no change to their meaning, value, or unit** (FR-002).
 
-## Error Codes — one new code
+## Error Codes — two new codes
 
 | Code | Trigger |
 |---|---|
 | `INVALID_TARGET_FEED_RATE` | **NEW.** `target_feed_rate` zero/negative/non-numeric/non-finite when `mode is FEED_RATE_CONSTRAINED` (research.md #5). New `error.invalid_target_feed_rate` catalog entry (`src/mfgparams/locales/en.py`). |
+| `UNSUPPORTED_MODE` | **NEW.** Drilling's `calculate()` and milling's `calculate_end_milling()`/`calculate_face_milling()` return this if a caller supplies `mode=CalculationMode.FEED_RATE_CONSTRAINED` directly — turning-only, rejected explicitly rather than silently computing a standard-mode result mislabeled with that mode (research.md #3, Copilot review finding on this PR). New `error.unsupported_mode` catalog entry. |
 
 `MODE_CONFLICT`, `INVALID_AVAILABLE_POWER`, and `CALCULATION_OVERFLOW` are
 reused verbatim (their existing semantics already cover the new mode's
@@ -183,13 +184,15 @@ Core library catalog (`src/mfgparams/locales/en.py`, English-only per
 Constitution VIII / spec.md FR-013):
 
 - `error.invalid_target_feed_rate`: `"Feed rate per rotation must be a positive, finite number."`
+- `error.unsupported_mode`: `"Feed-rate-constrained mode is only supported for turning and is not available for this process."` (drilling/milling's `UNSUPPORTED_MODE` rejection, above)
+- `error.mode_conflict` (existing key, reworded rather than added — Copilot review finding on this PR): the pre-existing text named only power-constrained/fixed-RPM inputs, which became misleading once feed-rate-constrained's own conflict cases reused this same code; now mode-generic.
 
 Console-only catalog (`src/mfgparams/console/locales/en.py`):
 
 - `tui.mode.feed_rate_constrained`: `"feed-rate-constrained"`
 - `tui.label.target_feed_rate`: `"Feed rate per rotation"`
 - `tui.result.feed_per_rotation`: `"Feed per rotation:  {value} {unit}"`
-- `tui.result.spindle_speed.mode.feed_rate_constrained`: `"derived from specified feed rate"`
+- `tui.result.spindle_speed.mode.feed_rate_constrained`: `"derived from cutting speed"` (Copilot review finding on this PR: an earlier draft used the physically inaccurate `"derived from specified feed rate"` — spindle speed never derives from the supplied feed, only downstream metrics do)
 
 `forms.UNIT_LABELS` gains one new key under both `UnitSystem` entries:
 
