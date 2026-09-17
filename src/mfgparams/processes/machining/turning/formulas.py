@@ -152,6 +152,26 @@ def calculate_turning_metrics_at_rpm(
     )
 
 
+def _derive_standard_spindle_speed_rpm(
+    diameter_mm: float, material: WorkpieceMaterial, tool: TurningTool
+) -> float:
+    """Derive spindle speed from the material's/tool's reference cutting speed.
+
+    Shared by standard mode (:func:`calculate_turning_metrics`) and
+    feed-rate-constrained mode (:func:`calculate_turning_feed_rate_constrained_metrics`),
+    which derives spindle speed identically (specs/020-turning-feed-per-rotation
+    FR-004) while overriding only the feed. Kept as one implementation so the
+    two modes cannot silently diverge if this derivation is ever refined.
+    """
+
+    # Effective cutting speed (vc): the tool's factor multiplies the
+    # material's HSS-baseline reference value, exactly as drilling's does.
+    cutting_speed_m_min = material.reference_cutting_speed_m_min * tool.cutting_speed_factor
+
+    # Spindle speed: n = (vc * 1000) / (pi * D)
+    return (cutting_speed_m_min * 1000) / (math.pi * diameter_mm)
+
+
 def calculate_turning_metrics(
     diameter_mm: float,
     depth_of_cut_mm: float,
@@ -172,12 +192,7 @@ def calculate_turning_metrics(
         The computed :class:`TurningMetrics`.
     """
 
-    # Effective cutting speed (vc): the tool's factor multiplies the
-    # material's HSS-baseline reference value, exactly as drilling's does.
-    cutting_speed_m_min = material.reference_cutting_speed_m_min * tool.cutting_speed_factor
-
-    # Spindle speed: n = (vc * 1000) / (pi * D)
-    spindle_speed_rpm = (cutting_speed_m_min * 1000) / (math.pi * diameter_mm)
+    spindle_speed_rpm = _derive_standard_spindle_speed_rpm(diameter_mm, material, tool)
 
     return calculate_turning_metrics_at_rpm(
         diameter_mm, depth_of_cut_mm, length_of_cut_mm, material, tool, spindle_speed_rpm
@@ -274,8 +289,7 @@ def calculate_turning_feed_rate_constrained_metrics(
         equal to ``target_feed_per_rev_mm``.
     """
 
-    cutting_speed_m_min = material.reference_cutting_speed_m_min * tool.cutting_speed_factor
-    spindle_speed_rpm = (cutting_speed_m_min * 1000) / (math.pi * diameter_mm)
+    spindle_speed_rpm = _derive_standard_spindle_speed_rpm(diameter_mm, material, tool)
 
     return calculate_turning_metrics_at_rpm(
         diameter_mm,

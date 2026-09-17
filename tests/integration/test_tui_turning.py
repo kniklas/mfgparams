@@ -224,6 +224,11 @@ def test_feed_rate_row_nudges_by_a_finer_step_than_other_turning_rows():
     split_pane.nudge_selected(_rows(screen), screen, 1)
     split_pane.nudge_selected(_rows(screen), screen, 1)
     split_pane.nudge_selected(_rows(screen), screen, 1)
+    # Regression: 0.1 + 0.1 + 0.1 accumulates binary floating-point drift
+    # (0.30000000000000004) that the buffer's exact-round-trip formatter
+    # would otherwise surface verbatim to the user before this value is
+    # ever committed.
+    assert screen.field_buffer == "0.3"
     split_pane.move_selection(_rows(screen), screen, 1, "en")
     state = screen.session_state
     assert isinstance(state, TurningSessionState)

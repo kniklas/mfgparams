@@ -505,41 +505,48 @@ def validate_turning_tool_present(
     return None
 
 
+def _validate_positive_finite_target(
+    value: float | None, code: str, message_key: str
+) -> ErrorInfo | None:
+    """Shared body for ``validate_target_rpm``/``validate_target_feed_rate``.
+
+    ``value`` MUST be a positive, finite number; zero, negative, non-numeric,
+    ``NaN``, and ``Infinity`` are all rejected under the caller-supplied
+    ``code``/``message_key``. A ``None`` value (not supplied) is not an
+    error here — callers decide whether a missing value is itself an error
+    (e.g. required in a given calculation mode) via their own mode
+    validation.
+
+    Delegates to :func:`_is_positive_finite_number` (Copilot review finding
+    on specs/019-turning-calculations PR #100): an inline
+    ``math.isfinite(value)`` call here previously raised ``OverflowError``
+    for an arbitrary-precision Python ``int`` too large to convert to a C
+    double (e.g. ``value=10**1000``), reaching every caller instead of the
+    documented error result — the exact class of bug
+    ``_is_positive_finite_number`` already exists to prevent for every
+    other dimensional input.
+    """
+
+    if value is None:
+        return None
+    if not _is_positive_finite_number(value):
+        locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
+        return ErrorInfo(code, translate(locale, message_key), message_key=message_key)
+    return None
+
+
 def validate_target_rpm(target_rpm: float | None, locale: str = DEFAULT_LOCALE) -> ErrorInfo | None:
     """Validate a supplied target spindle RPM (fixed-RPM mode, FR-007).
 
-    ``target_rpm`` MUST be a positive, finite number. Zero, negative,
-    non-numeric, ``NaN``, and ``Infinity`` values are all rejected under
-    the same ``INVALID_TARGET_RPM`` code (spec.md Clarifications
-    2026-07-11) — the same validation posture as diameter/depth in the
-    base drilling spec. No additional maximum/minimum range validation or
-    clamping is applied beyond finiteness and positivity (spec.md
-    Clarifications 2026-07-11 second checklist follow-up); a ``None``
-    value (not supplied) is not an error here — callers decide whether a
-    missing ``target_rpm`` is itself an error (e.g. required in fixed-RPM
-    mode) via :func:`validate_mode_arguments`.
-
-    Delegates to :func:`_is_positive_finite_number` (Copilot review
-    finding on specs/019-turning-calculations PR #100): an inline
-    ``math.isfinite(target_rpm)`` call here previously raised
-    ``OverflowError`` for an arbitrary-precision Python ``int`` too large
-    to convert to a C double (e.g. ``target_rpm=10**1000``), reaching
-    every caller (drilling, milling, and turning all share this
-    function) instead of the documented ``INVALID_TARGET_RPM`` result —
-    the exact class of bug ``_is_positive_finite_number`` already exists
-    to prevent for every other dimensional input.
+    See :func:`_validate_positive_finite_target` for the validation rule
+    (spec.md Clarifications 2026-07-11 — same posture as diameter/depth in
+    the base drilling spec; no additional range validation or clamping
+    beyond finiteness and positivity, per the second checklist follow-up).
     """
 
-    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
-    if target_rpm is None:
-        return None
-    if not _is_positive_finite_number(target_rpm):
-        return ErrorInfo(
-            "INVALID_TARGET_RPM",
-            translate(locale, "error.invalid_target_rpm"),
-            message_key="error.invalid_target_rpm",
-        )
-    return None
+    return _validate_positive_finite_target(
+        target_rpm, "INVALID_TARGET_RPM", "error.invalid_target_rpm"
+    )
 
 
 def validate_target_feed_rate(
@@ -548,16 +555,8 @@ def validate_target_feed_rate(
     """Validate a supplied target feed rate per rotation (feed-rate-
     constrained turning mode, specs/020-turning-feed-per-rotation FR-006).
 
-    ``target_feed_rate`` MUST be a positive, finite number. Zero, negative,
-    non-numeric, ``NaN``, and ``Infinity`` values are all rejected under the
-    ``INVALID_TARGET_FEED_RATE`` code -- the same validation posture
-    :func:`validate_target_rpm` already established. No additional
-    maximum/minimum range validation or clamping is applied beyond
-    finiteness and positivity, mirroring ``target_rpm``'s identical
-    decision. A ``None`` value (not supplied) is not an error here --
-    callers decide whether a missing ``target_feed_rate`` is itself an
-    error (required in feed-rate-constrained mode) via turning's own
-    ``_validate_mode_inputs``.
+    See :func:`_validate_positive_finite_target` for the validation rule
+    -- the same posture :func:`validate_target_rpm` already established.
 
     Unlike ``target_rpm``, this quantity is not unit-system-independent --
     it is validated here in its as-supplied (display-unit) form, since sign
@@ -566,16 +565,9 @@ def validate_target_feed_rate(
     layer runs (research.md #5, #8).
     """
 
-    locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
-    if target_feed_rate is None:
-        return None
-    if not _is_positive_finite_number(target_feed_rate):
-        return ErrorInfo(
-            "INVALID_TARGET_FEED_RATE",
-            translate(locale, "error.invalid_target_feed_rate"),
-            message_key="error.invalid_target_feed_rate",
-        )
-    return None
+    return _validate_positive_finite_target(
+        target_feed_rate, "INVALID_TARGET_FEED_RATE", "error.invalid_target_feed_rate"
+    )
 
 
 def validate_mode_arguments(

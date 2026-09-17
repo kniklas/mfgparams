@@ -138,7 +138,8 @@ def power_and_rpm_rows(
     if fixed_rpm:
         return [rpm_row(), power_row("tui.label.power", False)]
     if feed_rate_constrained:
-        assert feed_rate_row is not None
+        if feed_rate_row is None:
+            raise ValueError("feed_rate_row is required when feed_rate_constrained=True")
         return [feed_rate_row(), power_row("tui.label.power", False)]
     return [power_row("tui.label.power", False)]
 
@@ -312,7 +313,16 @@ def nudge_selected(rows: list[Row], screen: OperationScreen, direction: int) -> 
             current = float(text) if text else 0.0
         except ValueError:
             current = row.value if row.value is not None else 0.0
-        new_value = current + direction * row.step
+        # Rounded to 6 decimal places: `row.step` values below 1.0 (e.g.
+        # 0.1 mm/rev, 0.005 in/rev -- specs/020-turning-feed-per-rotation
+        # research.md #7) are not exactly representable in binary
+        # floating-point, so repeated nudging accumulates visible drift
+        # (0.1 + 0.1 + 0.1 == 0.30000000000000004) that `_buffer_text`'s
+        # exact-round-trip `repr()` would otherwise show to the user
+        # verbatim. 6 decimal places is far finer than any field's actual
+        # resolution, so this only ever removes float noise, never real
+        # precision.
+        new_value = round(current + direction * row.step, 6)
         screen.field_buffer = "" if new_value <= 0 else _buffer_text(new_value)
         return
     if not row.options:
