@@ -59,11 +59,14 @@ top of it.
   `calculate_turning_metrics()` would use. The nominal spindle speed itself still comes
   from `_derive_standard_spindle_speed_rpm()` (the helper `020`'s PR #101 review round 1
   extracted specifically to prevent this exact class of duplication). If the nominal
-  power already fits the budget, return it as-is; otherwise scale the spindle speed
-  down linearly (`n_adjusted = n0 * (Pavail / Pc0)`), identical algebra to
-  `POWER_CONSTRAINED`'s existing derivation, since torque/cutting force are independent
-  of spindle speed for a fixed feed/depth-of-cut/material/tool selection — a fact that
-  holds regardless of whether the feed is derived or caller-supplied.
+  power already fits the budget, return it as-is — this mode never solves *above* the
+  cutting-speed-derived nominal spindle speed, even when the supplied budget has room
+  to spare (a Copilot review finding on PR #102 flagged the spec's own FR-003 wording
+  as not making this ceiling explicit); otherwise scale the spindle speed down linearly
+  (`n_adjusted = n0 * (Pavail / Pc0)`), identical algebra to `POWER_CONSTRAINED`'s
+  existing derivation, since torque/cutting force are independent of spindle speed for
+  a fixed feed/depth-of-cut/material/tool selection — a fact that holds regardless of
+  whether the feed is derived or caller-supplied.
 - **Rationale**: The physics is identical to `POWER_CONSTRAINED`'s; only the feed's
   *source* differs. Reusing `_derive_standard_spindle_speed_rpm()` rather than
   re-deriving the cutting-speed formula inline avoids reintroducing the exact

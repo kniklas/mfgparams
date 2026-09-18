@@ -69,14 +69,19 @@ case, a new *message* under the same code), ``INVALID_LENGTH_OF_CUT``
 ``MISSING_MATERIAL``, ``MISSING_TOOL``, ``UNUSABLE_MATERIAL``,
 ``INVALID_TARGET_RPM``, ``MODE_CONFLICT``, and ``INFEASIBLE_POWER_BUDGET``
 (also, for drilling and milling, ``UNSUPPORTED_MODE`` — see below).
-``MODE_CONFLICT`` also covers supplying ``target_feed_rate`` together with
-``target_rpm``, or together with any mode other than
+``MODE_CONFLICT`` also covers, relative to the *selected* ``mode``: supplying
+``target_feed_rate`` together with ``target_rpm`` under
+``FEED_RATE_CONSTRAINED`` specifically (which derives spindle speed and does
+not accept one directly -- **not** a conflict under
+``ROTATION_AND_FEED_CONSTRAINED``, which requires both together as its own
+valid input); supplying ``target_feed_rate`` under any mode other than
 ``FEED_RATE_CONSTRAINED``/``ROTATION_AND_FEED_CONSTRAINED``/
 ``POWER_AND_FEED_CONSTRAINED``; a ``target_rpm`` supplied under
 ``POWER_AND_FEED_CONSTRAINED`` (which solves for spindle speed rather than
-accepting one directly); or a missing/invalid ``available_power`` under
-``POWER_AND_FEED_CONSTRAINED`` (``MODE_CONFLICT``/``INFEASIBLE_POWER_BUDGET``
-respectively, identical to ``POWER_CONSTRAINED``'s own treatment).
+accepting one directly); or a missing ``available_power`` under
+``POWER_AND_FEED_CONSTRAINED`` (an invalid-but-present one is
+``INFEASIBLE_POWER_BUDGET`` instead, identical to ``POWER_CONSTRAINED``'s
+own treatment).
 
 Validation runs in the same fixed order as drilling: material and tool
 presence, then resolution, then geometry (diameter, then depth of cut —

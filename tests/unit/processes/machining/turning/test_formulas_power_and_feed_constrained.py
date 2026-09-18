@@ -48,17 +48,28 @@ def test_no_op_when_nominal_at_supplied_feed_already_fits_budget():
 
 
 def test_no_op_at_exact_equality_boundary():
-    """An available_power exactly equal to nominal power (within
-    math.isclose's default rel_tol=1e-9) is "sufficient" -- never triggers
-    the reduction, mirroring POWER_CONSTRAINED's identical boundary."""
+    """An available_power exactly equal to nominal power hits the `<=`
+    short-circuit before ever reaching math.isclose() -- covered by
+    test_no_op_when_nominal_at_supplied_feed_already_fits_budget's own
+    comfortably-sufficient case. This test instead exercises the
+    math.isclose() *tolerance* path itself (Copilot review finding on PR
+    #102: an earlier draft passed the exactly-equal value here, so this
+    test could never have caught a broken/removed tolerance check): a
+    budget fractionally *below* nominal power, but still within
+    math.isclose()'s default rel_tol=1e-9, is "sufficient" -- never
+    triggers the reduction, mirroring POWER_CONSTRAINED's identical
+    boundary."""
 
     material = get_material("Mild Steel")
     tool = get_turning_tool("Carbide")
 
     nominal = calculate_turning_feed_rate_constrained_metrics(40, 2, 100, material, tool, 0.3)
+    # Below nominal.power_kw (fails the `<=` short-circuit) but within
+    # rel_tol=1e-9 (a factor of 1e-10 relative difference).
+    budget_within_tolerance = nominal.power_kw * (1 - 1e-10)
 
     result = calculate_turning_power_and_feed_constrained_metrics(
-        40, 2, 100, material, tool, nominal.power_kw, 0.3
+        40, 2, 100, material, tool, budget_within_tolerance, 0.3
     )
 
     assert math.isclose(result.spindle_speed_rpm, nominal.spindle_speed_rpm, rel_tol=1e-9)

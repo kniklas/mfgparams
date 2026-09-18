@@ -132,10 +132,18 @@ def test_missing_tool_takes_precedence_over_power_and_feed_constrained_validatio
     assert result.error.code == "MISSING_TOOL"
 
 
-def test_extreme_subnormal_input_returns_structured_overflow_error_not_a_stale_success():
+def test_extreme_subnormal_input_returns_structured_infeasible_error_not_a_stale_success():
     """spec.md Edge Cases: extreme-but-individually-"valid" supplied values
     combined with subnormal geometry must not silently underflow a
-    dependent metric to 0.0 while still returning error=None."""
+    dependent metric to 0.0 while still returning error=None. The exact
+    code is INFEASIBLE_POWER_BUDGET, not CALCULATION_OVERFLOW (Copilot
+    review finding on this PR: an earlier draft of this test accepted
+    either code, masking a real contract inconsistency between this test
+    and the library-api-turning-combined-constraints-delta.md Error Codes
+    table -- POWER_AND_FEED_CONSTRAINED solves for spindle speed within a
+    power budget, exactly like POWER_CONSTRAINED, so _compute_metrics()
+    uses the same INFEASIBLE_POWER_BUDGET error code that mode's own
+    identical extreme-input case already uses, not CALCULATION_OVERFLOW)."""
 
     result = calculate_turning(
         diameter=1e-300,
@@ -149,7 +157,7 @@ def test_extreme_subnormal_input_returns_structured_overflow_error_not_a_stale_s
     )
 
     assert result.error is not None
-    assert result.error.code in ("CALCULATION_OVERFLOW", "INFEASIBLE_POWER_BUDGET")
+    assert result.error.code == "INFEASIBLE_POWER_BUDGET"
     assert result.spindle_speed_rpm is None
     assert result.feed_per_rotation is None
 

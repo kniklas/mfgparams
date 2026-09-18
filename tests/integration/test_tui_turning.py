@@ -378,10 +378,14 @@ def test_rotation_and_feed_constrained_mode_offers_the_right_rows_and_matches_co
         target_rpm=900,
         target_feed_rate=0.3,
     )
-    assert result.error == expected.error
-    if result.error is None:
-        assert result.spindle_speed_rpm == expected.spindle_speed_rpm == 900
-        assert result.feed_per_rotation == expected.feed_per_rotation == 0.3
+    # Full field-by-field equality (FR-009's identical-results guarantee),
+    # not just error/rpm/feed (Copilot review finding on this PR: an
+    # earlier draft's partial comparison could pass even if the TUI wired
+    # up geometry or another dependent result field incorrectly) --
+    # CalculationResult is a frozen dataclass, so `==` compares every field.
+    assert result == expected
+    assert result.spindle_speed_rpm == 900
+    assert result.feed_per_rotation == 0.3
 
     # The result panel renders without KeyError and shows the mode's
     # spindle-speed label, reused from FIXED_RPM's (research.md #8).
@@ -423,10 +427,13 @@ def test_power_and_feed_constrained_mode_offers_the_right_rows_and_matches_the_c
         mode=CalculationMode.POWER_AND_FEED_CONSTRAINED,
         target_feed_rate=0.3,
     )
-    assert result.error == expected.error
-    if result.error is None:
-        assert result.spindle_speed_rpm == expected.spindle_speed_rpm
-        assert result.feed_per_rotation == expected.feed_per_rotation == 0.3
+    # Full field-by-field equality (FR-009's identical-results guarantee),
+    # not just error/rpm/feed (Copilot review finding on this PR: an
+    # earlier draft's partial comparison could pass even if the TUI wired
+    # up geometry or another dependent result field incorrectly) --
+    # CalculationResult is a frozen dataclass, so `==` compares every field.
+    assert result == expected
+    assert result.feed_per_rotation == 0.3
 
     # The result panel renders without KeyError and shows the mode's
     # spindle-speed label, reused from POWER_CONSTRAINED's (research.md #8).
