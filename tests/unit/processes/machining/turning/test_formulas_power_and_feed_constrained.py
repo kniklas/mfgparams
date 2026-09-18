@@ -114,6 +114,28 @@ def test_zero_budget_underflows_without_crashing():
     assert result.machining_time_min == float("inf")
 
 
+def test_negative_budget_underflows_without_crashing():
+    """MEDIUM Copilot review finding on PR #102: T020 promised zero/negative
+    budget coverage but only zero was ever tested. A negative budget scales
+    spindle speed to a negative value here -- this helper does not itself
+    validate available_power_kw, exactly as the zero-budget case above; the
+    orchestration layer rejects a negative budget as INFEASIBLE_POWER_BUDGET
+    before ever reaching this helper via the public API (a local review
+    finding on this same fix caught an earlier draft of this docstring
+    naming a specific rejection mechanism that a negative budget, unlike
+    zero, never actually reaches)."""
+
+    material = get_material("Mild Steel")
+    tool = get_turning_tool("Carbide")
+
+    result = calculate_turning_power_and_feed_constrained_metrics(
+        40, 2, 100, material, tool, -5.0, 0.3
+    )
+
+    assert result.spindle_speed_rpm < 0
+    assert result.power_kw < 0
+
+
 def test_subnormal_feed_underflows_without_crashing():
     material = get_material("Mild Steel")
     tool = get_turning_tool("Carbide")

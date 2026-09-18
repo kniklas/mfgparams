@@ -59,11 +59,15 @@ No new parameter. Both new modes reuse `target_rpm`, `available_power`, and
 ## Precedence for combined-invalid requests
 
 If a request supplies inputs belonging to two conflicting modes at once (e.g.
-`mode=ROTATION_AND_FEED_CONSTRAINED` with a `target_rpm` that is also individually
-invalid, or `target_feed_rate` supplied under `STANDARD` mode), `MODE_CONFLICT` is
-reported for the *reverse-conflict* case (a field present under the wrong mode)
-before any mode's own required-field validity is checked — this is the existing,
-established precedence (research.md #4), not new.
+`target_rpm` supplied under `POWER_AND_FEED_CONSTRAINED`, which solves for spindle
+speed rather than accepting one directly, or `target_feed_rate` supplied under
+`STANDARD` mode), `MODE_CONFLICT` is reported for the *reverse-conflict* case (a
+field present under the wrong mode) before any mode's own required-field validity
+is checked — this is the existing, established precedence (research.md #4), not
+new. (Corrected by a Copilot review finding on PR #102: an earlier draft of this
+example used `target_rpm` under `ROTATION_AND_FEED_CONSTRAINED`, but `target_rpm`
+is one of *that* mode's own two required inputs, not a foreign field — an invalid
+value there is `INVALID_TARGET_RPM`, never `MODE_CONFLICT`.)
 
 Within `ROTATION_AND_FEED_CONSTRAINED`'s own two required fields, if both `target_rpm`
 and `target_feed_rate` are simultaneously missing or invalid, `target_rpm`'s validity
