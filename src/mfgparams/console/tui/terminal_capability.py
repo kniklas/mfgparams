@@ -14,12 +14,17 @@ import shutil
 import sys
 from dataclasses import dataclass
 
-#: 018-tui-splitpane-redesign FR-013/research.md #1: raised from 017's 25 --
-#: the complete layout (menu bar + tree + an operation's left/right panes)
-#: no longer reliably fits the old floor. MIN_COLUMNS is unaffected (the
-#: prototype's combined pane width already fit comfortably within 80).
+#: 022-tui-min-size-25x80 FR-001/FR-002/research.md #1: lowered back to 25,
+#: restoring the classic 80x25 terminal standard -- 018-tui-splitpane-
+#: redesign had raised this to 30 (from 017's 25) because the complete
+#: layout (menu bar + tree + an operation's left/right panes) didn't
+#: reliably fit the old floor. This feature's manual verification
+#: (quickstart.md, Constitution Principle XIII) is the required check that
+#: every screen still fits at 25, compacting any that don't (FR-006).
+#: MIN_COLUMNS is unaffected either way (the prototype's combined pane
+#: width already fit comfortably within 80).
 MIN_COLUMNS = 80
-MIN_LINES = 30
+MIN_LINES = 25
 
 
 @dataclass(frozen=True)

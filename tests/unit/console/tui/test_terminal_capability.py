@@ -71,9 +71,9 @@ def test_not_supported_when_too_few_columns():
     with (
         mock.patch("sys.stdin.isatty", return_value=True),
         mock.patch("sys.stdout.isatty", return_value=True),
-        # lines held at exactly the (raised) floor so this isolates a
-        # columns-only failure, not a combined columns+lines one.
-        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(79, 30)),
+        # lines held at exactly the floor so this isolates a columns-only
+        # failure, not a combined columns+lines one.
+        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(79, 25)),
     ):
         result = tc.check()
 
@@ -83,20 +83,19 @@ def test_not_supported_when_too_few_columns():
 
 
 def test_not_supported_when_too_few_lines():
-    """018-tui-splitpane-redesign research.md #1: the floor is raised from
-    017's 25 to 30 -- 24 (below the *old* floor too) would not isolate that
-    the *new* floor is actually the one in effect, so this uses 29
-    (below-new, at-or-above-old) specifically."""
+    """022-tui-min-size-25x80 research.md #2: the floor is lowered back to
+    25 (from 018-tui-splitpane-redesign's 30) -- 24 is one below the new
+    floor, isolating a lines-only failure at the boundary now in effect."""
 
     with (
         mock.patch("sys.stdin.isatty", return_value=True),
         mock.patch("sys.stdout.isatty", return_value=True),
-        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(80, 29)),
+        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(80, 24)),
     ):
         result = tc.check()
 
     assert result.supported is False
-    assert result.lines == 29
+    assert result.lines == 24
 
 
 def test_never_raises_even_with_a_zero_fallback_size():

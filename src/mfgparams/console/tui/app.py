@@ -802,6 +802,7 @@ def build_app(  # noqa: C901
         bar_value: str,
         *,
         width: AnyDimension = None,
+        right_aligned: bool = False,
     ) -> Float:
         """One bar entry's own floating dropdown/panel -- positioned just
         under that entry (`bar_offsets[bar_entry_index[bar_value]]`), shown
@@ -809,17 +810,31 @@ def build_app(  # noqa: C901
         for Machining: the bar entry is `"machining"`, but `body_mode`'s
         value for its tree is `"tree"`, unchanged from before this
         revision). Deliberately skips the operation window's outer `Box`
-        margin (below) for a snugger, more typical dropdown fit;
-        `FloatContainer` clamps the rendered width to whatever space
-        remains near the screen edge on its own (verified against
-        prompt-toolkit's own `_draw_float` positioning code), so an
-        unbounded or generously-sized `width` here never overflows even on
-        an 80-column terminal."""
+        margin (below) for a snugger, more typical dropdown fit.
+
+        022-tui-min-size-25x80: the docstring here previously claimed
+        `FloatContainer` clamps a dropdown's rendered width to whatever
+        space remains near the screen edge, so an unbounded/generous
+        `width` "never overflows even on an 80-column terminal" -- manual
+        verification at exactly 80 columns (this feature's own floor)
+        found that claim false for Help specifically: Help is the
+        *rightmost* bar entry, so anchoring its float's `left` to its bar
+        offset (39) left only 41 columns before the screen edge, less than
+        its own `width` floor (40) once the `Frame`/`Shadow` border adds a
+        few more columns of overhead -- the window rendered squeezed to
+        near-nothing, with no legible content. `right_aligned=True` anchors
+        the float's *right* edge to the screen's right edge instead (the
+        standard menu-bar pattern for an item near that edge -- macOS/
+        Windows app menus do the same), so its width is measured from the
+        far more spacious left side of the screen and never underflows its
+        own minimum, regardless of how close its trigger entry sits to the
+        edge."""
 
         window = Window(content=control, wrap_lines=True, width=width)
         scrollable_dropdown_windows[mode] = window
         return Float(
-            left=bar_offsets[bar_entry_index[bar_value]],
+            left=None if right_aligned else bar_offsets[bar_entry_index[bar_value]],
+            right=0 if right_aligned else None,
             # Row 1 -- directly below the bar (row 0), per direct user
             # feedback: "top horizontal line of floating sub-menu window
             # should be just below menu". There is no divider row between
@@ -886,7 +901,13 @@ def build_app(  # noqa: C901
                 width=D(min=44, max=70, preferred=60),
             ),
             _dropdown_float(about_control, "about", "about", width=D(min=40, max=64, preferred=58)),
-            _dropdown_float(help_control, "help", "help", width=D(min=40, max=64, preferred=56)),
+            _dropdown_float(
+                help_control,
+                "help",
+                "help",
+                width=D(min=40, max=64, preferred=56),
+                right_aligned=True,
+            ),
             exit_confirm_float,
             Float(
                 content=ConditionalContainer(
