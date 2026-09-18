@@ -1,6 +1,7 @@
-"""Integration test: a terminal below 30x80 exits with a clear message
-(tasks.md T032, spec.md FR-008/FR-011/FR-013, quickstart.md Scenario 9 --
-raised from 017's 25-row floor, research.md #1)."""
+"""Integration test: a terminal below 25x80 exits with a clear message
+(022-tui-min-size-25x80 spec.md FR-002/FR-004, quickstart.md Part 2 --
+lowered back from 018-tui-splitpane-redesign's 30-row floor,
+research.md #2)."""
 
 from __future__ import annotations
 
@@ -29,42 +30,48 @@ def test_main_exits_1_when_terminal_is_too_narrow(capsys):
         mock.patch("sys.stdout.isatty", return_value=True),
         # lines held at exactly the floor so this isolates a columns-only
         # failure, not a combined columns+lines one.
-        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(79, 30)),
+        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(79, 25)),
     ):
         status = cli.main()
 
     assert status == 1
     captured = capsys.readouterr()
-    assert "79" in captured.err
-    assert "30" in captured.err  # the required minimum, per the message template
+    # Full detected size and full minimum phrase, not loose digit
+    # substrings (Copilot review, PR #103): a bare "79" or "25" would
+    # still pass even if the advertised minimum regressed to 80x30 (since
+    # that message also contains "0" and digits overlapping "25"'s own
+    # characters), silently defeating the boundary this test exists to
+    # pin down.
+    assert "79x25" in captured.err
+    assert "smaller than the minimum 80x25" in captured.err
 
 
 def test_main_exits_1_when_terminal_is_too_short(capsys):
-    """29, not 24: below the *new* 30-row floor but at-or-above the *old*
-    25-row one, so this specifically confirms the new floor is in effect
-    (research.md #1) rather than merely re-testing the old boundary."""
+    """24: one below the 25-row floor (022-tui-min-size-25x80), isolating a
+    lines-only failure at the boundary now in effect."""
 
     with (
         mock.patch("sys.stdin.isatty", return_value=True),
         mock.patch("sys.stdout.isatty", return_value=True),
-        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(80, 29)),
+        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(80, 24)),
     ):
         status = cli.main()
 
     assert status == 1
     captured = capsys.readouterr()
-    assert "29" in captured.err
+    assert "80x24" in captured.err
+    assert "smaller than the minimum 80x25" in captured.err
 
 
 def test_main_succeeds_at_exactly_the_minimum_size():
-    """30x80 is the minimum *supported* size, not the threshold for
-    rejection -- FR-011 is a target *at or above* which no scrolling is
-    needed; exactly-minimum must not be treated as "too small"."""
+    """25x80 is the minimum *supported* size, not the threshold for
+    rejection (022-tui-min-size-25x80 FR-002) -- exactly-minimum must not
+    be treated as "too small"."""
 
     with (
         mock.patch("sys.stdin.isatty", return_value=True),
         mock.patch("sys.stdout.isatty", return_value=True),
-        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(80, 30)),
+        mock.patch("shutil.get_terminal_size", return_value=_terminal_size(80, 25)),
     ):
         from mfgparams.console.tui import terminal_capability
 

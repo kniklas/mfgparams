@@ -114,6 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The minimum supported terminal size is raised from 25×80 to **30×80** —
   the persistent menu bar and tree, shown alongside an operation screen's two
   panes, no longer reliably fit the previous floor.
+- The minimum supported terminal size is lowered back from 30×80 to
+  **25×80**, restoring the classic 80-column/25-line terminal standard
+  (specs/022-tui-min-size-25x80).
 
 ## [2.0.0] - 2026-09-08
 

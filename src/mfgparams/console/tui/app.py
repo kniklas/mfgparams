@@ -26,6 +26,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Literal, cast
 
 from prompt_toolkit.formatted_text import StyleAndTextTuples
+from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.utils import get_cwidth
 
 from mfgparams.console.i18n import get_locale
@@ -341,6 +342,33 @@ def _open_turning(
     return screen
 
 
+#: `Frame`'s own left+right border columns, added on top of whatever a
+#: dropdown's content `Window` requests when computing how much horizontal
+#: space it actually needs (`Shadow` draws its shadow marks *outside* the
+#: requested box, per its own `__init__`, so it adds nothing to the
+#: request). See `_dropdown_float`'s docstring for the underflow this
+#: matters for.
+_DROPDOWN_FRAME_BORDER_COLUMNS = 2
+
+#: Width bounds for `_dropdown_float`'s four bar-entry-anchored floats
+#: (Machining tree, Configuration, About, Help), named at module level --
+#: rather than inline at each call site -- specifically so
+#: `tests/unit/console/tui/test_dropdown_layout.py`
+#: (022-tui-min-size-25x80) can assert each one's `min`, plus
+#: `_DROPDOWN_FRAME_BORDER_COLUMNS`, fits within the space actually
+#: available at `terminal_capability.MIN_COLUMNS` from that entry's fixed
+#: bar offset. Help's `min` is narrower than the other three (36, not 40)
+#: because it is the *rightmost* bar entry: manual verification on a real
+#: 80x25 terminal found the old `min=40` underflowed by exactly one column
+#: at that position, rendering a near-empty dropdown with no legible
+#: content -- 36 restores a safety margin rather than merely closing the
+#: gap to zero.
+_MACHINING_TREE_DROPDOWN_WIDTH = D(min=14, max=22, preferred=18)
+_CONFIGURATION_DROPDOWN_WIDTH = D(min=44, max=70, preferred=60)
+_ABOUT_DROPDOWN_WIDTH = D(min=40, max=64, preferred=58)
+_HELP_DROPDOWN_WIDTH = D(min=36, max=64, preferred=56)
+
+
 def _bar_entry_offsets(entries: list[MenuEntry]) -> list[int]:
     """The column each bar entry starts at, once rendered by
     `menu.render_menu_bar` -- that function joins entries with a two-space
@@ -454,7 +482,7 @@ def build_app(  # noqa: C901
         Window,
     )
     from prompt_toolkit.layout.controls import FormattedTextControl
-    from prompt_toolkit.layout.dimension import AnyDimension, D
+    from prompt_toolkit.layout.dimension import AnyDimension
     from prompt_toolkit.styles import Style
     from prompt_toolkit.widgets import Box, Frame, Shadow
 
@@ -809,12 +837,39 @@ def build_app(  # noqa: C901
         for Machining: the bar entry is `"machining"`, but `body_mode`'s
         value for its tree is `"tree"`, unchanged from before this
         revision). Deliberately skips the operation window's outer `Box`
-        margin (below) for a snugger, more typical dropdown fit;
-        `FloatContainer` clamps the rendered width to whatever space
-        remains near the screen edge on its own (verified against
-        prompt-toolkit's own `_draw_float` positioning code), so an
-        unbounded or generously-sized `width` here never overflows even on
-        an 80-column terminal."""
+        margin (below) for a snugger, more typical dropdown fit.
+
+        022-tui-min-size-25x80: the docstring here previously claimed this
+        stays trigger-relative-`left`-anchored width "never overflows even
+        on an 80-column terminal". Manual verification at exactly 80
+        columns (this feature's own floor) found that claim false for
+        Help specifically: Help is the *rightmost* bar entry, so its
+        float's `left` (its bar offset, 39) leaves only 41 columns before
+        the screen edge, and `Frame`'s own left+right border adds exactly
+        2 more columns of overhead on top of whatever `width` asks for
+        (`Shadow` draws outside the requested box and adds nothing to the
+        request) -- with the old `width=D(min=40, ...)`, that is 42
+        columns needed against 41 available, an underflow by exactly one
+        column, and the window rendered squeezed to near-nothing with no
+        legible content.
+
+        An earlier revision of this fix right-aligned Help's float to the
+        screen's right edge unconditionally -- Copilot review on this PR
+        correctly flagged that as trading one bug for another: on any
+        terminal wider than ~80 columns, that pinned Help's dropdown to
+        the far right edge regardless of the bar entry's own (unmoved,
+        left-packed) position, visibly detaching the dropdown from its
+        trigger for every terminal above the floor, not just fixing the
+        one at it. Since this float only ever anchors via a fixed `left`
+        (never conditionally repositioned) and a wider terminal only ever
+        *increases* the space to its right, the true minimum-columns case
+        is the only one that can underflow; each call site's own `width`
+        floor is chosen so the requested minimum (its `min` plus this
+        function's constant +2 `Frame`-border overhead) fits within the
+        space actually available at `MIN_COLUMNS` (80) from that entry's
+        fixed offset -- Help's alone had to shrink (see its call site
+        below) since it is the only one close enough to the right edge to
+        matter; the position itself never has to move, at any width."""
 
         window = Window(content=control, wrap_lines=True, width=width)
         scrollable_dropdown_windows[mode] = window
@@ -877,16 +932,16 @@ def build_app(  # noqa: C901
             # wrap rather than stretching edge-to-edge to whatever's left of
             # the screen, which unbounded auto-sizing would otherwise do.
             _dropdown_float(
-                tree_control, "tree", "machining", width=D(min=14, max=22, preferred=18)
+                tree_control, "tree", "machining", width=_MACHINING_TREE_DROPDOWN_WIDTH
             ),
             _dropdown_float(
                 configuration_control,
                 "configuration",
                 "configuration",
-                width=D(min=44, max=70, preferred=60),
+                width=_CONFIGURATION_DROPDOWN_WIDTH,
             ),
-            _dropdown_float(about_control, "about", "about", width=D(min=40, max=64, preferred=58)),
-            _dropdown_float(help_control, "help", "help", width=D(min=40, max=64, preferred=56)),
+            _dropdown_float(about_control, "about", "about", width=_ABOUT_DROPDOWN_WIDTH),
+            _dropdown_float(help_control, "help", "help", width=_HELP_DROPDOWN_WIDTH),
             exit_confirm_float,
             Float(
                 content=ConditionalContainer(
