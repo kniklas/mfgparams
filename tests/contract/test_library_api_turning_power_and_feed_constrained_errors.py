@@ -93,7 +93,9 @@ def test_invalid_target_feed_rate_reports_invalid_target_feed_rate(bad_value):
     assert result.error.code == "INVALID_TARGET_FEED_RATE"
 
 
-@pytest.mark.parametrize("feed_kwargs", [{}, {"target_feed_rate": 0}, {"target_feed_rate": float("nan")}])
+@pytest.mark.parametrize(
+    "feed_kwargs", [{}, {"target_feed_rate": 0}, {"target_feed_rate": float("nan")}]
+)
 def test_missing_available_power_and_invalid_target_feed_rate_is_mode_conflict(feed_kwargs):
     """data-model.md's precedence rule (Copilot review PR #101's finding,
     applied here from the start rather than rediscovered, research.md #4):
