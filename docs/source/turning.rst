@@ -54,10 +54,24 @@ silently clamped.
 Calculation modes
 -----------------
 
-Turning supports the same three calculation modes as drilling and milling:
-``standard``, ``power-constrained``, and ``fixed-rpm``. Their behavior is
-identical to drilling's — see :doc:`drilling`'s "Calculation modes"
-section for the full description; only the geometry inputs above differ.
+Turning supports four calculation modes: ``standard``, ``power-constrained``,
+and ``fixed-rpm`` behave identically to drilling's — see :doc:`drilling`'s
+"Calculation modes" section for the full description; only the geometry
+inputs above differ. Turning also has a fourth, turning-only mode:
+
+**feed-rate-constrained**: instead of the feed rate per rotation being
+derived from the selected material and turning tool, you supply it
+directly — for example, to match a surface-finish requirement or a value
+already dialed into the lathe. Selecting this mode shows a required
+**Feed rate per rotation** field in place of the target-RPM field; spindle
+speed is still derived exactly as in standard mode (from the material's
+and tool's reference cutting speed and the entered diameter), but machining
+time, cutting force, torque, and power are all recomputed from your
+supplied feed rate instead of the material/tool's reference value. In the
+text GUI, the **Feed rate per rotation** field nudges by a finer step than
+every other field when you press **Left/Right**: 0.1 mm/rev under the
+metric unit system, or 0.005 in/rev under imperial (rather than the 1
+display-unit step every other numeric field uses).
 
 Reading the results
 --------------------
@@ -67,6 +81,7 @@ length of cut, Mild Steel, Carbide, standard mode)::
 
     Spindle speed:     477.5 RPM    (recommended)
     Feed rate:         100.3 mm/min
+    Feed per rotation: 0.21 mm/rev
     Machining time:    1.00 min
     Torque:            16.0 N·m
     Power required:    0.80 kW
@@ -76,10 +91,13 @@ Spindle speed and feed rate describe how the workpiece is turned, machining
 time is how long the pass takes, torque and power are what the spindle
 needs to deliver, and cutting force is the tangential force the tool
 experiences — the quantity a turning tool holder's rated force is
-typically compared against. Turning does not report a material removal
-rate (that line is specific to milling) but is the only process that
-reports cutting force, which stays ``None`` for drilling and milling
-results.
+typically compared against. **Feed per rotation** expresses the same feed
+rate as an amount of material advance per workpiece rotation (mm/rev or
+in/rev) — the way feed rate is actually set on a lathe — alongside the
+existing per-minute feed rate, whose own meaning and value are unchanged.
+Turning does not report a material removal rate (that line is specific to
+milling) but is the only process that reports cutting force and feed per
+rotation, both of which stay ``None`` for drilling and milling results.
 
 If you supply an available lathe/tool power and the calculated power
 exceeds it, the result is still shown, with a warning line telling you the
@@ -132,4 +150,5 @@ turning tool has no drill-point geometry to account for. Only straight
 (outside-diameter) turning is in scope; facing, grooving, parting,
 threading, and taper turning are deliberately deferred to a later feature.
 See ``specs/019-turning-calculations/research.md`` for the formulas and
-their sources.
+their sources, and ``specs/020-turning-feed-per-rotation/research.md`` for
+the feed-rate-constrained mode and feed-per-rotation reporting.

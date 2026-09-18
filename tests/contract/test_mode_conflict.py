@@ -42,6 +42,28 @@ def test_fixed_rpm_without_target_rpm_is_invalid_target_rpm():
     assert result.spindle_speed_rpm is None
 
 
+def test_feed_rate_constrained_mode_is_unsupported_for_drilling():
+    """Copilot review finding on specs/020-turning-feed-per-rotation PR
+    #101 (HIGH): FEED_RATE_CONSTRAINED is turning-only, but the shared
+    CalculationMode enum member still passes drilling's own type contract.
+    Without an explicit rejection, drilling's mode dispatch silently fell
+    through to its STANDARD branch and returned standard metrics tagged
+    with FEED_RATE_CONSTRAINED instead of a structured error."""
+
+    result = calculate(
+        diameter=10,
+        depth=25,
+        material="Mild Steel",
+        tool="Carbide",
+        mode=CalculationMode.FEED_RATE_CONSTRAINED,
+    )
+
+    assert result.error is not None
+    assert result.error.code == "UNSUPPORTED_MODE"
+    assert result.spindle_speed_rpm is None
+    assert result.mode is CalculationMode.FEED_RATE_CONSTRAINED
+
+
 def test_standard_mode_ignores_target_rpm_and_available_power_together():
     """STANDARD mode never conflicts: any supplied target_rpm/available_power
     is simply unused/ignored (mode is authoritative)."""

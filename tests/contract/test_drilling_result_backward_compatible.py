@@ -37,19 +37,21 @@ def test_pre_existing_fields_keep_their_names_and_order():
 
 
 def test_material_removal_rate_and_cutting_force_are_appended_after_pre_existing_fields():
-    """``material_removal_rate`` (009-milling-calculations) and
-    ``cutting_force`` (019-turning-calculations) are each appended after
-    every pre-existing field, in the order their features were added, and
-    both default to ``None`` -- preserving positional construction for
-    every earlier call site regardless of how many such fields accumulate."""
+    """``material_removal_rate`` (009-milling-calculations),
+    ``cutting_force`` (019-turning-calculations), and ``feed_per_rotation``
+    (020-turning-feed-per-rotation) are each appended after every
+    pre-existing field, in the order their features were added, and all
+    default to ``None`` -- preserving positional construction for every
+    earlier call site regardless of how many such fields accumulate."""
 
     fields = dataclasses.fields(CalculationResult)
     trailing_names = [field.name for field in fields[len(_PRE_EXISTING_FIELDS) :]]
 
-    assert trailing_names == ["material_removal_rate", "cutting_force"]
-    assert fields[-1].name == "cutting_force"
+    assert trailing_names == ["material_removal_rate", "cutting_force", "feed_per_rotation"]
+    assert fields[-1].name == "feed_per_rotation"
     assert fields[-1].default is None
     assert next(f for f in fields if f.name == "material_removal_rate").default is None
+    assert next(f for f in fields if f.name == "cutting_force").default is None
 
 
 def test_result_is_constructible_without_the_new_field():
@@ -65,6 +67,8 @@ def test_result_is_constructible_without_the_new_field():
     )
 
     assert result.material_removal_rate is None
+    assert result.cutting_force is None
+    assert result.feed_per_rotation is None
 
 
 @pytest.mark.parametrize(
@@ -87,6 +91,7 @@ def test_drilling_never_reports_a_material_removal_rate(kwargs):
     assert result.error is None
     assert result.spindle_speed_rpm is not None
     assert result.material_removal_rate is None
+    assert result.feed_per_rotation is None
 
 
 def test_drilling_error_results_are_unchanged():
@@ -95,3 +100,4 @@ def test_drilling_error_results_are_unchanged():
     assert result.error is not None
     assert result.error.code == "INVALID_DIAMETER"
     assert result.material_removal_rate is None
+    assert result.feed_per_rotation is None

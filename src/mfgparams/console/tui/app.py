@@ -82,6 +82,7 @@ class FieldId(Enum):
     DEPTH_OF_CUT = "depth_of_cut"
     TARGET_RPM = "target_rpm"
     AVAILABLE_POWER = "available_power"
+    TARGET_FEED_RATE = "target_feed_rate"
 
 
 @dataclass(frozen=True)

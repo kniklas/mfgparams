@@ -1,13 +1,16 @@
-"""Unit tests for the turning-specific validators (specs/019-turning-calculations FR-010).
+"""Unit tests for the turning-specific validators (specs/019-turning-calculations FR-010,
+specs/020-turning-feed-per-rotation FR-006).
 
 Covers ``validate_turning_diameter_mm``, ``validate_turning_depth_of_cut_mm``
-(including its workpiece-radius check), and ``validate_turning_length_of_cut_mm``.
+(including its workpiece-radius check), ``validate_turning_length_of_cut_mm``,
+and ``validate_target_feed_rate``.
 """
 
 import pytest
 
 from mfgparams.config import Configuration
 from mfgparams.validation import (
+    validate_target_feed_rate,
     validate_turning_depth_of_cut_mm,
     validate_turning_diameter_mm,
     validate_turning_length_of_cut_mm,
@@ -95,6 +98,38 @@ def test_turning_length_of_cut_rejects_exceeding_configured_maximum():
     assert error is not None
     assert error.code == "INVALID_LENGTH_OF_CUT"
     assert "exceed" in error.message
+
+
+@pytest.mark.parametrize("bad_value", [0, -1, -0.5, float("nan"), float("inf"), float("-inf")])
+def test_validate_target_feed_rate_rejects_invalid_values(bad_value):
+    error = validate_target_feed_rate(bad_value)
+    assert error is not None
+    assert error.code == "INVALID_TARGET_FEED_RATE"
+
+
+def test_validate_target_feed_rate_rejects_non_numeric():
+    error = validate_target_feed_rate("fast")
+    assert error is not None
+    assert error.code == "INVALID_TARGET_FEED_RATE"
+
+
+@pytest.mark.parametrize("good_value", [0.001, 0.2, 1.0, 5.0])
+def test_validate_target_feed_rate_accepts_positive_finite_values(good_value):
+    assert validate_target_feed_rate(good_value) is None
+
+
+def test_validate_target_feed_rate_accepts_none():
+    """A None target_feed_rate (not supplied) is not itself an error here —
+    callers decide whether a missing value is an error for the selected
+    mode (mirrors validate_target_rpm's identical division of
+    responsibility)."""
+    assert validate_target_feed_rate(None) is None
+
+
+def test_validate_target_feed_rate_no_upper_bound():
+    """No additional maximum bound beyond finiteness/positivity, mirroring
+    validate_target_rpm's identical posture."""
+    assert validate_target_feed_rate(1e6) is None
 
 
 def test_turning_bounds_are_distinct_from_milling_bounds():

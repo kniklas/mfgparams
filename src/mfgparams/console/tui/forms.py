@@ -39,6 +39,7 @@ UNIT_LABELS = {
         "material_removal_rate": "cm³/min",
         "depth_of_cut": "mm",
         "cutting_force": "N",
+        "feed_per_rotation": "mm/rev",
     },
     UnitSystem.IMPERIAL: {
         "diameter": "in",
@@ -50,6 +51,7 @@ UNIT_LABELS = {
         "material_removal_rate": "in³/min",
         "depth_of_cut": "in",
         "cutting_force": "lbf",
+        "feed_per_rotation": "in/rev",
     },
 }
 
@@ -143,6 +145,11 @@ _SPINDLE_SPEED_MODE_LABEL_KEYS = {
     CalculationMode.STANDARD: "tui.result.spindle_speed.mode.standard",
     CalculationMode.POWER_CONSTRAINED: "tui.result.spindle_speed.mode.power_constrained",
     CalculationMode.FIXED_RPM: "tui.result.spindle_speed.mode.fixed_rpm",
+    # specs/020-turning-feed-per-rotation research.md #9: this dict is a
+    # hard lookup (not a .get() with a fallback) -- an unhandled
+    # CalculationMode member here raises KeyError for every result in that
+    # mode, so this entry is required, not optional polish.
+    CalculationMode.FEED_RATE_CONSTRAINED: "tui.result.spindle_speed.mode.feed_rate_constrained",
 }
 
 
@@ -169,6 +176,17 @@ def format_result(result, labels: dict[str, str], locale: str) -> str:
             value=f"{result.feed_rate:.1f}",
             unit=labels["feed_rate"],
         ),
+    ]
+    if result.feed_per_rotation is not None:
+        lines.append(
+            translate(
+                locale,
+                "tui.result.feed_per_rotation",
+                value=f"{result.feed_per_rotation:.4g}",
+                unit=labels["feed_per_rotation"],
+            )
+        )
+    lines += [
         translate(locale, "tui.result.machining_time", value=f"{result.machining_time:.2f}"),
         translate(locale, "tui.result.torque", value=f"{result.torque:.1f}", unit=labels["torque"]),
         translate(

@@ -29,6 +29,7 @@ from mfgparams.units import (
 from mfgparams.validation import (
     validate_material_present,
     validate_mode_arguments,
+    validate_target_feed_rate,
     validate_target_rpm,
     validate_turning_depth_of_cut_mm,
     validate_turning_diameter_mm,
@@ -37,6 +38,7 @@ from mfgparams.validation import (
 )
 
 from .formulas import (
+    calculate_turning_feed_rate_constrained_metrics,
     calculate_turning_metrics,
     calculate_turning_metrics_at_rpm,
     calculate_turning_power_constrained_metrics,
@@ -58,6 +60,7 @@ def _error_result(
         error=error,
         mode=mode,
         cutting_force=None,
+        feed_per_rotation=None,
     )
 
 
@@ -90,6 +93,7 @@ def _reject_if_invalid(
         for value in (
             metrics.spindle_speed_rpm,
             metrics.feed_rate_mm_min,
+            metrics.feed_per_rev_mm,
             metrics.machining_time_min,
             metrics.cutting_force_n,
             metrics.torque_nm,
@@ -113,6 +117,7 @@ def _compute_metrics(
     resolved_tool,
     available_power_kw: float | None,
     target_rpm: float | None,
+    target_feed_rate_mm: float | None,
     unit_system: UnitSystem,
     locale: str,
 ):
@@ -120,10 +125,12 @@ def _compute_metrics(
 
     Mirrors drilling's ``_compute_metrics`` shape (three modes, same
     dispatch structure), extended to turning's three-dimensional geometry
-    (diameter, depth of cut, length of cut) and to milling's
+    (diameter, depth of cut, length of cut), to milling's
     ``_reject_if_invalid`` finiteness/positivity guard, applied to every
     mode's result rather than only checking ``spindle_speed_rpm`` in
-    ``POWER_CONSTRAINED`` mode (Copilot review finding on PR #100).
+    ``POWER_CONSTRAINED`` mode (Copilot review finding on PR #100), and to a
+    fourth, turning-only ``FEED_RATE_CONSTRAINED`` mode
+    (specs/020-turning-feed-per-rotation FR-004/FR-005).
     """
     if mode is CalculationMode.POWER_CONSTRAINED:
         # available_power_kw is guaranteed non-None here (validate_mode_arguments
@@ -168,6 +175,27 @@ def _compute_metrics(
             resolved_material,
             resolved_tool,
             target_rpm,
+        )
+        return _reject_if_invalid(
+            metrics,
+            unit_system,
+            mode,
+            locale,
+            error_code="CALCULATION_OVERFLOW",
+            error_message_key="error.calculation_overflow",
+        )
+
+    if mode is CalculationMode.FEED_RATE_CONSTRAINED:
+        # target_feed_rate_mm is guaranteed non-None here (INVALID_TARGET_FEED_RATE
+        # is returned earlier in calculate_turning() when it is None for this mode).
+        assert target_feed_rate_mm is not None
+        metrics = calculate_turning_feed_rate_constrained_metrics(
+            diameter_mm,
+            depth_of_cut_mm,
+            length_of_cut_mm,
+            resolved_material,
+            resolved_tool,
+            target_feed_rate_mm,
         )
         return _reject_if_invalid(
             metrics,
@@ -296,15 +324,53 @@ def _validate_mode_inputs(
     mode: CalculationMode,
     available_power: float | None,
     target_rpm: float | None,
+    target_feed_rate: float | None,
     unit_system: UnitSystem,
     locale: str,
 ):
-    """Validate the mode-specific arguments (``target_rpm``/``available_power``).
+    """Validate the mode-specific arguments (``target_rpm``/``available_power``/
+    ``target_feed_rate``).
 
-    Byte-for-byte the same as drilling's ``_validate_mode_inputs`` — mode
-    validation is operation-agnostic, so it is reused verbatim rather than
-    duplicated.
+    The ``target_rpm``/``available_power`` handling is byte-for-byte the
+    same as drilling's ``_validate_mode_inputs`` — mode validation is
+    operation-agnostic, so it is reused verbatim rather than duplicated.
+    ``target_feed_rate`` (specs/020-turning-feed-per-rotation) is
+    turning-only: required and validated when ``mode is
+    FEED_RATE_CONSTRAINED``, and rejected as a ``MODE_CONFLICT`` if
+    supplied under any other mode -- checked here, locally, rather than in
+    the shared ``validate_mode_arguments`` (research.md #3/data-model.md),
+    since that function's signature is otherwise unchanged and shared
+    verbatim by drilling and milling.
+
+    Mode-conflict checks (this function's reverse-direction check above,
+    and the shared ``validate_mode_arguments()`` call below) run before
+    ``target_feed_rate``'s own positive/finite validation, mirroring
+    ``POWER_CONSTRAINED``'s own established precedent inside
+    ``validate_mode_arguments`` (its ``target_rpm``-conflict check runs
+    before its ``available_power`` validity check): a request supplying
+    *two* mode-driving inputs at once (e.g. both ``target_feed_rate`` and
+    ``target_rpm`` under ``FEED_RATE_CONSTRAINED``) is reported as
+    ``MODE_CONFLICT`` regardless of whether one of those inputs also
+    happens to be individually invalid (Copilot review finding on this
+    PR: the previous order let an invalid ``target_feed_rate`` return
+    ``INVALID_TARGET_FEED_RATE`` before the ``target_rpm`` conflict was
+    ever checked).
     """
+    if target_feed_rate is not None and mode is not CalculationMode.FEED_RATE_CONSTRAINED:
+        return _error_result(
+            unit_system,
+            ErrorInfo(
+                "MODE_CONFLICT",
+                translate(locale, "error.mode_conflict"),
+                message_key="error.mode_conflict",
+            ),
+            mode,
+        )
+
+    mode_conflict_error = validate_mode_arguments(mode, available_power, target_rpm, locale)
+    if mode_conflict_error:
+        return _error_result(unit_system, mode_conflict_error, mode)
+
     if mode is CalculationMode.FIXED_RPM:
         target_rpm_error = validate_target_rpm(target_rpm, locale)
         if target_rpm_error:
@@ -320,11 +386,22 @@ def _validate_mode_inputs(
                 mode,
             )
 
-    return (
-        _error_result(unit_system, mode_error, mode)
-        if (mode_error := validate_mode_arguments(mode, available_power, target_rpm, locale))
-        else None
-    )
+    if mode is CalculationMode.FEED_RATE_CONSTRAINED:
+        target_feed_rate_error = validate_target_feed_rate(target_feed_rate, locale)
+        if target_feed_rate_error:
+            return _error_result(unit_system, target_feed_rate_error, mode)
+        if target_feed_rate is None:
+            return _error_result(
+                unit_system,
+                ErrorInfo(
+                    "INVALID_TARGET_FEED_RATE",
+                    translate(locale, "error.invalid_target_feed_rate"),
+                    message_key="error.invalid_target_feed_rate",
+                ),
+                mode,
+            )
+
+    return None
 
 
 def _validate_and_prepare(
@@ -339,12 +416,14 @@ def _validate_and_prepare(
     locale: str,
     mode: CalculationMode,
     target_rpm: float | None,
+    target_feed_rate: float | None,
     materials_config_path: str | None = None,
 ):
     """Validate all inputs and resolve/convert them for calculation.
 
     Mirrors drilling's ``_validate_and_prepare``, extended to turning's
-    three-dimensional geometry.
+    three-dimensional geometry and to the ``target_feed_rate`` mode input
+    (specs/020-turning-feed-per-rotation).
     """
     config = load_configuration(config_path)
 
@@ -362,13 +441,23 @@ def _validate_and_prepare(
         return geometry
     diameter_mm, depth_of_cut_mm, length_of_cut_mm = geometry
 
-    mode_input_error = _validate_mode_inputs(mode, available_power, target_rpm, unit_system, locale)
+    mode_input_error = _validate_mode_inputs(
+        mode, available_power, target_rpm, target_feed_rate, unit_system, locale
+    )
     if mode_input_error is not None:
         return mode_input_error
 
     available_power_kw = None
     if available_power is not None:
         available_power_kw = to_metric_power(available_power, unit_system)
+
+    # target_feed_rate is not unit-system-independent (unlike target_rpm),
+    # so it converts to metric here, mirroring available_power's own
+    # conversion (research.md #5/#8) -- validated in its as-supplied form
+    # above, since sign/finiteness are invariant under the conversion.
+    target_feed_rate_mm = None
+    if target_feed_rate is not None:
+        target_feed_rate_mm = to_metric_length(target_feed_rate, unit_system)
 
     return (
         resolved_material,
@@ -377,6 +466,7 @@ def _validate_and_prepare(
         depth_of_cut_mm,
         length_of_cut_mm,
         available_power_kw,
+        target_feed_rate_mm,
     )
 
 
@@ -405,11 +495,13 @@ def _build_result(
         torque = nm_to_in_lb(metrics.torque_nm)
         power_required = kw_to_hp(metrics.power_kw)
         cutting_force = n_to_lbf(metrics.cutting_force_n)
+        feed_per_rotation = mm_to_in(metrics.feed_per_rev_mm)
     else:
         feed_rate = metrics.feed_rate_mm_min
         torque = metrics.torque_nm
         power_required = metrics.power_kw
         cutting_force = metrics.cutting_force_n
+        feed_per_rotation = metrics.feed_per_rev_mm
 
     return CalculationResult(
         spindle_speed_rpm=metrics.spindle_speed_rpm,
@@ -422,6 +514,7 @@ def _build_result(
         error=None,
         mode=mode,
         cutting_force=cutting_force,
+        feed_per_rotation=feed_per_rotation,
     )
 
 
@@ -438,6 +531,7 @@ def calculate_turning(
     mode: CalculationMode = CalculationMode.STANDARD,
     target_rpm: float | None = None,
     materials_config_path: str | None = None,
+    target_feed_rate: float | None = None,
 ) -> CalculationResult:
     """Calculate turning parameters for the given inputs.
 
@@ -462,27 +556,45 @@ def calculate_turning(
             formatting. Defaults to ``UnitSystem.METRIC``.
         available_power: Optional available lathe/tool power, in the power
             unit of ``unit_system`` (kW for METRIC, HP for IMPERIAL).
-            Semantics depend on ``mode``: in ``STANDARD`` and ``FIXED_RPM``
-            modes it is optional/advisory; in ``POWER_CONSTRAINED`` mode it
-            is a **required** hard constraint.
+            Semantics depend on ``mode``: in ``STANDARD``, ``FIXED_RPM``,
+            and ``FEED_RATE_CONSTRAINED`` modes it is optional/advisory
+            (a feasibility warning is included if the estimated required
+            power exceeds it); in ``POWER_CONSTRAINED`` mode it is a
+            **required** hard constraint.
         config_path: Optional path to a TOML file overriding the default
             diameter/depth-of-cut/length-of-cut validation bounds.
         locale: Optional locale used to translate ``feasibility_warning``
             text. Defaults to English. Does not affect ``ErrorInfo.message``,
             which is always English regardless of this argument.
         mode: Which calculation mode to use (``STANDARD``,
-            ``POWER_CONSTRAINED``, or ``FIXED_RPM``). Defaults to
-            ``STANDARD``.
+            ``POWER_CONSTRAINED``, ``FIXED_RPM``, or
+            ``FEED_RATE_CONSTRAINED``). Defaults to ``STANDARD``.
         target_rpm: Required when ``mode is CalculationMode.FIXED_RPM``:
             the caller-supplied spindle speed (RPM) to calculate from,
             instead of deriving it from the material/tool. Ignored (not an
             error) when ``mode is CalculationMode.STANDARD``. Supplying it
-            together with ``mode is CalculationMode.POWER_CONSTRAINED`` is
-            a ``MODE_CONFLICT``.
+            together with ``mode is CalculationMode.POWER_CONSTRAINED`` or
+            ``mode is CalculationMode.FEED_RATE_CONSTRAINED`` is a
+            ``MODE_CONFLICT``.
         materials_config_path: Optional path to a user-supplied
             materials/tools configuration file that adds new materials/
             tools or overrides built-in ones. Defaults to ``None`` (bundled
             defaults only).
+        target_feed_rate: Required when ``mode is
+            CalculationMode.FEED_RATE_CONSTRAINED`` (specs/020-turning-
+            feed-per-rotation): the caller-supplied feed rate per workpiece
+            rotation, in the units of ``unit_system`` (mm/rev for METRIC,
+            in/rev for IMPERIAL), used directly instead of the material/
+            tool's reference feed value. Spindle speed is still derived
+            exactly as ``STANDARD`` mode derives it. Supplying it together
+            with any other mode (``STANDARD``, ``POWER_CONSTRAINED``, or
+            ``FIXED_RPM``) is a ``MODE_CONFLICT``. Appended after
+            ``materials_config_path`` (rather than immediately after
+            ``target_rpm``) so this addition does not shift that
+            pre-existing parameter's positional index for existing
+            callers (Copilot review finding on this PR: an inserted
+            parameter ahead of an existing one silently breaks
+            positional callers).
 
     Returns:
         A :class:`CalculationResult`. On success, ``error`` is ``None`` and:
@@ -495,6 +607,11 @@ def calculate_turning(
         - ``torque`` is in N*m (METRIC) or in-lb (IMPERIAL).
         - ``power_required`` is in kW (METRIC) or HP (IMPERIAL).
         - ``cutting_force`` is in newtons (METRIC) or lbf (IMPERIAL).
+        - ``feed_per_rotation`` is the feed rate expressed as material
+          advance per workpiece rotation, in mm/rev (METRIC) or in/rev
+          (IMPERIAL) — populated in every mode, additive to ``feed_rate``
+          (which keeps its own existing per-time meaning and value
+          unchanged) (specs/020-turning-feed-per-rotation FR-001/FR-002).
         - ``mode`` echoes the requested mode.
 
         On failure, ``error`` is set and every numeric field above,
@@ -516,6 +633,7 @@ def calculate_turning(
         message_locale,
         mode,
         target_rpm,
+        target_feed_rate,
         materials_config_path,
     )
     if isinstance(prepared, CalculationResult):
@@ -527,6 +645,7 @@ def calculate_turning(
         depth_of_cut_mm,
         length_of_cut_mm,
         available_power_kw,
+        target_feed_rate_mm,
     ) = prepared
 
     metrics_or_error = _compute_metrics(
@@ -538,6 +657,7 @@ def calculate_turning(
         resolved_tool,
         available_power_kw,
         target_rpm,
+        target_feed_rate_mm,
         unit_system,
         message_locale,
     )

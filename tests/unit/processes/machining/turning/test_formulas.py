@@ -27,6 +27,7 @@ def test_nominal_mild_steel_carbide():
     # fn = 0.20 * 1.05 = 0.21 mm/rev
     expected_feed = expected_rpm * 0.21
     assert math.isclose(metrics.feed_rate_mm_min, expected_feed, rel_tol=0.05)
+    assert math.isclose(metrics.feed_per_rev_mm, 0.21, rel_tol=0.05)
 
     expected_time = 100 / expected_feed
     assert math.isclose(metrics.machining_time_min, expected_time, rel_tol=0.05)
@@ -53,6 +54,7 @@ def test_all_registered_materials_and_tools_produce_positive_results():
             metrics = calculate_turning_metrics(20, 1, 50, material, tool)
             assert metrics.spindle_speed_rpm > 0
             assert metrics.feed_rate_mm_min > 0
+            assert metrics.feed_per_rev_mm > 0
             assert metrics.machining_time_min > 0
             assert metrics.cutting_force_n > 0
             assert metrics.torque_nm > 0

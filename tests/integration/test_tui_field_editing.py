@@ -92,6 +92,18 @@ def test_backspace_edits_the_buffer_too():
     assert state.diameter == 1.0
 
 
+def test_number_row_step_defaults_to_nudge_step():
+    """specs/020-turning-feed-per-rotation FR-011/research.md #7: every
+    existing NumberRow (drilling, milling, and turning's own diameter/
+    depth/length/power/RPM rows) keeps nudging by the shared default
+    NUDGE_STEP unless a row explicitly overrides it."""
+
+    screen = _screen()
+    row = _row(_rows(screen), FieldId.DIAMETER)
+    assert isinstance(row, split_pane.NumberRow)
+    assert row.step == split_pane.NUDGE_STEP
+
+
 def test_left_right_nudges_a_numeric_fields_buffer_without_committing_until_navigating_away():
     """FR-017."""
 

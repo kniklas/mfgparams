@@ -44,6 +44,7 @@ behaviors, all taken from the prototype's own code, not reinvented:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Callable, Union
 
 from prompt_toolkit.formatted_text import StyleAndTextTuples
@@ -89,7 +90,13 @@ class NumberRow:
     (`move_selection`), with the fully-parsed value (`None` for a blank
     buffer) -- matching the prototype's `commit_current`. Typing
     (`edit_selected`) and nudging (`nudge_selected`) only ever touch
-    `OperationScreen.field_buffer`, never call this directly."""
+    `OperationScreen.field_buffer`, never call this directly.
+
+    `step` (specs/020-turning-feed-per-rotation FR-011/research.md #7):
+    the amount `nudge_selected` adds/subtracts per Left/Right press.
+    Defaults to the shared `NUDGE_STEP` (1 display unit); a row MAY
+    override it with a smaller value for a field where that default is too
+    coarse (e.g. turning's feed-rate-per-rotation field)."""
 
     field_id: FieldId
     label: str
@@ -97,6 +104,7 @@ class NumberRow:
     value: float | None
     required: bool
     on_commit: Callable[[float | None], None]
+    step: float = NUDGE_STEP
 
 
 Row = Union[RadioRow, NumberRow]
@@ -106,8 +114,10 @@ def power_and_rpm_rows(
     *,
     power_constrained: bool,
     fixed_rpm: bool,
+    feed_rate_constrained: bool = False,
     power_row: Callable[[str, bool], NumberRow],
     rpm_row: Callable[[], NumberRow],
+    feed_rate_row: Callable[[], NumberRow] | None = None,
 ) -> list[Row]:
     """The mode-dependent trailing rows Drilling and Milling both build the
     same way (FR-009's identical-pattern requirement, applied to this one
@@ -116,12 +126,22 @@ def power_and_rpm_rows(
     (optional); Standard needs only available power (optional). Callers
     supply small factories (`power_row(label_key, required)`, `rpm_row()`)
     since the row's label/unit/current value/commit closures are
-    screen-specific."""
+    screen-specific.
+
+    `feed_rate_constrained`/`feed_rate_row` (specs/020-turning-feed-per-
+    rotation) are turning-only additions: needs feed rate per rotation
+    (required) plus available power (optional). Both new parameters default
+    so Drilling's and Milling's existing call sites -- which never pass
+    them -- are unaffected."""
 
     if power_constrained:
         return [power_row("tui.label.power_required", True)]
     if fixed_rpm:
         return [rpm_row(), power_row("tui.label.power", False)]
+    if feed_rate_constrained:
+        if feed_rate_row is None:
+            raise ValueError("feed_rate_row is required when feed_rate_constrained=True")
+        return [feed_rate_row(), power_row("tui.label.power", False)]
     return [power_row("tui.label.power", False)]
 
 
@@ -271,13 +291,15 @@ def backspace_selected(rows: list[Row], screen: OperationScreen) -> None:
 
 
 def nudge_selected(rows: list[Row], screen: OperationScreen, direction: int) -> None:
-    """FR-017 on a `NumberRow`: adjusts `field_buffer` by `NUDGE_STEP`,
-    falling back to the row's last-committed value (or 0) if the buffer
-    doesn't currently parse -- matching the prototype's `adjust_numeric`
-    exactly, including that this only ever touches the buffer, never
-    committing to `session_state` directly (`move_selection` still does
-    that). A nudge that would land at or below zero clears the buffer to
-    unset rather than going negative (contract §4's implementation detail).
+    """FR-017 on a `NumberRow`: adjusts `field_buffer` by `row.step`
+    (defaults to `NUDGE_STEP`; specs/020-turning-feed-per-rotation
+    research.md #7), falling back to the row's last-committed value (or 0)
+    if the buffer doesn't currently parse -- matching the prototype's
+    `adjust_numeric` exactly, including that this only ever touches the
+    buffer, never committing to `session_state` directly (`move_selection`
+    still does that). A nudge that would land at or below zero clears the
+    buffer to unset rather than going negative (contract §4's
+    implementation detail).
 
     On a `RadioRow`, cycles `value` with wraparound and commits
     immediately via `on_select` -- matching the prototype's `cycle_field`
@@ -292,7 +314,24 @@ def nudge_selected(rows: list[Row], screen: OperationScreen, direction: int) -> 
             current = float(text) if text else 0.0
         except ValueError:
             current = row.value if row.value is not None else 0.0
-        new_value = current + direction * NUDGE_STEP
+        # Decimal-safe addition: `row.step` values below 1.0 (e.g. 0.1
+        # mm/rev, 0.005 in/rev -- specs/020-turning-feed-per-rotation
+        # research.md #7) are not exactly representable in binary
+        # floating-point, so plain `float` addition accumulates visible
+        # drift (0.1 + 0.1 + 0.1 == 0.30000000000000004) that
+        # `_buffer_text`'s exact-round-trip `repr()` would otherwise show
+        # to the user verbatim. `Decimal(str(x))` reconstructs the exact
+        # decimal value `x`'s own shortest round-tripping representation
+        # already denotes (the same digits `repr`/`str` would print), so
+        # the addition itself introduces no binary rounding error --
+        # unlike blanket-rounding the result (an earlier version of this
+        # fix, caught by Copilot review: it truncated a pre-existing
+        # high-precision buffer on every other field too, e.g. nudging
+        # `1.123456789` by the default step to `2.123457` instead of the
+        # exact `2.123456789`).
+        current_decimal = Decimal(str(current))
+        step_decimal = Decimal(str(row.step))
+        new_value = float(current_decimal + direction * step_decimal)
         screen.field_buffer = "" if new_value <= 0 else _buffer_text(new_value)
         return
     if not row.options:

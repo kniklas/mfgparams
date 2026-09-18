@@ -9,6 +9,7 @@ input (`depth_of_cut`).
 from __future__ import annotations
 
 from mfgparams import CalculationMode, UnitSystem, calculate_turning
+from mfgparams.console.tui import forms
 from mfgparams.console.tui.app import FieldId, OperationScreen
 from mfgparams.console.tui.screens import split_pane
 from mfgparams.console.tui.screens.turning import TurningSessionState, calculate_result, rows_for
@@ -105,6 +106,25 @@ def test_standard_mode_reaches_a_result_matching_the_core_calculation():
     assert result.cutting_force == expected.cutting_force
 
 
+def test_standard_mode_result_panel_shows_feed_per_rotation_after_feed_rate():
+    """specs/020-turning-feed-per-rotation FR-001/User Story 1: the result
+    panel includes a new "Feed per rotation" line, immediately after "Feed
+    rate", for a standard-mode calculation."""
+
+    screen = _screen()
+    _fill_metal_mild_steel_carbide(screen)
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    result = calculate_result(state, None, "en")
+    assert result.error is None
+    assert result.feed_per_rotation is not None
+
+    text = forms.format_result(result, forms.UNIT_LABELS[UnitSystem.METRIC], "en")
+    lines = text.splitlines()
+    feed_rate_index = next(i for i, line in enumerate(lines) if line.startswith("Feed rate:"))
+    assert lines[feed_rate_index + 1].startswith("Feed per rotation:")
+
+
 def test_target_rpm_field_only_present_in_fixed_rpm_mode():
     screen = _screen()
     assert FieldId.TARGET_RPM not in {row.field_id for row in _rows(screen)}
@@ -137,6 +157,106 @@ def test_fixed_rpm_mode_reaches_a_result_matching_the_core_calculation():
     assert result.error == expected.error
     if result.error is None:
         assert result.spindle_speed_rpm == expected.spindle_speed_rpm
+
+
+def test_feed_rate_row_only_present_in_feed_rate_constrained_mode():
+    """specs/020-turning-feed-per-rotation FR-010."""
+
+    screen = _screen()
+    assert FieldId.TARGET_FEED_RATE not in {row.field_id for row in _rows(screen)}
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
+    field_ids = {row.field_id for row in _rows(screen)}
+    assert FieldId.TARGET_FEED_RATE in field_ids
+    assert FieldId.TARGET_RPM not in field_ids
+
+
+def test_feed_rate_constrained_mode_reaches_a_result_matching_the_core_calculation():
+    screen = _screen()
+    _fill_metal_mild_steel_carbide(screen)
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
+    _row(_rows(screen), FieldId.TARGET_FEED_RATE).on_commit(0.5)
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    assert split_pane.is_complete(_rows(screen))
+
+    result = calculate_result(state, None, "en")
+    expected = calculate_turning(
+        diameter=40.0,
+        depth_of_cut=2.0,
+        length_of_cut=100.0,
+        material="Mild Steel",
+        tool="Carbide",
+        unit_system=UnitSystem.METRIC,
+        available_power=None,
+        locale="en",
+        mode=CalculationMode.FEED_RATE_CONSTRAINED,
+        target_feed_rate=0.5,
+    )
+    assert result.error == expected.error
+    if result.error is None:
+        assert result.spindle_speed_rpm == expected.spindle_speed_rpm
+        assert result.feed_per_rotation == expected.feed_per_rotation == 0.5
+
+    # The result panel renders without KeyError (research.md #9) and shows
+    # the new mode's spindle-speed label.
+    text = forms.format_result(result, forms.UNIT_LABELS[UnitSystem.METRIC], "en")
+    assert "derived from cutting speed" in text
+
+
+def test_feed_rate_row_nudges_by_a_finer_step_than_other_turning_rows():
+    """specs/020-turning-feed-per-rotation FR-011/User Story 3: the feed-
+    rate-per-rotation row nudges by 0.1 mm/rev under METRIC, distinct from
+    turning's other rows' default 1.0 step."""
+
+    screen = _screen()
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
+
+    feed_rate_row = _row(_rows(screen), FieldId.TARGET_FEED_RATE)
+    assert isinstance(feed_rate_row, split_pane.NumberRow)
+    assert feed_rate_row.step == 0.1
+
+    diameter_row = _row(_rows(screen), FieldId.DIAMETER)
+    assert isinstance(diameter_row, split_pane.NumberRow)
+    assert diameter_row.step == split_pane.NUDGE_STEP
+
+    screen.selected_field = FieldId.TARGET_FEED_RATE
+    split_pane.sync_buffer(_rows(screen), screen)
+    split_pane.nudge_selected(_rows(screen), screen, 1)
+    split_pane.nudge_selected(_rows(screen), screen, 1)
+    split_pane.nudge_selected(_rows(screen), screen, 1)
+    # Regression: 0.1 + 0.1 + 0.1 accumulates binary floating-point drift
+    # (0.30000000000000004) that the buffer's exact-round-trip formatter
+    # would otherwise surface verbatim to the user before this value is
+    # ever committed.
+    assert screen.field_buffer == "0.3"
+    split_pane.move_selection(_rows(screen), screen, 1, "en")
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    assert round(state.target_feed_rate, 4) == 0.3
+
+
+def test_feed_rate_row_nudges_by_a_finer_step_under_imperial():
+    screen = _screen()
+    _row(_rows(screen), FieldId.UNIT_SYSTEM).on_select("imperial")
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
+
+    feed_rate_row = _row(_rows(screen), FieldId.TARGET_FEED_RATE)
+    assert isinstance(feed_rate_row, split_pane.NumberRow)
+    assert feed_rate_row.step == 0.005
+
+
+def test_target_feed_rate_converts_across_a_unit_system_switch():
+    """specs/020-turning-feed-per-rotation FR-012, mirroring milling's
+    existing feed_per_tooth field's identical treatment."""
+
+    screen = _screen()
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
+    _row(_rows(screen), FieldId.TARGET_FEED_RATE).on_commit(0.5)
+    _row(_rows(screen), FieldId.UNIT_SYSTEM).on_select("imperial")
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    assert state.unit_system is UnitSystem.IMPERIAL
+    assert round(state.target_feed_rate, 6) == round(0.5 / 25.4, 6)
 
 
 def test_power_constrained_mode_requires_available_power_to_be_complete():
@@ -187,6 +307,21 @@ def test_switching_mode_clears_the_previous_modes_power_or_rpm_value():
     _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FIXED_RPM.value)
     assert state.available_power is None
     assert state.target_rpm is None
+
+
+def test_switching_away_from_feed_rate_constrained_clears_target_feed_rate():
+    """specs/020-turning-feed-per-rotation: a feed-rate-constrained value is
+    never carried over as an editable default into a different mode."""
+
+    screen = _screen()
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
+    _row(_rows(screen), FieldId.TARGET_FEED_RATE).on_commit(0.5)
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    assert state.target_feed_rate == 0.5
+
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.STANDARD.value)
+    assert state.target_feed_rate is None
 
 
 def test_invalid_depth_of_cut_shows_structured_error_instead_of_result():

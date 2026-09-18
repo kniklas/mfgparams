@@ -28,10 +28,34 @@ def test_at_rpm_matches_standard_when_given_the_nominal_rpm():
     at_rpm = calculate_turning_metrics_at_rpm(40, 2, 100, material, tool, nominal.spindle_speed_rpm)
 
     assert math.isclose(at_rpm.feed_rate_mm_min, nominal.feed_rate_mm_min, rel_tol=1e-9)
+    assert math.isclose(at_rpm.feed_per_rev_mm, nominal.feed_per_rev_mm, rel_tol=1e-9)
     assert math.isclose(at_rpm.machining_time_min, nominal.machining_time_min, rel_tol=1e-9)
     assert math.isclose(at_rpm.cutting_force_n, nominal.cutting_force_n, rel_tol=1e-9)
     assert math.isclose(at_rpm.torque_nm, nominal.torque_nm, rel_tol=1e-9)
     assert math.isclose(at_rpm.power_kw, nominal.power_kw, rel_tol=1e-9)
+
+
+def test_at_rpm_feed_per_rev_mm_override_replaces_material_tool_derived_value():
+    """specs/020-turning-feed-per-rotation research.md #2: an explicitly
+    supplied feed_per_rev_mm is used directly instead of being derived from
+    material.reference_feed_per_rev_mm * tool.feed_factor, and every
+    dependent metric (feed rate, machining time, cutting force, torque,
+    power) is recomputed from it."""
+
+    material = get_material("Mild Steel")
+    tool = get_turning_tool("Carbide")
+
+    nominal = calculate_turning_metrics_at_rpm(40, 2, 100, material, tool, 500)
+    overridden = calculate_turning_metrics_at_rpm(
+        40, 2, 100, material, tool, 500, feed_per_rev_mm=0.5
+    )
+
+    assert not math.isclose(nominal.feed_per_rev_mm, 0.5, rel_tol=1e-9)
+    assert overridden.feed_per_rev_mm == 0.5
+    assert overridden.spindle_speed_rpm == 500
+    assert math.isclose(overridden.feed_rate_mm_min, 500 * 0.5, rel_tol=1e-9)
+    assert math.isclose(overridden.cutting_force_n, 1900.0 * 2 * 0.5, rel_tol=1e-9)
+    assert not math.isclose(overridden.cutting_force_n, nominal.cutting_force_n, rel_tol=1e-9)
 
 
 def test_at_rpm_cutting_force_and_torque_independent_of_spindle_speed():

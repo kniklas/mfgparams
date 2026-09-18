@@ -48,12 +48,14 @@ MESSAGES: dict[str, str] = {
     "tui.mode.standard": "standard",
     "tui.mode.power_constrained": "power-constrained",
     "tui.mode.fixed_rpm": "fixed-rpm",
+    "tui.mode.feed_rate_constrained": "feed-rate-constrained",
     "tui.label.power": "Available power",
     "tui.label.power_required": "Available power",
     "tui.prompt.power_required.invalid": (
         "Please enter a positive numeric value for available power."
     ),
     "tui.label.target_rpm": "Target spindle speed",
+    "tui.label.target_feed_rate": "Feed rate per rotation",
     "tui.prompt.target_rpm.invalid": (
         "Please enter a positive numeric value for target spindle speed."
     ),
@@ -137,7 +139,9 @@ MESSAGES: dict[str, str] = {
     "tui.result.spindle_speed.mode.standard": "recommended",
     "tui.result.spindle_speed.mode.power_constrained": "adjusted to fit available power",
     "tui.result.spindle_speed.mode.fixed_rpm": "user-specified",
+    "tui.result.spindle_speed.mode.feed_rate_constrained": "derived from cutting speed",
     "tui.result.feed_rate": "Feed rate:         {value} {unit}",
+    "tui.result.feed_per_rotation": "Feed per rotation: {value} {unit}",
     "tui.result.machining_time": "Machining time:    {value} min",
     "tui.result.torque": "Torque:            {value} {unit}",
     "tui.result.power_required": "Power required:    {value} {unit}",

@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cutting_force` field (populated for turning; `None` for drilling and
   milling), following the same precedent `material_removal_rate` already
   set for milling.
+- Every turning calculation result now also reports `feed_per_rotation` —
+  the feed rate expressed as material advance per workpiece rotation
+  (mm/rev under metric, in/rev under imperial), the way feed rate is
+  actually set on a lathe — alongside the existing, unchanged per-minute
+  `feed_rate` (specs/020-turning-feed-per-rotation). `CalculationResult`
+  gains this new optional field (populated for turning; `None` for
+  drilling and milling), following the same precedent `cutting_force`
+  already set. A new **feed-rate-constrained** turning calculation mode
+  (`CalculationMode.FEED_RATE_CONSTRAINED`) lets a caller supply a target
+  feed rate per rotation directly instead of deriving it from the
+  material/tool — spindle speed is still derived exactly as standard mode,
+  while machining time, cutting force, torque, and power are recomputed
+  from the supplied feed rate. In the console text GUI, this mode's new
+  "Feed rate per rotation" field nudges by a finer step (0.1 mm/rev metric,
+  0.005 in/rev imperial) than every other numeric field's default.
 
 ### Changed
 

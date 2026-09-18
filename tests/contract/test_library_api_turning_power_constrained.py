@@ -35,6 +35,9 @@ def test_turning_power_constrained_success_response_shape():
     assert math.isclose(result.cutting_force, nominal.cutting_force, rel_tol=1e-9)
     assert math.isclose(result.power_required, budget_kw, rel_tol=1e-9)
     assert result.feasibility_warning is None
+    # specs/020-turning-feed-per-rotation FR-001: derived from material/tool,
+    # unchanged by the spindle-speed reduction (research.md #1).
+    assert math.isclose(result.feed_per_rotation, nominal.feed_per_rotation, rel_tol=1e-9)
 
 
 def test_turning_power_constrained_no_reduction_needed_matches_standard_mode():

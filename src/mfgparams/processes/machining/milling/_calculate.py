@@ -253,6 +253,26 @@ def _validate_mode_inputs(
     order").
     """
 
+    # FEED_RATE_CONSTRAINED (specs/020-turning-feed-per-rotation) is
+    # turning-only: the shared CalculationMode enum member still passes
+    # this function's type contract, but milling has no feed-per-rotation
+    # concept to constrain by. Without this explicit rejection,
+    # _compute_metrics()'s dispatch below falls through to its STANDARD
+    # branch and silently returns standard metrics tagged with this mode
+    # (Copilot review finding on specs/020-turning-feed-per-rotation PR
+    # #101) -- reject it as its own first check here, mirroring drilling's
+    # identical rejection.
+    if mode is CalculationMode.FEED_RATE_CONSTRAINED:
+        return error_result(
+            unit_system,
+            ErrorInfo(
+                "UNSUPPORTED_MODE",
+                translate(locale, "error.unsupported_mode"),
+                message_key="error.unsupported_mode",
+            ),
+            mode,
+        )
+
     if mode is CalculationMode.FIXED_RPM:
         target_rpm_error = validate_target_rpm(target_rpm, locale)
         if target_rpm_error:

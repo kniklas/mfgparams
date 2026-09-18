@@ -155,3 +155,42 @@ def test_advisory_available_power_rejects_non_finite_or_non_numeric(mode, target
 def test_advisory_available_power_accepts_none_or_valid_number(mode, target_rpm):
     assert validate_mode_arguments(mode, available_power=None, target_rpm=target_rpm) is None
     assert validate_mode_arguments(mode, available_power=5.5, target_rpm=target_rpm) is None
+
+
+def test_mode_conflict_feed_rate_constrained_with_target_rpm():
+    """specs/020-turning-feed-per-rotation research.md #3: FEED_RATE_CONSTRAINED
+    derives spindle speed exactly as STANDARD, so a directly supplied
+    target_rpm conflicts with that derivation, mirroring POWER_CONSTRAINED's
+    identical rejection."""
+    error = validate_mode_arguments(
+        CalculationMode.FEED_RATE_CONSTRAINED, available_power=None, target_rpm=1200
+    )
+    assert error is not None
+    assert error.code == "MODE_CONFLICT"
+
+
+def test_feed_rate_constrained_never_conflicts_on_available_power():
+    """available_power remains optional/advisory in FEED_RATE_CONSTRAINED
+    mode (FR-008) — never a conflict, regardless of whether it is
+    supplied."""
+    assert (
+        validate_mode_arguments(
+            CalculationMode.FEED_RATE_CONSTRAINED, available_power=None, target_rpm=None
+        )
+        is None
+    )
+    assert (
+        validate_mode_arguments(
+            CalculationMode.FEED_RATE_CONSTRAINED, available_power=1.0, target_rpm=None
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("bad_power", ["bad", True, False, float("nan"), float("inf"), 0, -5.0])
+def test_feed_rate_constrained_advisory_available_power_rejects_invalid(bad_power):
+    error = validate_mode_arguments(
+        CalculationMode.FEED_RATE_CONSTRAINED, available_power=bad_power, target_rpm=None
+    )
+    assert error is not None
+    assert error.code == "INVALID_AVAILABLE_POWER"

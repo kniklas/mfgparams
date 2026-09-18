@@ -33,6 +33,7 @@ _MODE_OPTION_KEYS = {
     CalculationMode.STANDARD: "tui.mode.standard",
     CalculationMode.POWER_CONSTRAINED: "tui.mode.power_constrained",
     CalculationMode.FIXED_RPM: "tui.mode.fixed_rpm",
+    CalculationMode.FEED_RATE_CONSTRAINED: "tui.mode.feed_rate_constrained",
 }
 
 
@@ -52,6 +53,7 @@ class TurningSessionState:
     available_power: float | None = None
     mode: CalculationMode = CalculationMode.STANDARD
     target_rpm: float | None = None
+    target_feed_rate: float | None = None
     previous_mode: CalculationMode = CalculationMode.STANDARD
 
 
@@ -78,6 +80,10 @@ def _convert_on_unit_change(state: TurningSessionState, unit_system: UnitSystem)
     if state.available_power is not None:
         state.available_power = forms.convert_power(
             state.available_power, state.unit_system, unit_system
+        )
+    if state.target_feed_rate is not None:
+        state.target_feed_rate = forms.convert_length(
+            state.target_feed_rate, state.unit_system, unit_system
         )
 
 
@@ -130,11 +136,12 @@ def rows_for(
     def _set_mode(value: str) -> None:
         new_mode = CalculationMode(value)
         if new_mode is not state.previous_mode:
-            # A mode's power/RPM field(s) shouldn't default to a value
-            # carried over from a *different* mode (mirrors drilling's
+            # A mode's power/RPM/feed-rate field(s) shouldn't default to a
+            # value carried over from a *different* mode (mirrors drilling's
             # identically-motivated `_set_mode` guard).
             state.available_power = None
             state.target_rpm = None
+            state.target_feed_rate = None
         state.mode = new_mode
         state.previous_mode = new_mode
 
@@ -256,12 +263,30 @@ def rows_for(
             lambda value: setattr(state, "target_rpm", value),
         )
 
+    def _feed_rate_row() -> split_pane.NumberRow:
+        # FR-011/research.md #7: a finer arrow-key nudge step than the
+        # shared 1.0-display-unit default -- 0.1 mm/rev under METRIC, or
+        # 0.005 in/rev (a standard imperial shop-practice feed value, not a
+        # coarse literal conversion of 0.1 mm) under IMPERIAL.
+        step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.005
+        return split_pane.NumberRow(
+            field_id=FieldId.TARGET_FEED_RATE,
+            label=translate(locale, "tui.label.target_feed_rate"),
+            unit=labels["feed_per_rotation"],
+            value=state.target_feed_rate,
+            required=True,
+            on_commit=lambda value: setattr(state, "target_feed_rate", value),
+            step=step,
+        )
+
     rows.extend(
         split_pane.power_and_rpm_rows(
             power_constrained=state.mode is CalculationMode.POWER_CONSTRAINED,
             fixed_rpm=state.mode is CalculationMode.FIXED_RPM,
+            feed_rate_constrained=state.mode is CalculationMode.FEED_RATE_CONSTRAINED,
             power_row=_power_row,
             rpm_row=_rpm_row,
+            feed_rate_row=_feed_rate_row,
         )
     )
 
@@ -285,5 +310,6 @@ def calculate_result(
         locale=locale,
         mode=state.mode,
         target_rpm=state.target_rpm,
+        target_feed_rate=state.target_feed_rate,
         materials_config_path=materials_config_path,
     )

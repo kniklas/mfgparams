@@ -76,4 +76,4 @@ def test_validate_mode_arguments_ignores_a_direct_non_english_locale():
         CalculationMode.POWER_CONSTRAINED, None, 100.0, locale=_FIXTURE_LOCALE
     )
     assert error is not None
-    assert error.message.startswith("Power-constrained and fixed-RPM inputs")
+    assert error.message.startswith("A calculation-mode-specific input")
