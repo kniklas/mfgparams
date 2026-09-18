@@ -16,7 +16,13 @@ import math
 
 from mfgparams.config import load_configuration
 from mfgparams.i18n import DEFAULT_LOCALE, translate
-from mfgparams.models import CalculationMode, CalculationResult, ErrorInfo, UnitSystem
+from mfgparams.models import (
+    TURNING_ONLY_MODES,
+    CalculationMode,
+    CalculationResult,
+    ErrorInfo,
+    UnitSystem,
+)
 from mfgparams.registry import get_material, get_material_validation
 from mfgparams.units import (
     kw_to_hp,
@@ -45,6 +51,17 @@ from .formulas import (
     calculate_turning_power_constrained_metrics,
 )
 from .tools import get_turning_tool, list_turning_tools
+
+#: Modes where target_rpm is used directly (never derived, never a
+#: conflict) rather than solved/derived -- FIXED_RPM (shared) and
+#: ROTATION_AND_FEED_CONSTRAINED (turning-only). Named to match
+#: TURNING_ONLY_MODES's own pattern (Copilot review finding on PR #102:
+#: an inline `mode is X or mode is Y` disjunction here, alongside the
+#: named-set idiom used for target_feed_rate below, made the two style
+#: choices easy to lose sync with each other on a future mode addition).
+_DIRECT_TARGET_RPM_MODES = frozenset(
+    {CalculationMode.FIXED_RPM, CalculationMode.ROTATION_AND_FEED_CONSTRAINED}
+)
 
 
 def _error_result(
@@ -426,11 +443,7 @@ def _validate_mode_inputs(
     (specs/021-turning-combined-constraints research.md #4) applies that
     fix from the start rather than risking it being rediscovered.
     """
-    if target_feed_rate is not None and mode not in (
-        CalculationMode.FEED_RATE_CONSTRAINED,
-        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
-        CalculationMode.POWER_AND_FEED_CONSTRAINED,
-    ):
+    if target_feed_rate is not None and mode not in TURNING_ONLY_MODES:
         return _error_result(
             unit_system,
             ErrorInfo(
@@ -445,7 +458,7 @@ def _validate_mode_inputs(
     if mode_conflict_error:
         return _error_result(unit_system, mode_conflict_error, mode)
 
-    if mode is CalculationMode.FIXED_RPM or mode is CalculationMode.ROTATION_AND_FEED_CONSTRAINED:
+    if mode in _DIRECT_TARGET_RPM_MODES:
         target_rpm_error = validate_target_rpm(target_rpm, locale)
         if target_rpm_error:
             return _error_result(unit_system, target_rpm_error, mode)
@@ -460,11 +473,7 @@ def _validate_mode_inputs(
                 mode,
             )
 
-    if mode in (
-        CalculationMode.FEED_RATE_CONSTRAINED,
-        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
-        CalculationMode.POWER_AND_FEED_CONSTRAINED,
-    ):
+    if mode in TURNING_ONLY_MODES:
         target_feed_rate_error = validate_target_feed_rate(target_feed_rate, locale)
         if target_feed_rate_error:
             return _error_result(unit_system, target_feed_rate_error, mode)
@@ -639,9 +648,11 @@ def calculate_turning(
         available_power: Optional available lathe/tool power, in the power
             unit of ``unit_system`` (kW for METRIC, HP for IMPERIAL).
             Semantics depend on ``mode``: in ``STANDARD``, ``FIXED_RPM``,
-            and ``FEED_RATE_CONSTRAINED`` modes it is optional/advisory
-            (a feasibility warning is included if the estimated required
-            power exceeds it); in ``POWER_CONSTRAINED`` mode it is a
+            ``FEED_RATE_CONSTRAINED``, and ``ROTATION_AND_FEED_CONSTRAINED``
+            modes it is optional/advisory (a feasibility warning is
+            included if the estimated required power exceeds it); in
+            ``POWER_CONSTRAINED`` and ``POWER_AND_FEED_CONSTRAINED``
+            (specs/021-turning-combined-constraints) modes it is a
             **required** hard constraint.
         config_path: Optional path to a TOML file overriding the default
             diameter/depth-of-cut/length-of-cut validation bounds.
@@ -649,14 +660,19 @@ def calculate_turning(
             text. Defaults to English. Does not affect ``ErrorInfo.message``,
             which is always English regardless of this argument.
         mode: Which calculation mode to use (``STANDARD``,
-            ``POWER_CONSTRAINED``, ``FIXED_RPM``, or
-            ``FEED_RATE_CONSTRAINED``). Defaults to ``STANDARD``.
-        target_rpm: Required when ``mode is CalculationMode.FIXED_RPM``:
-            the caller-supplied spindle speed (RPM) to calculate from,
-            instead of deriving it from the material/tool. Ignored (not an
-            error) when ``mode is CalculationMode.STANDARD``. Supplying it
-            together with ``mode is CalculationMode.POWER_CONSTRAINED`` or
-            ``mode is CalculationMode.FEED_RATE_CONSTRAINED`` is a
+            ``POWER_CONSTRAINED``, ``FIXED_RPM``, ``FEED_RATE_CONSTRAINED``,
+            ``ROTATION_AND_FEED_CONSTRAINED``, or
+            ``POWER_AND_FEED_CONSTRAINED`` -- the last two turning-only,
+            specs/021-turning-combined-constraints). Defaults to
+            ``STANDARD``.
+        target_rpm: Required when ``mode is CalculationMode.FIXED_RPM`` or
+            ``mode is CalculationMode.ROTATION_AND_FEED_CONSTRAINED``: the
+            caller-supplied spindle speed (RPM) to calculate from, instead
+            of deriving it from the material/tool. Ignored (not an error)
+            when ``mode is CalculationMode.STANDARD``. Supplying it
+            together with ``mode is CalculationMode.POWER_CONSTRAINED``,
+            ``mode is CalculationMode.FEED_RATE_CONSTRAINED``, or
+            ``mode is CalculationMode.POWER_AND_FEED_CONSTRAINED`` is a
             ``MODE_CONFLICT``.
         materials_config_path: Optional path to a user-supplied
             materials/tools configuration file that adds new materials/
@@ -664,19 +680,26 @@ def calculate_turning(
             defaults only).
         target_feed_rate: Required when ``mode is
             CalculationMode.FEED_RATE_CONSTRAINED`` (specs/020-turning-
-            feed-per-rotation): the caller-supplied feed rate per workpiece
-            rotation, in the units of ``unit_system`` (mm/rev for METRIC,
-            in/rev for IMPERIAL), used directly instead of the material/
-            tool's reference feed value. Spindle speed is still derived
-            exactly as ``STANDARD`` mode derives it. Supplying it together
-            with any other mode (``STANDARD``, ``POWER_CONSTRAINED``, or
-            ``FIXED_RPM``) is a ``MODE_CONFLICT``. Appended after
-            ``materials_config_path`` (rather than immediately after
-            ``target_rpm``) so this addition does not shift that
-            pre-existing parameter's positional index for existing
-            callers (Copilot review finding on this PR: an inserted
-            parameter ahead of an existing one silently breaks
-            positional callers).
+            feed-per-rotation), ``mode is
+            CalculationMode.ROTATION_AND_FEED_CONSTRAINED``, or ``mode is
+            CalculationMode.POWER_AND_FEED_CONSTRAINED`` (the latter two
+            specs/021-turning-combined-constraints): the caller-supplied
+            feed rate per workpiece rotation, in the units of
+            ``unit_system`` (mm/rev for METRIC, in/rev for IMPERIAL), used
+            directly instead of the material/tool's reference feed value.
+            Under ``FEED_RATE_CONSTRAINED``, spindle speed is still
+            derived exactly as ``STANDARD`` mode derives it; under
+            ``ROTATION_AND_FEED_CONSTRAINED``, spindle speed is the
+            supplied ``target_rpm`` directly; under
+            ``POWER_AND_FEED_CONSTRAINED``, spindle speed is solved to fit
+            ``available_power``. Supplying it together with any other mode
+            (``STANDARD``, ``POWER_CONSTRAINED``, or ``FIXED_RPM``) is a
+            ``MODE_CONFLICT``. Appended after ``materials_config_path``
+            (rather than immediately after ``target_rpm``) so this
+            addition does not shift that pre-existing parameter's
+            positional index for existing callers (Copilot review finding
+            on PR #101: an inserted parameter ahead of an existing one
+            silently breaks positional callers).
 
     Returns:
         A :class:`CalculationResult`. On success, ``error`` is ``None`` and:

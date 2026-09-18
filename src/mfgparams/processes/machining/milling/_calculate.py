@@ -28,7 +28,13 @@ from typing import Callable, Optional, Protocol
 
 from mfgparams.config import Configuration, load_configuration
 from mfgparams.i18n import DEFAULT_LOCALE, translate
-from mfgparams.models import CalculationMode, CalculationResult, ErrorInfo, UnitSystem
+from mfgparams.models import (
+    TURNING_ONLY_MODES,
+    CalculationMode,
+    CalculationResult,
+    ErrorInfo,
+    UnitSystem,
+)
 from mfgparams.processes.machining.milling._shared import (
     calculate_power_constrained_milling_metrics,
 )
@@ -253,9 +259,8 @@ def _validate_mode_inputs(
     order").
     """
 
-    # FEED_RATE_CONSTRAINED (specs/020-turning-feed-per-rotation),
-    # ROTATION_AND_FEED_CONSTRAINED, and POWER_AND_FEED_CONSTRAINED
-    # (specs/021-turning-combined-constraints) are turning-only: the shared
+    # TURNING_ONLY_MODES (specs/020-turning-feed-per-rotation,
+    # specs/021-turning-combined-constraints) are turning-only: the shared
     # CalculationMode enum members still pass this function's type
     # contract, but milling has no feed-per-rotation concept to constrain
     # by. Without this explicit rejection, _compute_metrics()'s dispatch
@@ -263,11 +268,7 @@ def _validate_mode_inputs(
     # standard metrics tagged with this mode (Copilot review finding on
     # specs/020-turning-feed-per-rotation PR #101) -- reject them as their
     # own first check here, mirroring drilling's identical rejection.
-    if mode in (
-        CalculationMode.FEED_RATE_CONSTRAINED,
-        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
-        CalculationMode.POWER_AND_FEED_CONSTRAINED,
-    ):
+    if mode in TURNING_ONLY_MODES:
         return error_result(
             unit_system,
             ErrorInfo(

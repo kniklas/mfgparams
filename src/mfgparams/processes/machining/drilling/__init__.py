@@ -13,7 +13,13 @@ import math
 
 from mfgparams.config import load_configuration
 from mfgparams.i18n import DEFAULT_LOCALE, translate
-from mfgparams.models import CalculationMode, CalculationResult, ErrorInfo, UnitSystem
+from mfgparams.models import (
+    TURNING_ONLY_MODES,
+    CalculationMode,
+    CalculationResult,
+    ErrorInfo,
+    UnitSystem,
+)
 from mfgparams.registry import get_material, get_material_validation
 from mfgparams.units import (
     hp_to_kw,
@@ -242,9 +248,8 @@ def _validate_mode_inputs(
     cyclomatic complexity/Maintainability Index thresholds configured in
     ``pyproject.toml`` (FR-001/FR-002).
     """
-    # FEED_RATE_CONSTRAINED (specs/020-turning-feed-per-rotation),
-    # ROTATION_AND_FEED_CONSTRAINED, and POWER_AND_FEED_CONSTRAINED
-    # (specs/021-turning-combined-constraints) are turning-only: the shared
+    # TURNING_ONLY_MODES (specs/020-turning-feed-per-rotation,
+    # specs/021-turning-combined-constraints) are turning-only: the shared
     # CalculationMode enum members still pass this function's type
     # contract, but drilling has no feed-per-rotation concept to constrain
     # by. Without this explicit rejection, _compute_metrics()'s dispatch
@@ -254,11 +259,7 @@ def _validate_mode_inputs(
     # own first check here, ahead of the target_rpm/available_power
     # mode-argument validation below, since the mode itself is invalid for
     # this process regardless of any other mode-specific input.
-    if mode in (
-        CalculationMode.FEED_RATE_CONSTRAINED,
-        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
-        CalculationMode.POWER_AND_FEED_CONSTRAINED,
-    ):
+    if mode in TURNING_ONLY_MODES:
         return _error_result(
             unit_system,
             ErrorInfo(

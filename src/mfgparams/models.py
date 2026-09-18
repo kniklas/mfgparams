@@ -80,6 +80,30 @@ class CalculationMode(Enum):
     POWER_AND_FEED_CONSTRAINED = "power-and-feed-constrained"
 
 
+#: The turning-only `CalculationMode` members (Copilot review finding on
+#: PR #102: this exact set was previously duplicated verbatim across four
+#: locations -- turning's own reverse-conflict check and its
+#: target_feed_rate-required check, plus drilling's and milling's own
+#: UNSUPPORTED_MODE rejections -- risking exactly the class of bug PR #101's
+#: review already caught once for FEED_RATE_CONSTRAINED, if a future
+#: turning-only mode's addition updated some copies but not others).
+#: Single source of truth for two things that happen to coincide today:
+#: (1) the modes drilling's/milling's own `_validate_mode_inputs()` reject
+#: with `UNSUPPORTED_MODE`, and (2) the modes turning's own
+#: `_validate_mode_inputs()` accepts (and requires) a directly-supplied
+#: `target_feed_rate` for. If a future turning-only mode is ever added that
+#: does *not* use `target_feed_rate`, these two meanings would need to
+#: split into two separate constants -- not a concern this set needs to
+#: anticipate today, since every turning-only mode added so far uses it.
+TURNING_ONLY_MODES = frozenset(
+    {
+        CalculationMode.FEED_RATE_CONSTRAINED,
+        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
+        CalculationMode.POWER_AND_FEED_CONSTRAINED,
+    }
+)
+
+
 class MachiningOperation(Enum):
     """The top-level machining operation the user selects in the console.
 

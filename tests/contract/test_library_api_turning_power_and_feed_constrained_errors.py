@@ -152,3 +152,29 @@ def test_extreme_subnormal_input_returns_structured_overflow_error_not_a_stale_s
     assert result.error.code in ("CALCULATION_OVERFLOW", "INFEASIBLE_POWER_BUDGET")
     assert result.spindle_speed_rpm is None
     assert result.feed_per_rotation is None
+
+
+def test_arbitrary_precision_int_budget_with_subnormal_geometry_does_not_raise():
+    """Copilot review finding on this PR: an arbitrary-precision
+    available_power (e.g. 10**1000) combined with subnormal geometry can
+    drive nominal.power_kw to nan, which previously reached
+    math.isclose() and raised OverflowError converting the huge int to a
+    C double, instead of the documented never-raises structured result.
+    Mirrors the identical fix/test for the sibling POWER_CONSTRAINED mode
+    in test_library_api_turning_power_constrained_errors.py -- both modes
+    share the same underlying _scale_metrics_to_power_budget() helper."""
+
+    result = calculate_turning(
+        diameter=1e-305,
+        depth_of_cut=1e-310,
+        length_of_cut=1,
+        material="Mild Steel",
+        tool="Carbide",
+        mode=CalculationMode.POWER_AND_FEED_CONSTRAINED,
+        available_power=10**1000,
+        target_feed_rate=0.3,
+    )
+
+    assert result.error is not None
+    assert result.error.code == "INFEASIBLE_POWER_BUDGET"
+    assert result.spindle_speed_rpm is None

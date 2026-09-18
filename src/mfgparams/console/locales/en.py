@@ -142,12 +142,6 @@ MESSAGES: dict[str, str] = {
     "tui.result.spindle_speed.mode.power_constrained": "adjusted to fit available power",
     "tui.result.spindle_speed.mode.fixed_rpm": "user-specified",
     "tui.result.spindle_speed.mode.feed_rate_constrained": "derived from cutting speed",
-    # specs/021-turning-combined-constraints research.md #8: both reuse an
-    # existing value rather than introducing a near-duplicate string --
-    # the spindle speed's own derivation nature is identical to the mode
-    # they're reused from, even though the feed value's source differs.
-    "tui.result.spindle_speed.mode.rotation_and_feed_constrained": "user-specified",
-    "tui.result.spindle_speed.mode.power_and_feed_constrained": ("adjusted to fit available power"),
     "tui.result.feed_rate": "Feed rate:         {value} {unit}",
     "tui.result.feed_per_rotation": "Feed per rotation: {value} {unit}",
     "tui.result.machining_time": "Machining time:    {value} min",
@@ -186,3 +180,17 @@ MESSAGES: dict[str, str] = {
         "fields and its buttons. Choose Back to return to the previous screen."
     ),
 }
+
+# specs/021-turning-combined-constraints research.md #8: these two modes'
+# spindle-speed labels genuinely reuse an existing mode's value (the
+# spindle speed's own derivation nature is identical, even though the feed
+# value's source differs) -- assigned by reference to the existing key
+# here, rather than duplicated as a second literal string inside the dict
+# above, so a future wording change to either source value can't silently
+# leave these two out of sync (Copilot review finding on PR #102).
+MESSAGES["tui.result.spindle_speed.mode.rotation_and_feed_constrained"] = MESSAGES[
+    "tui.result.spindle_speed.mode.fixed_rpm"
+]
+MESSAGES["tui.result.spindle_speed.mode.power_and_feed_constrained"] = MESSAGES[
+    "tui.result.spindle_speed.mode.power_constrained"
+]

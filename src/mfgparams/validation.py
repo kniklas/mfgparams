@@ -570,6 +570,18 @@ def validate_target_feed_rate(
     )
 
 
+#: Modes where available_power is a required hard constraint (spindle
+#: speed is solved to fit it) rather than advisory -- POWER_CONSTRAINED
+#: (shared) and POWER_AND_FEED_CONSTRAINED (turning-only). Named rather
+#: than an inline `mode is X or mode is Y` disjunction (Copilot review
+#: finding on PR #102), mirroring the same named-set idiom
+#: `mfgparams.models.TURNING_ONLY_MODES` and turning's own
+#: `_DIRECT_TARGET_RPM_MODES` already use.
+_POWER_HARD_CONSTRAINT_MODES = frozenset(
+    {CalculationMode.POWER_CONSTRAINED, CalculationMode.POWER_AND_FEED_CONSTRAINED}
+)
+
+
 def validate_mode_arguments(
     mode: CalculationMode,
     available_power: float | None,
@@ -637,10 +649,7 @@ def validate_mode_arguments(
     if mode is CalculationMode.STANDARD:
         return _validate_advisory_available_power(available_power, locale)
 
-    if (
-        mode is CalculationMode.POWER_CONSTRAINED
-        or mode is CalculationMode.POWER_AND_FEED_CONSTRAINED
-    ):
+    if mode in _POWER_HARD_CONSTRAINT_MODES:
         if target_rpm is not None:
             return ErrorInfo(
                 "MODE_CONFLICT",
