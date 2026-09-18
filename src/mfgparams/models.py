@@ -33,9 +33,11 @@ class CalculationMode(Enum):
     that shares this enum (drilling, milling, and turning).
 
     See ``specs/002-constrained-calculation-modes/data-model.md`` for the
-    three operation-independent modes' authoritative definition, and
+    three operation-independent modes' authoritative definition,
     ``specs/020-turning-feed-per-rotation/data-model.md`` for the
-    turning-only fourth member.
+    turning-only fourth member, and
+    ``specs/021-turning-combined-constraints/data-model.md`` for the
+    turning-only fifth and sixth members.
 
     Attributes:
         STANDARD: Spindle speed derived from material/tool reference
@@ -54,12 +56,56 @@ class CalculationMode(Enum):
             reject it with an ``UNSUPPORTED_MODE`` error if a caller
             supplies it directly (their own dispatch has no calculation
             branch for it).
+        ROTATION_AND_FEED_CONSTRAINED: Turning-only
+            (specs/021-turning-combined-constraints). Spindle speed
+            (``target_rpm``) and feed rate per workpiece rotation
+            (``target_feed_rate``) are both supplied directly by the
+            caller, neither derived. Drilling and milling reject it with
+            ``UNSUPPORTED_MODE``, same as ``FEED_RATE_CONSTRAINED``.
+        POWER_AND_FEED_CONSTRAINED: Turning-only
+            (specs/021-turning-combined-constraints). Available power
+            (``available_power``, a hard constraint) and feed rate per
+            workpiece rotation (``target_feed_rate``) are both supplied
+            directly by the caller; spindle speed is solved to the highest
+            value feasible within that power at that feed, but never above
+            the cutting-speed-derived reference speed ``STANDARD`` mode
+            uses at that feed -- a surplus of available power beyond what
+            that reference speed requires does not raise the recommended
+            spindle speed further, mirroring ``POWER_CONSTRAINED``'s own
+            identical ceiling. Drilling and milling reject it with
+            ``UNSUPPORTED_MODE``, same as ``FEED_RATE_CONSTRAINED``.
     """
 
     STANDARD = "standard"
     POWER_CONSTRAINED = "power-constrained"
     FIXED_RPM = "fixed-rpm"
     FEED_RATE_CONSTRAINED = "feed-rate-constrained"
+    ROTATION_AND_FEED_CONSTRAINED = "rotation-and-feed-constrained"
+    POWER_AND_FEED_CONSTRAINED = "power-and-feed-constrained"
+
+
+#: The turning-only `CalculationMode` members (Copilot review finding on
+#: PR #102: this exact set was previously duplicated verbatim across four
+#: locations -- turning's own reverse-conflict check and its
+#: target_feed_rate-required check, plus drilling's and milling's own
+#: UNSUPPORTED_MODE rejections -- risking exactly the class of bug PR #101's
+#: review already caught once for FEED_RATE_CONSTRAINED, if a future
+#: turning-only mode's addition updated some copies but not others).
+#: Single source of truth for two things that happen to coincide today:
+#: (1) the modes drilling's/milling's own `_validate_mode_inputs()` reject
+#: with `UNSUPPORTED_MODE`, and (2) the modes turning's own
+#: `_validate_mode_inputs()` accepts (and requires) a directly-supplied
+#: `target_feed_rate` for. If a future turning-only mode is ever added that
+#: does *not* use `target_feed_rate`, these two meanings would need to
+#: split into two separate constants -- not a concern this set needs to
+#: anticipate today, since every turning-only mode added so far uses it.
+TURNING_ONLY_MODES = frozenset(
+    {
+        CalculationMode.FEED_RATE_CONSTRAINED,
+        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
+        CalculationMode.POWER_AND_FEED_CONSTRAINED,
+    }
+)
 
 
 class MachiningOperation(Enum):

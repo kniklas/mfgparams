@@ -925,7 +925,14 @@ def build_app(  # noqa: C901
 
     def _activate_tree_row() -> None:
         """Both tree leaves open their floating window directly (FR-002/
-        FR-003 retired) -- no more toggle/shortcut action to dispatch on."""
+        FR-003 retired) -- no more toggle/shortcut action to dispatch on.
+
+        `view.body_mode = None` below hides the Machining tree dropdown
+        (whose own visibility is gated on `body_mode == "tree"`,
+        `_dropdown_float`) once an operation opens; the Escape handlers'
+        existing restore logic brings it back on exit unchanged. See
+        specs/021-turning-combined-constraints research.md #9 for the
+        full rationale."""
 
         rows = machining_menu.tree_rows(ui.tree)
         row = rows[view.tree_selected]
@@ -935,6 +942,7 @@ def build_app(  # noqa: C901
             _open_turning(ui, materials_config_path, display_locale)
         else:
             _open_drilling(ui, materials_config_path, display_locale)
+        view.body_mode = None
         app.layout.focus(left_control)
 
     bindings = KeyBindings()

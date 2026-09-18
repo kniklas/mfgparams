@@ -49,6 +49,8 @@ MESSAGES: dict[str, str] = {
     "tui.mode.power_constrained": "power-constrained",
     "tui.mode.fixed_rpm": "fixed-rpm",
     "tui.mode.feed_rate_constrained": "feed-rate-constrained",
+    "tui.mode.rotation_and_feed_constrained": "rotation-and-feed-constrained",
+    "tui.mode.power_and_feed_constrained": "power-and-feed-constrained",
     "tui.label.power": "Available power",
     "tui.label.power_required": "Available power",
     "tui.prompt.power_required.invalid": (
@@ -178,3 +180,17 @@ MESSAGES: dict[str, str] = {
         "fields and its buttons. Choose Back to return to the previous screen."
     ),
 }
+
+# specs/021-turning-combined-constraints research.md #8: these two modes'
+# spindle-speed labels genuinely reuse an existing mode's value (the
+# spindle speed's own derivation nature is identical, even though the feed
+# value's source differs) -- assigned by reference to the existing key
+# here, rather than duplicated as a second literal string inside the dict
+# above, so a future wording change to either source value can't silently
+# leave these two out of sync (Copilot review finding on PR #102).
+MESSAGES["tui.result.spindle_speed.mode.rotation_and_feed_constrained"] = MESSAGES[
+    "tui.result.spindle_speed.mode.fixed_rpm"
+]
+MESSAGES["tui.result.spindle_speed.mode.power_and_feed_constrained"] = MESSAGES[
+    "tui.result.spindle_speed.mode.power_constrained"
+]

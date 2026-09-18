@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Two new turning-only calculation modes: `CalculationMode.ROTATION_AND_FEED_CONSTRAINED`
+  (spindle speed and feed per rotation both supplied directly, neither
+  derived) and `CalculationMode.POWER_AND_FEED_CONSTRAINED` (available
+  power and feed per rotation both fixed; spindle speed solved to the
+  highest value feasible within that power at that feed, but never above
+  the cutting-speed-derived reference speed standard mode uses -- a
+  surplus of available power does not raise the recommendation further).
+  Both reuse
+  `calculate_turning()`'s existing `target_rpm`/`available_power`/
+  `target_feed_rate` parameters and every existing error code — no new
+  parameter, no new `CalculationResult` field, no new error code
+  (specs/021-turning-combined-constraints). Exposed in the console text
+  GUI as two further mode options on turning's Mode row.
+- Console text GUI: the Machining menu now hides while an operation
+  (turning, drilling, or milling) is open, and reappears — in the same
+  selection state — as soon as you exit back to the top level, for all
+  three operations symmetrically (specs/021-turning-combined-constraints).
 - A new `turning` machining process (`mfgparams.calculate_turning`,
   `mfgparams.list_turning_tools`), a sibling to the existing drilling and
   milling processes, covering standard cylindrical (straight/outside-

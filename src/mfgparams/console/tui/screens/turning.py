@@ -34,6 +34,8 @@ _MODE_OPTION_KEYS = {
     CalculationMode.POWER_CONSTRAINED: "tui.mode.power_constrained",
     CalculationMode.FIXED_RPM: "tui.mode.fixed_rpm",
     CalculationMode.FEED_RATE_CONSTRAINED: "tui.mode.feed_rate_constrained",
+    CalculationMode.ROTATION_AND_FEED_CONSTRAINED: "tui.mode.rotation_and_feed_constrained",
+    CalculationMode.POWER_AND_FEED_CONSTRAINED: "tui.mode.power_and_feed_constrained",
 }
 
 
@@ -284,6 +286,10 @@ def rows_for(
             power_constrained=state.mode is CalculationMode.POWER_CONSTRAINED,
             fixed_rpm=state.mode is CalculationMode.FIXED_RPM,
             feed_rate_constrained=state.mode is CalculationMode.FEED_RATE_CONSTRAINED,
+            rotation_and_feed_constrained=(
+                state.mode is CalculationMode.ROTATION_AND_FEED_CONSTRAINED
+            ),
+            power_and_feed_constrained=(state.mode is CalculationMode.POWER_AND_FEED_CONSTRAINED),
             power_row=_power_row,
             rpm_row=_rpm_row,
             feed_rate_row=_feed_rate_row,

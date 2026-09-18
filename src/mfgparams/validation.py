@@ -570,6 +570,18 @@ def validate_target_feed_rate(
     )
 
 
+#: Modes where available_power is a required hard constraint (spindle
+#: speed is solved to fit it) rather than advisory -- POWER_CONSTRAINED
+#: (shared) and POWER_AND_FEED_CONSTRAINED (turning-only). Named rather
+#: than an inline `mode is X or mode is Y` disjunction (Copilot review
+#: finding on PR #102), mirroring the same named-set idiom
+#: `mfgparams.models.TURNING_ONLY_MODES` and turning's own
+#: `_DIRECT_TARGET_RPM_MODES` already use.
+_POWER_HARD_CONSTRAINT_MODES = frozenset(
+    {CalculationMode.POWER_CONSTRAINED, CalculationMode.POWER_AND_FEED_CONSTRAINED}
+)
+
+
 def validate_mode_arguments(
     mode: CalculationMode,
     available_power: float | None,
@@ -615,13 +627,29 @@ def validate_mode_arguments(
       ``mode`` is something else) is checked locally by turning's own
       ``_validate_mode_inputs``, not here, since this function's signature
       is otherwise unchanged and shared verbatim by drilling and milling.
+    - ``CalculationMode.ROTATION_AND_FEED_CONSTRAINED`` (turning-only,
+      specs/021-turning-combined-constraints) requires both ``target_rpm``
+      and ``target_feed_rate`` supplied directly, neither derived — it
+      reaches the same fallback this function's ``FIXED_RPM`` branch
+      does (not matching any earlier ``if``), and wants identical
+      treatment: a directly-supplied ``target_rpm`` is never a conflict
+      here, and ``available_power`` remains optional/advisory. Missing
+      ``target_rpm``/``target_feed_rate`` are reported by the caller, not
+      here (research.md #4).
+    - ``CalculationMode.POWER_AND_FEED_CONSTRAINED`` (turning-only,
+      specs/021-turning-combined-constraints) requires both
+      ``available_power`` (a hard constraint) and ``target_feed_rate``
+      supplied directly — it shares ``POWER_CONSTRAINED``'s branch above
+      verbatim: a supplied ``target_rpm`` is ``MODE_CONFLICT``, a missing
+      ``available_power`` is ``MODE_CONFLICT``, an invalid one is
+      ``INFEASIBLE_POWER_BUDGET`` (research.md #4).
     """
 
     locale = DEFAULT_LOCALE  # FR-005: message is always English (module docstring)
     if mode is CalculationMode.STANDARD:
         return _validate_advisory_available_power(available_power, locale)
 
-    if mode is CalculationMode.POWER_CONSTRAINED:
+    if mode in _POWER_HARD_CONSTRAINT_MODES:
         if target_rpm is not None:
             return ErrorInfo(
                 "MODE_CONFLICT",
@@ -659,7 +687,9 @@ def validate_mode_arguments(
             )
         return _validate_advisory_available_power(available_power, locale)
 
-    # mode is CalculationMode.FIXED_RPM
+    # mode is CalculationMode.FIXED_RPM or CalculationMode.ROTATION_AND_FEED_CONSTRAINED
+    # -- both treat target_rpm as directly supplied (never a conflict) and
+    # available_power as advisory-only (research.md #4).
     return _validate_advisory_available_power(available_power, locale)
 
 

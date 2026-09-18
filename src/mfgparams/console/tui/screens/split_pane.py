@@ -115,6 +115,8 @@ def power_and_rpm_rows(
     power_constrained: bool,
     fixed_rpm: bool,
     feed_rate_constrained: bool = False,
+    rotation_and_feed_constrained: bool = False,
+    power_and_feed_constrained: bool = False,
     power_row: Callable[[str, bool], NumberRow],
     rpm_row: Callable[[], NumberRow],
     feed_rate_row: Callable[[], NumberRow] | None = None,
@@ -130,9 +132,19 @@ def power_and_rpm_rows(
 
     `feed_rate_constrained`/`feed_rate_row` (specs/020-turning-feed-per-
     rotation) are turning-only additions: needs feed rate per rotation
-    (required) plus available power (optional). Both new parameters default
-    so Drilling's and Milling's existing call sites -- which never pass
-    them -- are unaffected."""
+    (required) plus available power (optional).
+
+    `rotation_and_feed_constrained`/`power_and_feed_constrained`
+    (specs/021-turning-combined-constraints) are further turning-only
+    additions, both reusing the same `rpm_row()`/`feed_rate_row()`/
+    `power_row()` factories: the former needs target spindle speed
+    (required) plus feed rate per rotation (required) plus available power
+    (optional, FR-006); the latter needs feed rate per rotation (required)
+    plus available power (required, FR-004) -- no spindle-speed row, since
+    it is solved for rather than supplied.
+
+    Every new parameter here defaults so Drilling's and Milling's existing
+    call sites -- which never pass them -- are unaffected."""
 
     if power_constrained:
         return [power_row("tui.label.power_required", True)]
@@ -142,6 +154,14 @@ def power_and_rpm_rows(
         if feed_rate_row is None:
             raise ValueError("feed_rate_row is required when feed_rate_constrained=True")
         return [feed_rate_row(), power_row("tui.label.power", False)]
+    if rotation_and_feed_constrained:
+        if feed_rate_row is None:
+            raise ValueError("feed_rate_row is required when rotation_and_feed_constrained=True")
+        return [rpm_row(), feed_rate_row(), power_row("tui.label.power", False)]
+    if power_and_feed_constrained:
+        if feed_rate_row is None:
+            raise ValueError("feed_rate_row is required when power_and_feed_constrained=True")
+        return [feed_rate_row(), power_row("tui.label.power_required", True)]
     return [power_row("tui.label.power", False)]
 
 
