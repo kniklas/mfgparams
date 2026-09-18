@@ -105,11 +105,18 @@ existing "terminal too small" message before any prompt-toolkit UI is constructe
 - **FR-005**: Every screen reachable from the main menu — the Machining tree's three
   operation screens (Drilling, Milling, Turning) as well as Configuration, About, and Help —
   MUST remain usable — visible and keyboard-operable without crashing — on a terminal at
-  exactly the new floor (80 columns x 25 lines).
-- **FR-006**: If manual verification (see Assumptions) finds that any of those screens'
-  content does not fully fit within 80x25 without clipping or overlap, that screen's
-  rendering MUST be compacted until it fits, rather than accepting the clipped/overlapping
-  result or leaving that screen's effective floor higher than 25 lines.
+  exactly the new floor (80 columns x 25 lines). For Configuration, About, Help, and the
+  Machining tree itself, "usable" permits reaching content via the existing keyboard-scroll
+  bindings rather than requiring it all to be simultaneously on screen — Configuration in
+  particular is data-driven and can be taller than any fixed floor could guarantee to fit
+  (research.md #3).
+- **FR-006**: FR-005's hard, no-scrolling "fits without clipping or overlap" bar applies only
+  to the three operation screens (Drilling, Milling, Turning), which have no scroll fallback
+  at all (research.md #3) — not to Configuration/About/Help/the Machining tree, which satisfy
+  FR-005 by remaining scrollable instead. If manual verification (see Assumptions) finds that
+  an operation screen's content does not fully fit within 80x25 without clipping or overlap,
+  that screen's rendering MUST be compacted until it fits, rather than accepting the
+  clipped/overlapping result or leaving that screen's effective floor higher than 25 lines.
 
 ### Key Entities
 
@@ -126,8 +133,14 @@ check; it introduces no new data entities.)*
 - **SC-002**: A terminal narrower than 80 columns or shorter than 25 lines is still rejected
   with a clear message, 100% of the time, before any part of the text GUI renders.
 - **SC-003**: No existing text-GUI behavior changes for terminals that were already at or
-  above 80x30 (the old floor) — this change only widens the set of accepted terminals
-  downward, it does not alter anything for terminals already above the new floor.
+  above 80x30 (the old floor) *for any reason connected to the `MIN_LINES` change itself* —
+  this change only widens the set of accepted terminals downward on the lines axis. The one
+  exception, found during this feature's manual verification and unrelated to `MIN_LINES`:
+  the Help dropdown had a pre-existing column-width bug (research.md #3's correction) latent
+  at *any* terminal exactly 80 columns wide, regardless of height — including ones already
+  supported at the old 80x30 floor. Fixing it changes behavior for that narrow terminal-width
+  case even above the old floor, but only by making a previously-broken screen work, not by
+  altering anything that already worked.
 
 ## Assumptions
 
@@ -150,8 +163,10 @@ check; it introduces no new data entities.)*
   adding this feature's own margin, and before Turning existed as a third operation with its
   own, not-yet-measured row count; a tight or failing fit at exactly 25 lines is a real
   possibility for any of the three operation screens, not a purely hypothetical edge case):
-  fitting within 80x25 is a hard requirement of this feature, not an aspiration, for every
-  screen in FR-005's scope. If a screen's content does not fit, its rendering MUST be
-  compacted (e.g. tighter spacing, shorter labels/summaries) until it does, before this
-  feature's manual-verification task is considered complete — the feature is not done merely
-  because `MIN_LINES` was edited to 25.
+  fitting within 80x25 is a hard requirement of this feature, not an aspiration, for each of
+  the three operation screens (FR-006's scope — not Configuration/About/Help/the Machining
+  tree, which satisfy FR-005 by remaining scrollable instead, per FR-005/FR-006's own
+  scoping). If an operation screen's content does not fit, its rendering MUST be compacted
+  (e.g. tighter spacing, shorter labels/summaries) until it does, before this feature's
+  manual-verification task is considered complete — the feature is not done merely because
+  `MIN_LINES` was edited to 25.

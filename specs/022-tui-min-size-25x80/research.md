@@ -80,19 +80,38 @@ clip.
 this finding's scope was *rows only* — it never checked whether a dropdown's *width* could
 overflow the 80-column floor, only whether content could overflow vertically. Help, the
 rightmost bar entry, does exactly that: at 80 columns its dropdown float (anchored via
-`left=bar_offsets[...]`, 39) had only 41 columns before the screen edge, narrower than its
-own configured width floor (40) once the `Frame`/`Shadow` border's overhead is subtracted —
-it rendered squeezed to near-illegible, not a scrolling question at all. This was a real,
-if latent, bug in `_dropdown_float`'s own claimed invariant ("never overflows even on an
-80-column terminal," `app.py`'s prior docstring) that predates this feature but had
-apparently never been exercised on a real 80-column terminal before this feature's manual
-pass. Fixed by anchoring Help's float to the screen's right edge instead
-(`right_aligned=True`), so its width is measured from the spacious left side of the screen
-rather than the cramped 41 columns remaining to the right of its own trigger. About sits at
-a similar risk (offset 32, only 5 columns of margin above its own width floor once border
-overhead is subtracted) but was not observed to fail and was left unchanged, per
-research.md #5's "smallest change that closes the gap" — revisit if manual verification
-ever finds it actually squeezed too.
+`left=bar_offsets[...]`, 39) has only 41 columns before the screen edge. `Frame` adds
+exactly 2 columns of border overhead on top of whatever its body requests (`Shadow` draws
+its shadow marks *outside* the requested box and adds nothing to the request — both
+verified directly against prompt-toolkit's own `Frame`/`Shadow` source, not assumed), so
+Help's old `width=D(min=40, ...)` requested 42 columns against 41 available — an underflow
+by exactly one column — and it rendered squeezed to near-illegible, not a scrolling
+question at all. This was a real, if latent, bug in `_dropdown_float`'s own claimed
+invariant ("never overflows even on an 80-column terminal," `app.py`'s prior docstring)
+that predates this feature but had apparently never been exercised on a real 80-column
+terminal before this feature's manual pass.
+
+**Second correction (Copilot review, PR #103)**: the first fix committed here anchored
+Help's float to the screen's right edge unconditionally (`right_aligned=True`) instead of
+its trigger-relative `left` offset. Copilot correctly flagged that as trading a narrow-
+terminal bug for a wide-terminal one: on any terminal wider than ~103 columns, an
+unconditional right anchor visibly detaches the dropdown from the Help bar entry, which
+stays left-packed at its own fixed offset regardless of terminal width — a regression for
+every terminal above the exact width where the original bug occurred, not a fix scoped to
+it. The actual fix kept `left`-anchoring (identical position at every width, matching every
+other dropdown) and instead narrowed `_HELP_DROPDOWN_WIDTH`'s floor from 40 to 36
+(`app.py`): since a *wider* terminal only ever increases the space to the right of a
+fixed `left` offset, 80 columns is the single narrowest case that can ever underflow, and
+36 (+2 border = 38, against 41 available at 80 columns) closes that gap with margin to
+spare, for every terminal width from the floor up — no repositioning needed at all. A
+regression test (`tests/unit/console/tui/test_dropdown_layout.py`) now asserts this
+arithmetic invariant for all four bar-entry-anchored dropdowns, not just Help.
+
+About sits at a similar risk (offset 32, only 5 columns of margin above its own width floor
+once the 2-column frame overhead is subtracted) but was not observed to fail and was left
+unchanged, per research.md #5's "smallest change that closes the gap" — the new regression
+test would catch it if that margin is ever eroded (e.g. a longer translated bar label
+shifting offsets, or a tightened `MIN_COLUMNS`).
 
 ## #4: Which operation screen is likeliest to need compaction first?
 

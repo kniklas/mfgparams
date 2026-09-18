@@ -96,6 +96,20 @@ clipping risk; Configuration/About/Help/the Machining tree already handle overfl
 existing scroll support, confirmed by reading `app.py`'s layout code directly). Gate
 re-confirmed PASS.
 
+**Post-implementation correction (Copilot review, PR #103)**: the Post-Phase-1 re-check
+above, and this section's own row-only framing throughout, assessed only *vertical* fit risk
+(row-clipping within an operation screen) — it never considered whether a dropdown's
+*horizontal* position/width could overflow the 80-column floor. Manual verification (T008)
+found exactly that: Help, the rightmost bar entry, underflowed its own width floor by one
+column at 80 columns, unrelated to any operation screen's row budget and pre-existing rather
+than introduced by this feature's `MIN_LINES` change (research.md #3's correction). Fixed in
+`src/mfgparams/console/tui/app.py` (`_HELP_DROPDOWN_WIDTH`'s floor narrowed from 40 to 36),
+not in a `screens/*.py` module as the Project Structure section below originally scoped all
+layout work to. Principle XIII's gate is not weakened by this miss — the manual-verification
+task is exactly the mechanism that caught what this plan's static analysis didn't — but the
+Project Structure section's file list is corrected below to reflect where the fix actually
+landed, and data-model.md is corrected the same way.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -117,26 +131,37 @@ src/mfgparams/console/
 ├── cli.py                          # main() gate; consumes MIN_COLUMNS/MIN_LINES (unchanged)
 ├── tui/
 │   ├── terminal_capability.py      # MIN_LINES: 30 -> 25 (the FR-001/FR-002 edit)
-│   ├── app.py                      # SessionUI / menu bar / Machining tree wiring
+│   ├── app.py                      # SessionUI / menu bar / Machining tree wiring; ACTUAL FIX LANDED HERE:
+│   │                                # _HELP_DROPDOWN_WIDTH narrowed (40->36) — a pre-existing column-width
+│   │                                # underflow in the rightmost bar-entry dropdown, found by T008, not
+│   │                                # anticipated by this plan's row-only risk analysis (post-implementation
+│   │                                # correction above)
 │   └── screens/
 │       ├── drilling.py             # FR-005/FR-006 fit audit + possible compaction (no scroll fallback, research.md #3)
 │       ├── milling.py              # FR-005/FR-006 fit audit + possible compaction (highest a-priori risk, research.md #4)
 │       ├── turning.py              # FR-005/FR-006 fit audit + possible compaction (never measured before)
 │       ├── configuration.py        # FR-005 open+scroll audit only — already scrollable, research.md #3
 │       ├── about.py                # FR-005 open audit only — trivially short content
-│       ├── help.py                 # FR-005 open audit only — trivially short content
+│       ├── help.py                 # FR-005 open audit only — content itself was fine; the bug found by T008
+│       │                            # was in app.py's dropdown positioning, not this file
 │       └── split_pane.py           # shared split-pane rendering the operation screens use
 └── locales/en.py                    # console.tui_unavailable.* — already parameterized, no edit expected
 
 tests/
 ├── unit/console/tui/test_terminal_capability.py   # update 80x30 boundary assertions to 80x25
-├── integration/test_tui_terminal_too_small.py     # update 80x30 boundary assertions to 80x25
+├── unit/console/tui/test_dropdown_layout.py       # NEW (post-implementation correction above): regression
+│                                                    # guard for the app.py dropdown-width underflow — not
+│                                                    # anticipated by this plan, added after T008 found it
+├── integration/test_tui_terminal_too_small.py     # update 80x30 boundary assertions to 80x25; also tightened
+│                                                    # to assert the full detected-size/minimum message text,
+│                                                    # not loose digit substrings (Copilot review, PR #103)
 └── integration/test_console_repl_removed.py       # mentions terminal_capability in comments only; no edit expected
 ```
 
 **Structure Decision**: Single project (existing layout, Option 1) — this feature adds no new
 module, service, or directory. All changes land inside the existing
-`src/mfgparams/console/tui/` package and its two existing test counterparts above.
+`src/mfgparams/console/tui/` package and its test counterparts above (one new unit test file,
+added post-implementation per the correction noted in Constitution Check above).
 
 ## Complexity Tracking
 

@@ -36,8 +36,14 @@ def test_main_exits_1_when_terminal_is_too_narrow(capsys):
 
     assert status == 1
     captured = capsys.readouterr()
-    assert "79" in captured.err
-    assert "25" in captured.err  # the required minimum, per the message template
+    # Full detected size and full minimum phrase, not loose digit
+    # substrings (Copilot review, PR #103): a bare "79" or "25" would
+    # still pass even if the advertised minimum regressed to 80x30 (since
+    # that message also contains "0" and digits overlapping "25"'s own
+    # characters), silently defeating the boundary this test exists to
+    # pin down.
+    assert "79x25" in captured.err
+    assert "smaller than the minimum 80x25" in captured.err
 
 
 def test_main_exits_1_when_terminal_is_too_short(capsys):
@@ -53,7 +59,8 @@ def test_main_exits_1_when_terminal_is_too_short(capsys):
 
     assert status == 1
     captured = capsys.readouterr()
-    assert "24" in captured.err
+    assert "80x24" in captured.err
+    assert "smaller than the minimum 80x25" in captured.err
 
 
 def test_main_succeeds_at_exactly_the_minimum_size():
