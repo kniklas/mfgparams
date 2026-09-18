@@ -67,9 +67,13 @@ class CalculationMode(Enum):
             (``available_power``, a hard constraint) and feed rate per
             workpiece rotation (``target_feed_rate``) are both supplied
             directly by the caller; spindle speed is solved to the highest
-            value feasible within that power at that feed. Drilling and
-            milling reject it with ``UNSUPPORTED_MODE``, same as
-            ``FEED_RATE_CONSTRAINED``.
+            value feasible within that power at that feed, but never above
+            the cutting-speed-derived reference speed ``STANDARD`` mode
+            uses at that feed -- a surplus of available power beyond what
+            that reference speed requires does not raise the recommended
+            spindle speed further, mirroring ``POWER_CONSTRAINED``'s own
+            identical ceiling. Drilling and milling reject it with
+            ``UNSUPPORTED_MODE``, same as ``FEED_RATE_CONSTRAINED``.
     """
 
     STANDARD = "standard"

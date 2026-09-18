@@ -86,8 +86,10 @@ assert result.power_required <= 0.5 or abs(result.power_required - 0.5) < 1e-6
 
 **Expected**: `feed_per_rotation` equals the supplied `0.3` exactly;
 `power_required` is at or within the supplied `0.5` kW budget; `spindle_speed_rpm`
-is solved to the highest value feasible at that feed and budget — confirms
-FR-003/SC-002.
+is solved to the highest value feasible at that feed and budget, but never above
+the cutting-speed-derived reference speed standard mode uses at that feed (a
+surplus budget alone never raises the result past that reference speed) —
+confirms FR-003/SC-002.
 
 ## Scenario 4 — Power-and-feed-constrained mode: infeasible budget (User Story 2 edge case)
 
@@ -177,9 +179,12 @@ assert after_opening == (None, True, True), after_opening  # menu hidden while o
 **Expected**: once Milling's floating window is open, `body_mode` is `None`
 (the Machining tree is hidden) while `tree.expanded` stays `True` and
 `open_operation` is not `None` — confirms FR-011. Repeating with `'j'`
-(Drilling) or `'k', 'j'`-equivalent navigation to Turning's row, followed by
-`'\r'`, produces the identical result — confirms FR-013's symmetry. Escaping
-(`'\x1b'`) afterward restores `body_mode == "tree"` — confirms FR-012 (see
+(Drilling) or `'j', 'j'` navigation to Turning's row (row 0 is Milling;
+`'k'` at row 0 closes the Machining menu outright via `_tree_up` rather
+than navigating within it, so it cannot be used to reach Turning from the
+top), followed by `'\r'`, produces the identical result — confirms
+FR-013's symmetry. Escaping (`'\x1b'`) afterward restores
+`body_mode == "tree"` — confirms FR-012 (see
 `contracts/tui-machining-menu-auto-hide-delta.md`'s own example for the full
 open→escape sequence).
 

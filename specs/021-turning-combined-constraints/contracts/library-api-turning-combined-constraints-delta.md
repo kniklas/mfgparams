@@ -42,7 +42,11 @@ No new parameter. Both new modes reuse `target_rpm`, `available_power`, and
   treatment `POWER_CONSTRAINED` already gives it) and `target_feed_rate`. Spindle speed
   is solved to the highest value feasible within `available_power` at the supplied
   `target_feed_rate`, using the same closed-form linear-scaling derivation
-  `POWER_CONSTRAINED` already uses (research.md #3). Machining time and cutting
+  `POWER_CONSTRAINED` already uses (research.md #3) — but never solved *above* the
+  cutting-speed-derived reference speed at that feed (the same reference speed
+  standard mode uses): a surplus of available power beyond what that reference speed
+  requires does not raise the recommended spindle speed further, mirroring
+  `POWER_CONSTRAINED`'s own identical ceiling. Machining time and cutting
   force/torque/power follow from that resulting spindle speed and the supplied feed.
 
 ## Error codes — zero new codes

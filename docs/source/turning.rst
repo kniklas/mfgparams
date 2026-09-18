@@ -89,9 +89,12 @@ surface-finish requirement while staying within the lathe's rated power.
 Selecting this mode shows required **Feed rate per rotation** and
 **Available power** fields (no spindle-speed field, since it is solved
 for rather than supplied); the module finds the highest spindle speed
-that keeps the operation within your power budget at your exact feed. The
-result panel labels spindle speed "adjusted to fit available power," the
-same as power-constrained mode's.
+that keeps the operation within your power budget at your exact feed --
+but never above the cutting-speed-derived reference speed standard mode
+would use at that feed, so a generous budget still tops out at that
+reference speed rather than climbing further. The result panel labels
+spindle speed "adjusted to fit available power," the same as
+power-constrained mode's.
 
 Reading the results
 --------------------

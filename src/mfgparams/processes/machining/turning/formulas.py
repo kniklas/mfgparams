@@ -238,8 +238,14 @@ def _scale_metrics_to_power_budget(
     (research.md #1 of ``019-turning-calculations``): since torque (and
     cutting force) are independent of spindle speed, required power scales
     linearly with spindle speed for a fixed diameter/depth-of-cut/material/
-    tool/feed selection, so the highest spindle speed that keeps required
-    power within budget can be solved algebraically in a single step.
+    tool/feed selection, so the highest spindle speed *at or below*
+    ``nominal.spindle_speed_rpm`` that keeps required power within budget
+    can be solved algebraically in a single step -- this function only
+    ever scales down from ``nominal``, never above it, so a budget that
+    already covers ``nominal.power_kw`` returns ``nominal`` unchanged
+    rather than searching for some higher speed the budget alone would
+    permit (Copilot review finding on PR #102: an earlier draft of this
+    docstring described an unrestricted "highest feasible" search).
 
     Extracted (specs/021-turning-combined-constraints, Copilot review
     finding on PR #102) so :func:`calculate_turning_power_constrained_metrics`

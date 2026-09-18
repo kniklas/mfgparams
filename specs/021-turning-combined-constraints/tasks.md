@@ -77,7 +77,7 @@
 
 **Goal**: A machinist who knows their available power and required feed per rotation gets a feasible spindle speed and the resulting machining time/cutting force/power, solved within that budget at that exact feed (spec.md User Story 2).
 
-**Independent Test**: Call `calculate_turning(mode=CalculationMode.POWER_AND_FEED_CONSTRAINED, available_power=..., target_feed_rate=...)` directly and via the console's new mode option; verify `power_required` is at or within the supplied budget, `feed_per_rotation` equals the supplied value exactly, and `spindle_speed_rpm` is the highest value feasible at that budget/feed (quickstart.md Scenarios 3-4).
+**Independent Test**: Call `calculate_turning(mode=CalculationMode.POWER_AND_FEED_CONSTRAINED, available_power=..., target_feed_rate=...)` directly and via the console's new mode option; verify `power_required` is at or within the supplied budget, `feed_per_rotation` equals the supplied value exactly, and `spindle_speed_rpm` is the highest value feasible at that budget/feed, but never above the cutting-speed-derived reference speed standard mode uses at that feed (quickstart.md Scenarios 3-4).
 
 ### Tests for User Story 2 ⚠️
 

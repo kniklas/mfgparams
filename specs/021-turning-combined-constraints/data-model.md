@@ -18,7 +18,7 @@ not repeated — critically, **`CalculationResult` gains no new field** (researc
 | `FIXED_RPM` | `"fixed-rpm"` | Unchanged. |
 | `FEED_RATE_CONSTRAINED` | `"feed-rate-constrained"` | Unchanged. |
 | `ROTATION_AND_FEED_CONSTRAINED` | `"rotation-and-feed-constrained"` | **NEW.** Spindle speed AND feed per workpiece rotation are both supplied directly by the caller (`target_rpm`, `target_feed_rate`), neither derived from the material's/tool's reference values (spec.md FR-001/FR-002). Turning-only. |
-| `POWER_AND_FEED_CONSTRAINED` | `"power-and-feed-constrained"` | **NEW.** Available power AND feed per workpiece rotation are both supplied directly by the caller (`available_power`, `target_feed_rate`); spindle speed is solved to the highest value feasible within that power at that feed (spec.md FR-003/FR-004/FR-005). Turning-only. |
+| `POWER_AND_FEED_CONSTRAINED` | `"power-and-feed-constrained"` | **NEW.** Available power AND feed per workpiece rotation are both supplied directly by the caller (`available_power`, `target_feed_rate`); spindle speed is solved to the highest value feasible within that power at that feed, never above the cutting-speed-derived reference speed standard mode uses at that feed (spec.md FR-003/FR-004/FR-005). Turning-only. |
 
 Drilling's and milling's own dispatch never construct either new member, and both
 explicitly reject them with `UNSUPPORTED_MODE` if a caller supplies one directly

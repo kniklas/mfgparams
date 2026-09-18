@@ -140,7 +140,12 @@ new formula function. ``POWER_AND_FEED_CONSTRAINED`` requires both
 treats it) and ``target_feed_rate``; spindle speed is solved to the
 highest value feasible within that power at that feed, using the same
 closed-form linear-scaling derivation ``POWER_CONSTRAINED`` uses, seeded
-from the caller-supplied feed instead of the material/tool-derived one.
+from the caller-supplied feed instead of the material/tool-derived one --
+but never solved *above* the cutting-speed-derived reference speed at
+that feed (the same reference speed standard mode uses): a surplus of
+available power beyond what that reference speed requires does not raise
+the recommended spindle speed further, identical to ``POWER_CONSTRAINED``'s
+own ceiling.
 
 Package layout
 ---------------

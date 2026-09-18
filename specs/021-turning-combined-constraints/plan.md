@@ -11,7 +11,8 @@
 Add two new turning-only `CalculationMode` members — `ROTATION_AND_FEED_CONSTRAINED`
 (spindle speed + feed per rotation both supplied directly, neither derived) and
 `POWER_AND_FEED_CONSTRAINED` (available power + feed per rotation both fixed; spindle
-speed solved to the highest value feasible within that power at that feed) — and fix
+speed solved to the highest value feasible within that power at that feed, never above
+the cutting-speed-derived reference speed standard mode uses) — and fix
 the console TUI's Machining menu to hide while an operation screen is open and
 reappear on exit, symmetrically for all three operations.
 
