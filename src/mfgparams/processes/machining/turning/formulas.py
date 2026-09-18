@@ -183,11 +183,17 @@ def _derive_standard_spindle_speed_rpm(
 ) -> float:
     """Derive spindle speed from the material's/tool's reference cutting speed.
 
-    Shared by standard mode (:func:`calculate_turning_metrics`) and
+    Shared by standard mode (:func:`calculate_turning_metrics`),
     feed-rate-constrained mode (:func:`calculate_turning_feed_rate_constrained_metrics`),
-    which derives spindle speed identically (specs/020-turning-feed-per-rotation
-    FR-004) while overriding only the feed. Kept as one implementation so the
-    two modes cannot silently diverge if this derivation is ever refined.
+    and power-and-feed-constrained mode
+    (:func:`calculate_turning_power_and_feed_constrained_metrics`, added
+    specs/021-turning-combined-constraints, corrected by a Copilot review
+    finding on PR #102 that caught this docstring going stale when that
+    caller was added) — all three derive spindle speed identically
+    (specs/020-turning-feed-per-rotation FR-004) while overriding only the
+    feed (feed-rate-constrained/power-and-feed-constrained) or nothing
+    (standard). Kept as one implementation so these modes cannot silently
+    diverge if this derivation is ever refined.
     """
 
     # Effective cutting speed (vc): the tool's factor multiplies the

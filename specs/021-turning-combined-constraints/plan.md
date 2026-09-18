@@ -79,7 +79,10 @@ operations, localized to a single function in `app.py`.
   helper (itself extracted during `020`'s PR #101 review specifically to prevent
   formula duplication) — no duplicated formula chain. PASS.
 - **Principle II (Testing Standards)**: New unit tests for the new formula function
-  (nominal/boundary/zero/negative/non-finite feed and power), contract tests for both
+  (nominal/boundary/zero/negative/subnormal-feed/arbitrary-precision-int budget --
+  non-finite feed/power are exercised only through the public-API contract tests,
+  not at the formula layer directly, corrected by a Copilot review finding on PR
+  #102 that caught this line overstating formula-layer coverage), contract tests for both
   new modes' success shape, error codes, and mode-conflict symmetry (mirroring
   `test_library_api_turning_feed_rate_constrained*.py`'s existing structure), and an
   integration test for the TUI's Machining-menu hide/show behavior. PASS (detailed in
