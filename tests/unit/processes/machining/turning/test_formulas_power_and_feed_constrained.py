@@ -47,18 +47,20 @@ def test_no_op_when_nominal_at_supplied_feed_already_fits_budget():
     assert result.feed_per_rev_mm == 0.3
 
 
-def test_no_op_at_exact_equality_boundary():
+def test_no_op_within_isclose_tolerance_of_nominal():
     """An available_power exactly equal to nominal power hits the `<=`
     short-circuit before ever reaching math.isclose() -- covered by
     test_no_op_when_nominal_at_supplied_feed_already_fits_budget's own
     comfortably-sufficient case. This test instead exercises the
     math.isclose() *tolerance* path itself (Copilot review finding on PR
     #102: an earlier draft passed the exactly-equal value here, so this
-    test could never have caught a broken/removed tolerance check): a
-    budget fractionally *below* nominal power, but still within
-    math.isclose()'s default rel_tol=1e-9, is "sufficient" -- never
-    triggers the reduction, mirroring POWER_CONSTRAINED's identical
-    boundary."""
+    test could never have caught a broken/removed tolerance check -- and a
+    later review finding on the same PR caught this function's own name
+    still claiming "exact equality" after that fix, when it deliberately
+    tests a budget strictly *below* nominal instead): a budget fractionally
+    *below* nominal power, but still within math.isclose()'s default
+    rel_tol=1e-9, is "sufficient" -- never triggers the reduction,
+    mirroring POWER_CONSTRAINED's identical boundary."""
 
     material = get_material("Mild Steel")
     tool = get_turning_tool("Carbide")
