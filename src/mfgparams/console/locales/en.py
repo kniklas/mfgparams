@@ -49,6 +49,8 @@ MESSAGES: dict[str, str] = {
     "tui.mode.power_constrained": "power-constrained",
     "tui.mode.fixed_rpm": "fixed-rpm",
     "tui.mode.feed_rate_constrained": "feed-rate-constrained",
+    "tui.mode.rotation_and_feed_constrained": "rotation-and-feed-constrained",
+    "tui.mode.power_and_feed_constrained": "power-and-feed-constrained",
     "tui.label.power": "Available power",
     "tui.label.power_required": "Available power",
     "tui.prompt.power_required.invalid": (
@@ -140,6 +142,12 @@ MESSAGES: dict[str, str] = {
     "tui.result.spindle_speed.mode.power_constrained": "adjusted to fit available power",
     "tui.result.spindle_speed.mode.fixed_rpm": "user-specified",
     "tui.result.spindle_speed.mode.feed_rate_constrained": "derived from cutting speed",
+    # specs/021-turning-combined-constraints research.md #8: both reuse an
+    # existing value rather than introducing a near-duplicate string --
+    # the spindle speed's own derivation nature is identical to the mode
+    # they're reused from, even though the feed value's source differs.
+    "tui.result.spindle_speed.mode.rotation_and_feed_constrained": "user-specified",
+    "tui.result.spindle_speed.mode.power_and_feed_constrained": ("adjusted to fit available power"),
     "tui.result.feed_rate": "Feed rate:         {value} {unit}",
     "tui.result.feed_per_rotation": "Feed per rotation: {value} {unit}",
     "tui.result.machining_time": "Machining time:    {value} min",

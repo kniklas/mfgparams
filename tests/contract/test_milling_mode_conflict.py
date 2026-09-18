@@ -11,6 +11,8 @@ Per quickstart.md Scenario 6, for both milling sub-operations:
 Mirrors tests/contract/test_mode_conflict.py (drilling).
 """
 
+import pytest
+
 from mfgparams import CalculationMode, calculate_end_milling, calculate_face_milling
 
 _END_MILLING_ARGS = dict(
@@ -94,6 +96,23 @@ def test_end_milling_feed_rate_constrained_mode_is_unsupported():
     assert result.mode is CalculationMode.FEED_RATE_CONSTRAINED
 
 
+@pytest.mark.parametrize(
+    "mode",
+    [CalculationMode.ROTATION_AND_FEED_CONSTRAINED, CalculationMode.POWER_AND_FEED_CONSTRAINED],
+)
+def test_end_milling_combined_constraint_modes_are_unsupported(mode):
+    """specs/021-turning-combined-constraints research.md #7: both new
+    turning-only modes are turning-only, same as FEED_RATE_CONSTRAINED --
+    extended proactively rather than left for a review round to catch."""
+
+    result = calculate_end_milling(**_END_MILLING_ARGS, mode=mode)
+
+    assert result.error is not None
+    assert result.error.code == "UNSUPPORTED_MODE"
+    assert result.spindle_speed_rpm is None
+    assert result.mode is mode
+
+
 def test_end_milling_standard_mode_ignores_target_rpm_and_available_power_together():
     """STANDARD mode never conflicts: any supplied target_rpm/available_power
     is simply unused/ignored (mode is authoritative)."""
@@ -160,6 +179,22 @@ def test_face_milling_feed_rate_constrained_mode_is_unsupported():
     assert result.error.code == "UNSUPPORTED_MODE"
     assert result.spindle_speed_rpm is None
     assert result.mode is CalculationMode.FEED_RATE_CONSTRAINED
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [CalculationMode.ROTATION_AND_FEED_CONSTRAINED, CalculationMode.POWER_AND_FEED_CONSTRAINED],
+)
+def test_face_milling_combined_constraint_modes_are_unsupported(mode):
+    """Mirrors test_end_milling_combined_constraint_modes_are_unsupported
+    for face milling's own entry point."""
+
+    result = calculate_face_milling(**_FACE_MILLING_ARGS, mode=mode)
+
+    assert result.error is not None
+    assert result.error.code == "UNSUPPORTED_MODE"
+    assert result.spindle_speed_rpm is None
+    assert result.mode is mode
 
 
 def test_face_milling_standard_mode_ignores_target_rpm_and_available_power_together():

@@ -339,3 +339,96 @@ def test_invalid_depth_of_cut_shows_structured_error_instead_of_result():
     result = calculate_result(state, None, "en")
     assert result.error is not None
     assert result.error.code == "INVALID_DEPTH_OF_CUT"
+
+
+def test_rotation_and_feed_constrained_mode_offers_the_right_rows_and_matches_core():
+    """specs/021-turning-combined-constraints FR-001/FR-009."""
+
+    screen = _screen()
+    _fill_metal_mild_steel_carbide(screen)
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.ROTATION_AND_FEED_CONSTRAINED.value)
+    field_ids = {row.field_id for row in _rows(screen)}
+    assert FieldId.TARGET_RPM in field_ids
+    assert FieldId.TARGET_FEED_RATE in field_ids
+    assert FieldId.AVAILABLE_POWER in field_ids
+    rpm_row = _row(_rows(screen), FieldId.TARGET_RPM)
+    feed_row = _row(_rows(screen), FieldId.TARGET_FEED_RATE)
+    power_row = _row(_rows(screen), FieldId.AVAILABLE_POWER)
+    assert isinstance(rpm_row, split_pane.NumberRow) and rpm_row.required
+    assert isinstance(feed_row, split_pane.NumberRow) and feed_row.required
+    assert isinstance(power_row, split_pane.NumberRow) and not power_row.required
+
+    _row(_rows(screen), FieldId.TARGET_RPM).on_commit(900)
+    _row(_rows(screen), FieldId.TARGET_FEED_RATE).on_commit(0.3)
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    assert split_pane.is_complete(_rows(screen))
+
+    result = calculate_result(state, None, "en")
+    expected = calculate_turning(
+        diameter=40.0,
+        depth_of_cut=2.0,
+        length_of_cut=100.0,
+        material="Mild Steel",
+        tool="Carbide",
+        unit_system=UnitSystem.METRIC,
+        available_power=None,
+        locale="en",
+        mode=CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
+        target_rpm=900,
+        target_feed_rate=0.3,
+    )
+    assert result.error == expected.error
+    if result.error is None:
+        assert result.spindle_speed_rpm == expected.spindle_speed_rpm == 900
+        assert result.feed_per_rotation == expected.feed_per_rotation == 0.3
+
+    # The result panel renders without KeyError and shows the mode's
+    # spindle-speed label, reused from FIXED_RPM's (research.md #8).
+    text = forms.format_result(result, forms.UNIT_LABELS[UnitSystem.METRIC], "en")
+    assert "user-specified" in text
+
+
+def test_power_and_feed_constrained_mode_offers_the_right_rows_and_matches_the_core_calculation():
+    """specs/021-turning-combined-constraints FR-003/FR-009."""
+
+    screen = _screen()
+    _fill_metal_mild_steel_carbide(screen)
+    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.POWER_AND_FEED_CONSTRAINED.value)
+    field_ids = {row.field_id for row in _rows(screen)}
+    assert FieldId.TARGET_FEED_RATE in field_ids
+    assert FieldId.AVAILABLE_POWER in field_ids
+    assert FieldId.TARGET_RPM not in field_ids
+    feed_row = _row(_rows(screen), FieldId.TARGET_FEED_RATE)
+    power_row = _row(_rows(screen), FieldId.AVAILABLE_POWER)
+    assert isinstance(feed_row, split_pane.NumberRow) and feed_row.required
+    assert isinstance(power_row, split_pane.NumberRow) and power_row.required
+
+    _row(_rows(screen), FieldId.TARGET_FEED_RATE).on_commit(0.3)
+    _row(_rows(screen), FieldId.AVAILABLE_POWER).on_commit(0.5)
+    state = screen.session_state
+    assert isinstance(state, TurningSessionState)
+    assert split_pane.is_complete(_rows(screen))
+
+    result = calculate_result(state, None, "en")
+    expected = calculate_turning(
+        diameter=40.0,
+        depth_of_cut=2.0,
+        length_of_cut=100.0,
+        material="Mild Steel",
+        tool="Carbide",
+        unit_system=UnitSystem.METRIC,
+        available_power=0.5,
+        locale="en",
+        mode=CalculationMode.POWER_AND_FEED_CONSTRAINED,
+        target_feed_rate=0.3,
+    )
+    assert result.error == expected.error
+    if result.error is None:
+        assert result.spindle_speed_rpm == expected.spindle_speed_rpm
+        assert result.feed_per_rotation == expected.feed_per_rotation == 0.3
+
+    # The result panel renders without KeyError and shows the mode's
+    # spindle-speed label, reused from POWER_CONSTRAINED's (research.md #8).
+    text = forms.format_result(result, forms.UNIT_LABELS[UnitSystem.METRIC], "en")
+    assert "adjusted to fit available power" in text

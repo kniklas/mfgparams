@@ -33,9 +33,11 @@ class CalculationMode(Enum):
     that shares this enum (drilling, milling, and turning).
 
     See ``specs/002-constrained-calculation-modes/data-model.md`` for the
-    three operation-independent modes' authoritative definition, and
+    three operation-independent modes' authoritative definition,
     ``specs/020-turning-feed-per-rotation/data-model.md`` for the
-    turning-only fourth member.
+    turning-only fourth member, and
+    ``specs/021-turning-combined-constraints/data-model.md`` for the
+    turning-only fifth and sixth members.
 
     Attributes:
         STANDARD: Spindle speed derived from material/tool reference
@@ -54,12 +56,28 @@ class CalculationMode(Enum):
             reject it with an ``UNSUPPORTED_MODE`` error if a caller
             supplies it directly (their own dispatch has no calculation
             branch for it).
+        ROTATION_AND_FEED_CONSTRAINED: Turning-only
+            (specs/021-turning-combined-constraints). Spindle speed
+            (``target_rpm``) and feed rate per workpiece rotation
+            (``target_feed_rate``) are both supplied directly by the
+            caller, neither derived. Drilling and milling reject it with
+            ``UNSUPPORTED_MODE``, same as ``FEED_RATE_CONSTRAINED``.
+        POWER_AND_FEED_CONSTRAINED: Turning-only
+            (specs/021-turning-combined-constraints). Available power
+            (``available_power``, a hard constraint) and feed rate per
+            workpiece rotation (``target_feed_rate``) are both supplied
+            directly by the caller; spindle speed is solved to the highest
+            value feasible within that power at that feed. Drilling and
+            milling reject it with ``UNSUPPORTED_MODE``, same as
+            ``FEED_RATE_CONSTRAINED``.
     """
 
     STANDARD = "standard"
     POWER_CONSTRAINED = "power-constrained"
     FIXED_RPM = "fixed-rpm"
     FEED_RATE_CONSTRAINED = "feed-rate-constrained"
+    ROTATION_AND_FEED_CONSTRAINED = "rotation-and-feed-constrained"
+    POWER_AND_FEED_CONSTRAINED = "power-and-feed-constrained"
 
 
 class MachiningOperation(Enum):

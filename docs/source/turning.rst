@@ -54,10 +54,10 @@ silently clamped.
 Calculation modes
 -----------------
 
-Turning supports four calculation modes: ``standard``, ``power-constrained``,
+Turning supports six calculation modes: ``standard``, ``power-constrained``,
 and ``fixed-rpm`` behave identically to drilling's — see :doc:`drilling`'s
 "Calculation modes" section for the full description; only the geometry
-inputs above differ. Turning also has a fourth, turning-only mode:
+inputs above differ. Turning also has three turning-only modes:
 
 **feed-rate-constrained**: instead of the feed rate per rotation being
 derived from the selected material and turning tool, you supply it
@@ -72,6 +72,26 @@ text GUI, the **Feed rate per rotation** field nudges by a finer step than
 every other field when you press **Left/Right**: 0.1 mm/rev under the
 metric unit system, or 0.005 in/rev under imperial (rather than the 1
 display-unit step every other numeric field uses).
+
+**rotation-and-feed-constrained**: for when you already know both your
+exact spindle speed and your exact feed per rotation — for example, both
+are already dialed into the lathe. Selecting this mode shows required
+**Target spindle speed** and **Feed rate per rotation** fields together,
+plus an optional **Available power** field; neither the spindle speed nor
+the feed is derived from the material/tool — machining time, cutting
+force, torque, and power are all computed directly from the two values
+you supply. Because the spindle speed is entirely yours, the result panel
+labels it "user-specified," the same as fixed-RPM mode's.
+
+**power-and-feed-constrained**: for when you know your available power
+budget and need a specific feed per rotation — for example, to meet a
+surface-finish requirement while staying within the lathe's rated power.
+Selecting this mode shows required **Feed rate per rotation** and
+**Available power** fields (no spindle-speed field, since it is solved
+for rather than supplied); the module finds the highest spindle speed
+that keeps the operation within your power budget at your exact feed. The
+result panel labels spindle speed "adjusted to fit available power," the
+same as power-constrained mode's.
 
 Reading the results
 --------------------
@@ -150,5 +170,7 @@ turning tool has no drill-point geometry to account for. Only straight
 (outside-diameter) turning is in scope; facing, grooving, parting,
 threading, and taper turning are deliberately deferred to a later feature.
 See ``specs/019-turning-calculations/research.md`` for the formulas and
-their sources, and ``specs/020-turning-feed-per-rotation/research.md`` for
-the feed-rate-constrained mode and feed-per-rotation reporting.
+their sources, ``specs/020-turning-feed-per-rotation/research.md`` for
+the feed-rate-constrained mode and feed-per-rotation reporting, and
+``specs/021-turning-combined-constraints/research.md`` for the
+rotation-and-feed-constrained and power-and-feed-constrained modes.

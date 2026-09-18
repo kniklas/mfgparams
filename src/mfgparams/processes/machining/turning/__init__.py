@@ -41,6 +41,7 @@ from .formulas import (
     calculate_turning_feed_rate_constrained_metrics,
     calculate_turning_metrics,
     calculate_turning_metrics_at_rpm,
+    calculate_turning_power_and_feed_constrained_metrics,
     calculate_turning_power_constrained_metrics,
 )
 from .tools import get_turning_tool, list_turning_tools
@@ -206,6 +207,69 @@ def _compute_metrics(
             error_message_key="error.calculation_overflow",
         )
 
+    if mode is CalculationMode.ROTATION_AND_FEED_CONSTRAINED:
+        # target_rpm/target_feed_rate_mm are guaranteed non-None here
+        # (INVALID_TARGET_RPM/INVALID_TARGET_FEED_RATE are returned earlier
+        # in calculate_turning() when either is None for this mode).
+        assert target_rpm is not None
+        assert target_feed_rate_mm is not None
+        # No new formula function: calculate_turning_metrics_at_rpm() already
+        # accepts an explicit spindle speed and an explicit feed override
+        # (specs/021-turning-combined-constraints research.md #2) -- this
+        # mode simply supplies both instead of deriving either.
+        metrics = calculate_turning_metrics_at_rpm(
+            diameter_mm,
+            depth_of_cut_mm,
+            length_of_cut_mm,
+            resolved_material,
+            resolved_tool,
+            target_rpm,
+            feed_per_rev_mm=target_feed_rate_mm,
+        )
+        return _reject_if_invalid(
+            metrics,
+            unit_system,
+            mode,
+            locale,
+            error_code="CALCULATION_OVERFLOW",
+            error_message_key="error.calculation_overflow",
+        )
+
+    if mode is CalculationMode.POWER_AND_FEED_CONSTRAINED:
+        # available_power_kw/target_feed_rate_mm are guaranteed non-None
+        # here (MODE_CONFLICT/INVALID_TARGET_FEED_RATE are returned earlier
+        # in calculate_turning() when either is missing/invalid for this
+        # mode).
+        assert available_power_kw is not None
+        assert target_feed_rate_mm is not None
+        if available_power_kw <= 0:
+            return _error_result(
+                unit_system,
+                ErrorInfo(
+                    "INFEASIBLE_POWER_BUDGET",
+                    translate(locale, "error.infeasible_power_budget"),
+                    message_key="error.infeasible_power_budget",
+                ),
+                mode,
+            )
+        metrics = calculate_turning_power_and_feed_constrained_metrics(
+            diameter_mm,
+            depth_of_cut_mm,
+            length_of_cut_mm,
+            resolved_material,
+            resolved_tool,
+            available_power_kw,
+            target_feed_rate_mm,
+        )
+        return _reject_if_invalid(
+            metrics,
+            unit_system,
+            mode,
+            locale,
+            error_code="INFEASIBLE_POWER_BUDGET",
+            error_message_key="error.infeasible_power_budget",
+        )
+
     standard_metrics = calculate_turning_metrics(
         diameter_mm, depth_of_cut_mm, length_of_cut_mm, resolved_material, resolved_tool
     )
@@ -336,11 +400,14 @@ def _validate_mode_inputs(
     operation-agnostic, so it is reused verbatim rather than duplicated.
     ``target_feed_rate`` (specs/020-turning-feed-per-rotation) is
     turning-only: required and validated when ``mode is
-    FEED_RATE_CONSTRAINED``, and rejected as a ``MODE_CONFLICT`` if
-    supplied under any other mode -- checked here, locally, rather than in
-    the shared ``validate_mode_arguments`` (research.md #3/data-model.md),
-    since that function's signature is otherwise unchanged and shared
-    verbatim by drilling and milling.
+    FEED_RATE_CONSTRAINED``, ``ROTATION_AND_FEED_CONSTRAINED``, or
+    ``POWER_AND_FEED_CONSTRAINED`` (specs/021-turning-combined-constraints
+    adds the latter two, both of which need ``target_feed_rate`` exactly
+    as ``FEED_RATE_CONSTRAINED`` already does), and rejected as a
+    ``MODE_CONFLICT`` if supplied under any other mode -- checked here,
+    locally, rather than in the shared ``validate_mode_arguments``
+    (research.md #3/data-model.md), since that function's signature is
+    otherwise unchanged and shared verbatim by drilling and milling.
 
     Mode-conflict checks (this function's reverse-direction check above,
     and the shared ``validate_mode_arguments()`` call below) run before
@@ -354,9 +421,16 @@ def _validate_mode_inputs(
     happens to be individually invalid (Copilot review finding on this
     PR: the previous order let an invalid ``target_feed_rate`` return
     ``INVALID_TARGET_FEED_RATE`` before the ``target_rpm`` conflict was
-    ever checked).
+    ever checked). Extending this same ordering to
+    ``ROTATION_AND_FEED_CONSTRAINED``/``POWER_AND_FEED_CONSTRAINED``
+    (specs/021-turning-combined-constraints research.md #4) applies that
+    fix from the start rather than risking it being rediscovered.
     """
-    if target_feed_rate is not None and mode is not CalculationMode.FEED_RATE_CONSTRAINED:
+    if target_feed_rate is not None and mode not in (
+        CalculationMode.FEED_RATE_CONSTRAINED,
+        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
+        CalculationMode.POWER_AND_FEED_CONSTRAINED,
+    ):
         return _error_result(
             unit_system,
             ErrorInfo(
@@ -371,7 +445,7 @@ def _validate_mode_inputs(
     if mode_conflict_error:
         return _error_result(unit_system, mode_conflict_error, mode)
 
-    if mode is CalculationMode.FIXED_RPM:
+    if mode is CalculationMode.FIXED_RPM or mode is CalculationMode.ROTATION_AND_FEED_CONSTRAINED:
         target_rpm_error = validate_target_rpm(target_rpm, locale)
         if target_rpm_error:
             return _error_result(unit_system, target_rpm_error, mode)
@@ -386,7 +460,11 @@ def _validate_mode_inputs(
                 mode,
             )
 
-    if mode is CalculationMode.FEED_RATE_CONSTRAINED:
+    if mode in (
+        CalculationMode.FEED_RATE_CONSTRAINED,
+        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
+        CalculationMode.POWER_AND_FEED_CONSTRAINED,
+    ):
         target_feed_rate_error = validate_target_feed_rate(target_feed_rate, locale)
         if target_feed_rate_error:
             return _error_result(unit_system, target_feed_rate_error, mode)
@@ -481,7 +559,11 @@ def _build_result(
     final success :class:`CalculationResult`. Mirrors drilling's
     ``_build_result``, extended with the new ``cutting_force`` field."""
     feasibility_warning = None
-    if available_power_kw is not None and mode is not CalculationMode.POWER_CONSTRAINED:
+    if (
+        available_power_kw is not None
+        and mode is not CalculationMode.POWER_CONSTRAINED
+        and mode is not CalculationMode.POWER_AND_FEED_CONSTRAINED
+    ):
         if metrics.power_kw > available_power_kw:
             feasibility_warning = translate(
                 locale,

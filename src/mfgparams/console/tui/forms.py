@@ -148,8 +148,16 @@ _SPINDLE_SPEED_MODE_LABEL_KEYS = {
     # specs/020-turning-feed-per-rotation research.md #9: this dict is a
     # hard lookup (not a .get() with a fallback) -- an unhandled
     # CalculationMode member here raises KeyError for every result in that
-    # mode, so this entry is required, not optional polish.
+    # mode, so this entry is required, not optional polish. The same is
+    # true of the two entries below it
+    # (specs/021-turning-combined-constraints research.md #8).
     CalculationMode.FEED_RATE_CONSTRAINED: "tui.result.spindle_speed.mode.feed_rate_constrained",
+    CalculationMode.ROTATION_AND_FEED_CONSTRAINED: (
+        "tui.result.spindle_speed.mode.rotation_and_feed_constrained"
+    ),
+    CalculationMode.POWER_AND_FEED_CONSTRAINED: (
+        "tui.result.spindle_speed.mode.power_and_feed_constrained"
+    ),
 }
 
 

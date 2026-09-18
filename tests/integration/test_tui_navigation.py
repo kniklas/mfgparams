@@ -108,6 +108,33 @@ def test_selecting_drilling_opens_its_floating_window_directly():
     assert any(s[2] == "drilling" and s[3] is True for s in snapshots)
 
 
+def test_machining_menu_hides_while_drilling_is_open_and_restores_on_exit():
+    """specs/021-turning-combined-constraints FR-011/FR-012/FR-013: the
+    same hide-on-open/restore-on-exit behavior applies identically to
+    Drilling, not just Milling."""
+
+    snapshots = _drive(["m", "j", "\r", "\x1b", "\x1b", "\x1b"])
+    # m: expand Machining, focus tree (row 0); j: move to Drilling (row 1);
+    # \r: open Drilling.
+    after_opening = snapshots[3]
+    assert after_opening == (None, True, "drilling", True)
+    after_first_escape = snapshots[4]
+    assert after_first_escape == ("tree", True, None, False)
+
+
+def test_machining_menu_hides_while_turning_is_open_and_restores_on_exit():
+    """Mirrors test_machining_menu_hides_while_drilling_is_open_and_restores_on_exit
+    for Turning -- FR-013's symmetry across all three operations."""
+
+    snapshots = _drive(["m", "j", "j", "\r", "\x1b", "\x1b", "\x1b"])
+    # m: expand Machining, focus tree (row 0); j, j: move to Turning (row 2);
+    # \r: open Turning.
+    after_opening = snapshots[4]
+    assert after_opening == (None, True, "turning", True)
+    after_first_escape = snapshots[5]
+    assert after_first_escape == ("tree", True, None, False)
+
+
 def test_collapsing_machining_returns_to_its_collapsed_state():
     """Acceptance Scenario 4. Closing the dropdown is now Escape/Up's job
     (`test_escaping_an_open_dropdown_closes_it`) rather than re-selecting
@@ -355,6 +382,13 @@ def test_escaping_the_operation_pane_closes_it_and_reveals_the_tree_underneath()
     # m: expand Machining, focus tree (row 0 = Milling); \r: open Milling;
     # \x1b: closes Milling and reveals the tree (still expanded) again,
     # focused; \x1b: closes the tree itself, back to the bare bar.
+    #
+    # specs/021-turning-combined-constraints FR-011: while Milling is open,
+    # the Machining tree dropdown must be hidden (body_mode is None), even
+    # though tree.expanded stays True and the operation is open -- research.md
+    # #9's one-line fix in _activate_tree_row().
+    after_opening = snapshots[2]
+    assert after_opening == (None, True, "milling", True)
     after_first_escape = snapshots[3]
     assert after_first_escape == ("tree", True, None, False)
     after_second_escape = snapshots[4]

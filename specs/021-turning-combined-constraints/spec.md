@@ -8,6 +8,12 @@
 
 **Input**: User description: "For turning add ability to constrain calcuations by combination of two input parammeters: A: fixed piece rotation & fixed feed per roation; B: fixed available power & fixed feed per rotation. Additionally in TUI: always hide mmachining winndow after operation (turnning, drilling, milling) is selected, after exiting drilling, milling, turning displlay again machining window"
 
+## Clarifications
+
+### Session 2026-09-18
+
+- Q: Should extending the two combined-constraint modes to drilling and milling be folded into this spec, or become its own separate feature? → A: Separate spec — this spec (021) stays turning-only as already written; a drilling/milling extension is out of scope here and belongs in its own future feature, mirroring this repo's own precedent (`002-constrained-calculation-modes` was drilling-only; milling's equivalent modes shipped later as `010-milling-calculation-modes`). It also depends on drilling/milling first gaining a directly-supplied-feed-rate capability, which `020-turning-feed-per-rotation` deliberately scoped to turning only.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Run Turning with a Directly Fixed Spindle Speed and Feed Together (Priority: P1)
@@ -81,7 +87,7 @@ A user working in the console text interface opens the Machining menu and select
 - **FR-007**: The system MUST require a material selection and a turning tool selection before performing a calculation in either new mode, and MUST report the missing selection(s), consistent with the existing turning calculation modes.
 - **FR-008**: The system MUST reject a request that selects rotation-and-feed-constrained or power-and-feed-constrained mode together with another mode's conflicting inputs (e.g., a mode-selection value that does not match the supplied inputs) as a mode conflict, consistent with how the existing feed-rate-constrained mode already rejects conflicting mode/input combinations.
 - **FR-009**: The system MUST expose both new modes through the console interface and the library API, producing identical results for identical inputs, consistent with every other turning calculation mode.
-- **FR-010**: The system MUST NOT apply the two new combined-constraint modes to drilling or milling; they are scoped to turning only.
+- **FR-010**: The system MUST NOT apply the two new combined-constraint modes to drilling or milling; they are scoped to turning only (confirmed in Clarifications, Session 2026-09-18 — extending them to drilling/milling is explicitly deferred to a separate future feature, not folded into this one).
 - **FR-011**: In the console text interface, the system MUST hide the Machining menu immediately once the user selects turning, drilling, or milling, so that only the selected operation's own screen is visible.
 - **FR-012**: In the console text interface, the system MUST redisplay the Machining menu, in the same state it was in before it was hidden, immediately once the user exits an open turning, drilling, or milling screen back to the top level.
 - **FR-013**: The hide-on-select and restore-on-exit behavior in FR-011 and FR-012 MUST apply identically and symmetrically to all three operations (turning, drilling, milling).
@@ -104,6 +110,7 @@ A user working in the console text interface opens the Machining menu and select
 ## Assumptions
 
 - The two new modes are additive: they do not change the existing standard, fixed-RPM, power-constrained, or feed-rate-constrained modes' behavior, defaults, or results for turning.
+- Extending the two combined-constraint modes to drilling and/or milling is explicitly out of scope for this feature (Clarifications, Session 2026-09-18) and is deferred to a separate future feature — it also first requires drilling/milling to gain their own directly-supplied-feed-rate capability, which `020-turning-feed-per-rotation` deliberately scoped to turning only.
 - "Fixed piece rotation" in the feature request refers to a fixed spindle speed (RPM), the same spindle-speed quantity already used by the existing fixed-RPM mode — not a fixed number of workpiece revolutions for the pass.
 - Feed per rotation in both new modes uses the same feed-per-rotation value and unit handling (mm/rev metric, in/rev imperial) already introduced by `020-turning-feed-per-rotation`.
 - The Machining menu referred to in the feature request is the console text interface's operation-selection menu (listing turning, drilling, and milling); "the machining window" and "the Machining menu" refer to the same on-screen element.

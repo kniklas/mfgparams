@@ -242,18 +242,23 @@ def _validate_mode_inputs(
     cyclomatic complexity/Maintainability Index thresholds configured in
     ``pyproject.toml`` (FR-001/FR-002).
     """
-    # FEED_RATE_CONSTRAINED (specs/020-turning-feed-per-rotation) is
-    # turning-only: the shared CalculationMode enum member still passes
-    # this function's type contract, but drilling has no feed-per-rotation
-    # concept to constrain by. Without this explicit rejection,
-    # _compute_metrics()'s dispatch below falls through to its STANDARD
-    # branch and silently returns standard metrics tagged with this mode
-    # (Copilot review finding on specs/020-turning-feed-per-rotation PR
-    # #101) -- reject it as its own first check here, ahead of the
-    # target_rpm/available_power mode-argument validation below, since the
-    # mode itself is invalid for this process regardless of any other
-    # mode-specific input.
-    if mode is CalculationMode.FEED_RATE_CONSTRAINED:
+    # FEED_RATE_CONSTRAINED (specs/020-turning-feed-per-rotation),
+    # ROTATION_AND_FEED_CONSTRAINED, and POWER_AND_FEED_CONSTRAINED
+    # (specs/021-turning-combined-constraints) are turning-only: the shared
+    # CalculationMode enum members still pass this function's type
+    # contract, but drilling has no feed-per-rotation concept to constrain
+    # by. Without this explicit rejection, _compute_metrics()'s dispatch
+    # below falls through to its STANDARD branch and silently returns
+    # standard metrics tagged with this mode (Copilot review finding on
+    # specs/020-turning-feed-per-rotation PR #101) -- reject them as their
+    # own first check here, ahead of the target_rpm/available_power
+    # mode-argument validation below, since the mode itself is invalid for
+    # this process regardless of any other mode-specific input.
+    if mode in (
+        CalculationMode.FEED_RATE_CONSTRAINED,
+        CalculationMode.ROTATION_AND_FEED_CONSTRAINED,
+        CalculationMode.POWER_AND_FEED_CONSTRAINED,
+    ):
         return _error_result(
             unit_system,
             ErrorInfo(

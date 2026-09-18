@@ -312,3 +312,86 @@ def calculate_turning_feed_rate_constrained_metrics(
         spindle_speed_rpm,
         feed_per_rev_mm=target_feed_per_rev_mm,
     )
+
+
+def calculate_turning_power_and_feed_constrained_metrics(
+    diameter_mm: float,
+    depth_of_cut_mm: float,
+    length_of_cut_mm: float,
+    material: WorkpieceMaterial,
+    tool: TurningTool,
+    available_power_kw: float,
+    target_feed_per_rev_mm: float,
+) -> TurningMetrics:
+    """Compute turning parameters for a caller-supplied feed per rotation,
+    with spindle speed solved to fit an available power budget.
+
+    specs/021-turning-combined-constraints FR-003/FR-004/FR-005
+    (research.md #3): the "nominal" operating point is computed at the
+    cutting-speed-derived spindle speed (:func:`_derive_standard_spindle_speed_rpm`,
+    exactly as :func:`calculate_turning_feed_rate_constrained_metrics` uses
+    it) but at the caller-supplied ``target_feed_per_rev_mm`` rather than
+    the material/tool-derived feed. If that nominal power already fits the
+    budget, it is returned as-is; otherwise the spindle speed is scaled
+    down linearly using the same closed-form derivation
+    :func:`calculate_turning_power_constrained_metrics` uses (research.md
+    #1 of ``019-turning-calculations``): torque and cutting force are
+    independent of spindle speed for a fixed feed/depth-of-cut/material/
+    tool selection, so required power scales linearly with spindle speed
+    regardless of whether the feed at that fixed point is derived or
+    caller-supplied.
+
+    Args:
+        diameter_mm: Workpiece diameter, in mm (must already be validated > 0).
+        depth_of_cut_mm: Radial depth of cut per pass (ap), in mm.
+        length_of_cut_mm: Length of the turning pass (lm), in mm.
+        material: The resolved workpiece material reference data.
+        tool: The resolved turning tool reference data.
+        available_power_kw: The available power budget, in kW. Must be a
+            positive number (not validated here — callers reject
+            non-positive budgets under ``INFEASIBLE_POWER_BUDGET`` before
+            calling this function).
+        target_feed_per_rev_mm: The caller-supplied feed rate per
+            workpiece rotation, in mm/rev (must be a positive, finite
+            number; not validated here).
+
+    Returns:
+        The computed :class:`TurningMetrics`, with ``feed_per_rev_mm``
+        equal to ``target_feed_per_rev_mm``, at the nominal spindle speed
+        if ``available_power_kw`` is already sufficient (including the
+        exact equality boundary, via ``math.isclose()``'s default
+        ``rel_tol=1e-9``), or at the algebraically reduced spindle speed
+        otherwise.
+    """
+
+    nominal_rpm = _derive_standard_spindle_speed_rpm(diameter_mm, material, tool)
+    nominal = calculate_turning_metrics_at_rpm(
+        diameter_mm,
+        depth_of_cut_mm,
+        length_of_cut_mm,
+        material,
+        tool,
+        nominal_rpm,
+        feed_per_rev_mm=target_feed_per_rev_mm,
+    )
+
+    if nominal.power_kw <= available_power_kw or math.isclose(
+        nominal.power_kw, available_power_kw, rel_tol=1e-9
+    ):
+        return nominal
+
+    # n_adjusted = n0 * (Pavail / Pc0) -- power scales linearly with
+    # spindle speed since torque/cutting force do not depend on it, at
+    # this fixed (caller-supplied) feed (research.md #1 of
+    # 019-turning-calculations, research.md #3 of this feature).
+    n_adjusted = nominal.spindle_speed_rpm * (available_power_kw / nominal.power_kw)
+
+    return calculate_turning_metrics_at_rpm(
+        diameter_mm,
+        depth_of_cut_mm,
+        length_of_cut_mm,
+        material,
+        tool,
+        n_adjusted,
+        feed_per_rev_mm=target_feed_per_rev_mm,
+    )
