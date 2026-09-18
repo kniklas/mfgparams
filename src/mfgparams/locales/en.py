@@ -95,8 +95,8 @@ MESSAGES: dict[str, str] = {
         "missing."
     ),
     "error.unsupported_mode": (
-        "Feed-rate-constrained mode is only supported for turning and is "
-        "not available for this process."
+        "This calculation mode is only supported for turning and is not "
+        "available for this process."
     ),
     "error.infeasible_power_budget": (
         "No spindle speed keeps the required power within the supplied " "available power budget."

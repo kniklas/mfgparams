@@ -81,6 +81,47 @@ def _drive(key_batches: list[str]) -> list[tuple]:
     return snapshots
 
 
+def _drive_with_selection(key_batches: list[str]) -> list[tuple]:
+    """Like `_drive`, but with `view.tree_selected` appended as a 5th
+    element -- not part of `_drive`'s own snapshot shape, which every
+    other test in this module already depends on (mirrors
+    `_drive_confirm`'s identical reasoning below for the same problem).
+    Used by the FR-012 hide/restore tests (MEDIUM Copilot review finding
+    on PR #102: the restore assertion needs the selected row, not just
+    body_mode/tree.expanded, to prove the selection survives a hide/
+    restore cycle rather than silently resetting to row 0)."""
+
+    locale = get_locale()
+    display_locale = get_raw_locale()
+    holder: dict = {}
+
+    def target() -> None:
+        app, ui, view = app_mod.build_app(None, locale, display_locale)
+        holder["ui"] = ui
+        holder["view"] = view
+        app.run()
+
+    snapshots: list[tuple] = []
+
+    def on_batch() -> None:
+        ui = holder.get("ui")
+        view = holder.get("view")
+        if ui is None:
+            return
+        snapshots.append(
+            (
+                view.body_mode,
+                ui.tree.expanded,
+                ui.open_operation.operation if ui.open_operation else None,
+                ui.open_operation is not None,
+                view.tree_selected,
+            )
+        )
+
+    run_headless(target, key_batches, on_batch=on_batch)
+    return snapshots
+
+
 def test_initial_state_shows_nothing_open():
     """Acceptance Scenario 1: the bar is visible on launch, with nothing
     else selected yet -- escape at the root (nothing open) exits."""
@@ -111,28 +152,31 @@ def test_selecting_drilling_opens_its_floating_window_directly():
 def test_machining_menu_hides_while_drilling_is_open_and_restores_on_exit():
     """specs/021-turning-combined-constraints FR-011/FR-012/FR-013: the
     same hide-on-open/restore-on-exit behavior applies identically to
-    Drilling, not just Milling."""
+    Drilling, not just Milling. FR-012's "same selection state" is checked
+    via `tree_selected` too (MEDIUM Copilot review finding on PR #102):
+    Drilling is row 1, so a silent reset to row 0 on restore -- row 0 also
+    being the default -- would otherwise pass unnoticed."""
 
-    snapshots = _drive(["m", "j", "\r", "\x1b", "\x1b", "\x1b"])
+    snapshots = _drive_with_selection(["m", "j", "\r", "\x1b", "\x1b", "\x1b"])
     # m: expand Machining, focus tree (row 0); j: move to Drilling (row 1);
     # \r: open Drilling.
     after_opening = snapshots[3]
-    assert after_opening == (None, True, "drilling", True)
+    assert after_opening == (None, True, "drilling", True, 1)
     after_first_escape = snapshots[4]
-    assert after_first_escape == ("tree", True, None, False)
+    assert after_first_escape == ("tree", True, None, False, 1)
 
 
 def test_machining_menu_hides_while_turning_is_open_and_restores_on_exit():
     """Mirrors test_machining_menu_hides_while_drilling_is_open_and_restores_on_exit
     for Turning -- FR-013's symmetry across all three operations."""
 
-    snapshots = _drive(["m", "j", "j", "\r", "\x1b", "\x1b", "\x1b"])
+    snapshots = _drive_with_selection(["m", "j", "j", "\r", "\x1b", "\x1b", "\x1b"])
     # m: expand Machining, focus tree (row 0); j, j: move to Turning (row 2);
     # \r: open Turning.
     after_opening = snapshots[4]
-    assert after_opening == (None, True, "turning", True)
+    assert after_opening == (None, True, "turning", True, 2)
     after_first_escape = snapshots[5]
-    assert after_first_escape == ("tree", True, None, False)
+    assert after_first_escape == ("tree", True, None, False, 2)
 
 
 def test_collapsing_machining_returns_to_its_collapsed_state():

@@ -346,7 +346,15 @@ def test_rotation_and_feed_constrained_mode_offers_the_right_rows_and_matches_co
 
     screen = _screen()
     _fill_metal_mild_steel_carbide(screen)
-    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.ROTATION_AND_FEED_CONSTRAINED.value)
+    mode_row = _row(_rows(screen), FieldId.MODE)
+    # MEDIUM Copilot review finding on PR #102: calling on_select directly
+    # (below) doesn't prove FR-009's console exposure -- it would still
+    # pass even if this mode's _MODE_OPTION_KEYS entry were removed and the
+    # option were unreachable from the Mode row itself.
+    assert CalculationMode.ROTATION_AND_FEED_CONSTRAINED.value in [
+        value for value, _ in mode_row.options
+    ]
+    mode_row.on_select(CalculationMode.ROTATION_AND_FEED_CONSTRAINED.value)
     field_ids = {row.field_id for row in _rows(screen)}
     assert FieldId.TARGET_RPM in field_ids
     assert FieldId.TARGET_FEED_RATE in field_ids
@@ -398,7 +406,13 @@ def test_power_and_feed_constrained_mode_offers_the_right_rows_and_matches_the_c
 
     screen = _screen()
     _fill_metal_mild_steel_carbide(screen)
-    _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.POWER_AND_FEED_CONSTRAINED.value)
+    mode_row = _row(_rows(screen), FieldId.MODE)
+    # MEDIUM Copilot review finding on PR #102: same rationale as
+    # test_rotation_and_feed_constrained_mode_offers_the_right_rows_and_matches_core.
+    assert CalculationMode.POWER_AND_FEED_CONSTRAINED.value in [
+        value for value, _ in mode_row.options
+    ]
+    mode_row.on_select(CalculationMode.POWER_AND_FEED_CONSTRAINED.value)
     field_ids = {row.field_id for row in _rows(screen)}
     assert FieldId.TARGET_FEED_RATE in field_ids
     assert FieldId.AVAILABLE_POWER in field_ids

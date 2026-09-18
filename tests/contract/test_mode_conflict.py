@@ -87,6 +87,10 @@ def test_combined_constraint_modes_are_unsupported_for_drilling(mode):
     assert result.error.code == "UNSUPPORTED_MODE"
     assert result.spindle_speed_rpm is None
     assert result.mode is mode
+    # MEDIUM Copilot review finding on PR #102: the rendered message must
+    # not misleadingly name a different mode (it used to hardcode
+    # "Feed-rate-constrained mode" for every TURNING_ONLY_MODES rejection).
+    assert "feed-rate-constrained" not in result.error.message.lower()
 
 
 def test_standard_mode_ignores_target_rpm_and_available_power_together():

@@ -47,8 +47,17 @@ def test_target_rpm_supplied_under_this_mode_is_mode_conflict():
     assert result.error.code == "MODE_CONFLICT"
 
 
-@pytest.mark.parametrize("bad_value", [0, -1, -0.5, float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize(
+    "bad_value",
+    [0, -1, -0.5, float("nan"), float("inf"), float("-inf"), "fast", True],
+)
 def test_invalid_available_power_reports_infeasible_power_budget(bad_value):
+    """MEDIUM Copilot review finding on PR #102: the original parametrization
+    covered only numeric/non-finite values, leaving the non-numeric
+    (string) and bool (rejected explicitly by validate_mode_arguments'
+    shared _is_positive_finite_number, since bool is an int subclass in
+    Python) cases exercised only by inference from POWER_CONSTRAINED's own
+    coverage rather than directly for this mode."""
     result = calculate_turning(
         **_ARGS,
         mode=CalculationMode.POWER_AND_FEED_CONSTRAINED,
@@ -84,7 +93,8 @@ def test_invalid_target_feed_rate_reports_invalid_target_feed_rate(bad_value):
     assert result.error.code == "INVALID_TARGET_FEED_RATE"
 
 
-def test_missing_available_power_and_invalid_target_feed_rate_is_mode_conflict():
+@pytest.mark.parametrize("feed_kwargs", [{}, {"target_feed_rate": 0}, {"target_feed_rate": float("nan")}])
+def test_missing_available_power_and_invalid_target_feed_rate_is_mode_conflict(feed_kwargs):
     """data-model.md's precedence rule (Copilot review PR #101's finding,
     applied here from the start rather than rediscovered, research.md #4):
     when target_feed_rate is missing/invalid AND available_power is
@@ -92,9 +102,15 @@ def test_missing_available_power_and_invalid_target_feed_rate_is_mode_conflict()
     validate_mode_arguments() call (available_power's own check) runs
     before target_feed_rate's own-value check. Mirrors
     test_both_missing_reports_invalid_target_rpm_first for
-    ROTATION_AND_FEED_CONSTRAINED."""
+    ROTATION_AND_FEED_CONSTRAINED.
 
-    result = calculate_turning(**_ARGS, mode=CalculationMode.POWER_AND_FEED_CONSTRAINED)
+    MEDIUM Copilot review finding on PR #102: the original test exercised
+    only the both-missing case, not the target_feed_rate-present-but-
+    invalid variant of this same precedence rule."""
+
+    result = calculate_turning(
+        **_ARGS, mode=CalculationMode.POWER_AND_FEED_CONSTRAINED, **feed_kwargs
+    )
 
     assert result.error is not None
     assert result.error.code == "MODE_CONFLICT"

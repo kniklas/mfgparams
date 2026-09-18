@@ -111,6 +111,9 @@ def test_end_milling_combined_constraint_modes_are_unsupported(mode):
     assert result.error.code == "UNSUPPORTED_MODE"
     assert result.spindle_speed_rpm is None
     assert result.mode is mode
+    # MEDIUM Copilot review finding on PR #102: the rendered message must
+    # not misleadingly name a different mode.
+    assert "feed-rate-constrained" not in result.error.message.lower()
 
 
 def test_end_milling_standard_mode_ignores_target_rpm_and_available_power_together():
@@ -195,6 +198,9 @@ def test_face_milling_combined_constraint_modes_are_unsupported(mode):
     assert result.error.code == "UNSUPPORTED_MODE"
     assert result.spindle_speed_rpm is None
     assert result.mode is mode
+    # MEDIUM Copilot review finding on PR #102: the rendered message must
+    # not misleadingly name a different mode.
+    assert "feed-rate-constrained" not in result.error.message.lower()
 
 
 def test_face_milling_standard_mode_ignores_target_rpm_and_available_power_together():
