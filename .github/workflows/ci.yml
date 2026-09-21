@@ -369,7 +369,7 @@ jobs:
       - run: pip install uv
       - run: >-
           uv tool install specify-cli
-          --from "git+https://github.com/github/spec-kit.git@v1.0.1"
+          --from "git+https://github.com/github/spec-kit.git@v1.0.8"
       - id: sync
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
