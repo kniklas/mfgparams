@@ -16,23 +16,29 @@
 # Schema: specs/005-configurable-materials-tools/contracts/materials-config-schema.md
 #
 # `material_number`/`short_notation` (specs/023-material-selector-dialog) are
-# deliberately left blank on every bundled entry below, including Mild
-# Steel and Stainless Steel: each bundled name is a generic material
-# family, not a single grade, and even a name with a widely-cited "default"
-# grade in one standards tradition (e.g. Mild Steel -> EN 10025-2's S235JR)
-# is not the unambiguous default in every tradition (ASTM's A36 is at
-# least as commonly meant by "mild steel"), so stamping one EN/DIN number
-# on the generic entry would misrepresent it to a user relying on the
-# picker's search as if it were authoritative (FR-010's supported blank
-# case, used here rather than guessing). Populate these two fields on a
-# *specific*, grade-named entry instead -- see
-# specs/023-material-selector-dialog/quickstart.md's "Chromoly Steel"
-# fixture, or contracts/materials-config-schema-delta.md, for the pattern
-# -- in a materials-config file, where the entry's own name states the
-# exact grade the number/notation describes (023-material-selector-dialog
-# tasks.md T035; narrowed to zero populated bundled entries during PR #106
-# review after this same ambiguity was raised first against Brass, then
-# against Mild Steel/Stainless Steel too).
+# deliberately left blank on every *generic-family* bundled entry below
+# (Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium):
+# each name is a family, not a single grade, and even a name with a
+# widely-cited "default" grade in one standards tradition (e.g. Mild
+# Steel -> EN 10025-2's S235JR) is not the unambiguous default in every
+# tradition (ASTM's A36 is at least as commonly meant by "mild steel"),
+# so stamping one EN/DIN number on the generic entry would misrepresent
+# it to a user relying on the picker's search as if it were authoritative
+# (FR-010's supported blank case, used here rather than guessing).
+#
+# "S235JR Structural Steel" below is the one bundled entry that *does*
+# populate both fields, precisely because its own name states the exact
+# grade the numbers describe -- unlike the generic entries above, there
+# is no ambiguity to misrepresent. It exists so the picker has real,
+# out-of-the-box EN-number/short-notation data to search without
+# requiring a `--materials-config` override (PR #106 follow-up: manual
+# testing after the review loop found the picker had nothing to search
+# at all once every generic entry's notations were removed -- a real
+# feature-usability regression, not just an overcautious data choice).
+# A user materials-config entry follows the same pattern for its own
+# grade-specific materials -- see quickstart.md's "Chromoly Steel"
+# fixture, or contracts/materials-config-schema-delta.md, for another
+# example (023-material-selector-dialog tasks.md T035/T052).
 
 [[materials]]
 name = "Mild Steel"
@@ -81,6 +87,16 @@ reference_cutting_speed = 12.0
 reference_feed_per_rev = 0.10
 specific_cutting_force = 2100.0
 unit_system = "metric"
+
+[[materials]]
+name = "S235JR Structural Steel"
+material_type = "metal"
+reference_cutting_speed = 25.0
+reference_feed_per_rev = 0.20
+specific_cutting_force = 1900.0
+unit_system = "metric"
+material_number = "1.0038"
+short_notation = "S235JR"
 
 [[materials]]
 name = "Oak"

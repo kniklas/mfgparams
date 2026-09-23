@@ -12,25 +12,15 @@ looking at a real terminal can.
   piped/non-TTY session.
 - `mfgparams` installed with the `console` extra (`pip install -e ".[console]"` from the repo
   root, or however this repo's contributor docs currently recommend).
-- A small test materials-config file with sample notation data, so Scenarios 2–4 below have
-  something real to search — none of the bundled `data/materials.toml` entries populate
-  `material_number`/`short_notation` (plan.md's Project Structure; each bundled name is a
-  generic material family, not a single unambiguous grade). Entries below are named after the
-  specific grade their notation fields describe, per
-  contracts/materials-config-schema-delta.md's example. Save this as
+- A small test materials-config file with *additional* sample notation data, so Scenarios 2–4
+  below have more than one grade to search — the bundled `data/materials.toml` already
+  populates `material_number`/`short_notation` on one entry, `S235JR Structural Steel` (its own
+  name states the specific grade the numbers describe, unlike the other, generic-family bundled
+  metals — plan.md's Project Structure). Entries below follow the same named-after-its-grade
+  pattern, per contracts/materials-config-schema-delta.md's example. Save this as
   `/tmp/mfgparams-quickstart-materials.toml` (or your OS equivalent):
 
   ```toml
-  [[materials]]
-  name = "S235JR Structural Steel"
-  material_type = "metal"
-  reference_cutting_speed = 25.0
-  reference_feed_per_rev = 0.20
-  specific_cutting_force = 1900.0
-  unit_system = "metric"
-  material_number = "1.0038"
-  short_notation = "S235JR"
-
   [[materials]]
   name = "Chromoly Steel"
   material_type = "metal"
@@ -79,8 +69,8 @@ mfgparams --materials-config /tmp/mfgparams-quickstart-materials.toml
 6. Press **Enter**.
    - **Expect**: a centered floating dialog appears, showing three columns (common name /
      material number / shortened designation) side by side, listing every metal material —
-     the 6 bundled defaults (Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium)
-     plus this fixture's 3 additions (S235JR Structural Steel, Chromoly Steel, Unlabeled Alloy)
+     the 7 bundled defaults (Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium,
+     S235JR Structural Steel) plus this fixture's 2 additions (Chromoly Steel, Unlabeled Alloy)
      — since step 5 already cycled the Material row to "Mild Steel" (a value present in the
      unfiltered list), **expect that row highlighted** — not the empty-highlight case
      data-model.md's Open transition describes for a field that was never set.
@@ -101,7 +91,7 @@ mfgparams --materials-config /tmp/mfgparams-quickstart-materials.toml
 
 1. Re-open the Material picker (Enter on the Material row).
    - **Expect**: the row for whatever you selected in Scenario 1 starts highlighted, all three
-     search fields are empty, and the full 9-material list (6 bundled + this fixture's 3) is
+     search fields are empty, and the full 9-material list (7 bundled + this fixture's 2) is
      shown (Clarification 2, FR-011).
 2. Move column focus to the material-number column (Right or Tab, once).
 3. Type `1.72`.

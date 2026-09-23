@@ -209,6 +209,7 @@ def test_none_user_path_returns_bundled_only_no_notice():
         "Cast Iron",
         "Brass",
         "Titanium",
+        "S235JR Structural Steel",
         "Oak",
         "Maple",
         "Pine",

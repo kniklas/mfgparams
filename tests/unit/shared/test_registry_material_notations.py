@@ -246,19 +246,28 @@ class TestBundledNotations:
     `TestBundledCategorization` precedent, which tests real bundled
     `material_type` values the same way (tasks.md T049).
 
-    Every bundled metal is deliberately left without either field (PR #106
-    review, second round): each bundled name is a generic material family
-    with no single EN/DIN grade unambiguous enough across standards
+    Every *generic-family* bundled metal is deliberately left without
+    either field (PR #106 review, second round): each such name is a
+    family, not a single EN/DIN grade unambiguous enough across standards
     traditions to stamp onto it -- see `data/materials.toml`'s own
-    top-of-file comment for the full rationale, and this file's
-    `TestValidNotations`/`TestInvalidNotations` above for coverage of a
-    *specific*-grade entry (the intended way to populate these fields, via
-    a materials-config override) round-tripping correctly."""
+    top-of-file comment for the full rationale. `S235JR Structural Steel`
+    is the one bundled entry that does populate both, since its own name
+    states the specific grade (PR #106 follow-up, tasks.md T052) -- added
+    after manual testing found the picker had no real out-of-the-box data
+    to search once every generic entry's notations were removed. This
+    file's `TestValidNotations`/`TestInvalidNotations` above cover the
+    same *specific*-grade pattern via a synthetic materials-config
+    override round-tripping correctly."""
 
     @pytest.mark.parametrize(
         "name", ["Mild Steel", "Stainless Steel", "Aluminum", "Cast Iron", "Brass", "Titanium"]
     )
-    def test_bundled_metals_have_neither_notation(self, name):
+    def test_generic_bundled_metals_have_neither_notation(self, name):
         material = get_material(name)
         assert material.material_number is None
         assert material.short_notation is None
+
+    def test_the_grade_specific_bundled_metal_carries_its_documented_notation(self):
+        material = get_material("S235JR Structural Steel")
+        assert material.material_number == "1.0038"
+        assert material.short_notation == "S235JR"
