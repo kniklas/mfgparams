@@ -111,9 +111,24 @@ class WorkpieceMaterial:
         Mirrors ``mfgparams.i18n.translate``'s English-fallback rule
         (research.md #7), but operates on data rather than the message
         catalog.
+
+        ``translations`` is populated straight from a user's
+        ``[materials.translations]`` TOML table (``registry_config.py``'s
+        ``_parse_entries``) with no type check against this dataclass's
+        declared ``dict[str, str]`` -- a config such as ``en = 123``
+        reaches this method as a non-string value despite the
+        annotation. Guarded here (the one place every caller -- picker
+        rendering/search, radio-row label building -- goes through)
+        rather than at each call site, so a malformed translation falls
+        back to the material's own ``name`` instead of crashing the first
+        caller that treats the result as a string (023-material-selector-
+        dialog, PR #106 review round 4).
         """
 
-        return self.translations.get(locale, self.name)
+        value = self.translations.get(locale, self.name)
+        if isinstance(value, str) and value.strip():
+            return value
+        return self.name
 
     @property
     def is_usable(self) -> bool:
