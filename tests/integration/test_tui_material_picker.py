@@ -8,10 +8,13 @@ Drives the real, single persistent `Application` headlessly
 concern, not something `rows_for`'s row callbacks alone can exercise the way
 `test_tui_drilling.py` tests the rest of the Drilling screen.
 
-Every candidate here comes from the bundled registry, which does not yet
-populate `material_number`/`short_notation` (tasks.md T035 is a separate,
-later data-entry task) -- every row in these tests exercises FR-010's
-blank-cell case incidentally, by virtue of the bundled data's current state.
+Every candidate here comes from the bundled registry. `Mild Steel`/
+`Stainless Steel` carry real `material_number`/`short_notation` values
+(tasks.md T035); the other four bundled metals (Aluminum, Cast Iron,
+Brass, Titanium) are deliberately left without either field (no single
+conventional EN/DIN default -- see `data/materials.toml`'s own comment),
+so most rows in these tests still exercise FR-010's blank-cell case
+incidentally, by virtue of the bundled data's current state.
 
 Only `Up`/`Down` (not the `j`/`k` aliases the rest of the pane also accepts)
 are bound inside this dialog, since it accepts free-text search input (User
@@ -255,8 +258,9 @@ def test_backspace_widens_the_filtered_list_again():
 
 def _write_material_number_config(tmp_path) -> str:
     """Two new metal materials with distinct `material_number`s/
-    `short_notation`s, added alongside the bundled defaults (which have
-    neither yet -- tasks.md T035 is a separate data-entry task)."""
+    `short_notation`s, added alongside the bundled defaults (only
+    `Mild Steel`/`Stainless Steel` of which carry either field --
+    tasks.md T035)."""
 
     path = tmp_path / "config.toml"
     path.write_text("""
@@ -283,9 +287,10 @@ short_notation = "100Cr6"
 
 def test_switching_to_the_material_number_column_filters_by_number_and_excludes_blanks(tmp_path):
     """User Story 2 (tasks.md T031). "1.72" matches only Chromoly Steel --
-    Tool Steel's "1.2080" doesn't contain it, and every bundled material's
-    blank `material_number` is excluded outright (FR-010) the moment this
-    column's query is non-empty."""
+    Tool Steel's "1.2080" doesn't contain it, none of the bundled metals'
+    numbers (blank, or "1.0038"/"1.4301" for Mild/Stainless Steel) contain
+    it either, and a blank `material_number` is excluded outright (FR-010)
+    the moment this column's query is non-empty."""
 
     config_path = _write_material_number_config(tmp_path)
     interesting = _REACH_METAL_MATERIAL_ROW + [_ENTER, "\t", "1.72", _ENTER]

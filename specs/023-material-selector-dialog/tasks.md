@@ -133,7 +133,7 @@ description: "Task list template for feature implementation"
 - [X] T038 [P] Static check confirming no hard-coded user-facing strings were introduced in `material_picker.py`'s/`app.py`'s new code paths outside the message catalog (Constitution VIII; `tests/static/test_no_hardcoded_strings.py`)
 - [X] T039 Run `pytest --cov=mfgparams --cov-report=term-missing` and confirm ≥90% coverage is maintained on the new `material_picker.py` and modified `registry.py`/`app.py` code paths (Constitution II)
 - [X] T040 Run the full quality-gate suite (`mypy`, `ruff`, `radon`/`xenon` complexity, `bandit`, `pip-audit`) and confirm no new findings; in particular confirm `app.py`'s key-binding block's cyclomatic complexity stays within the configured threshold after the ~9 new bindings/Conditions added across Phases 2-5 (Constitution IX; plan.md Constitution Check)
-- [X] T041 Execute all 5 quickstart.md scenarios and confirm actual behavior matches documented expected outcomes
+- [ ] T041 Execute all 5 quickstart.md scenarios on a real terminal and confirm actual behavior matches documented expected outcomes — traced (not executed on a real terminal) via a direct Python simulation against `material_picker.py`'s real functions during a `/speckit-converge` pass, which caught and fixed two scenario-script bugs (see quickstart.md's Scenario 1/3 correction history), but per Constitution Principle XIII that trace does not substitute for the real-terminal pass this task requires; leave unchecked alongside T042 until one is performed
 - [X] T043 **Post-implementation addition (2026-09-23, direct user feedback)** Restore Left/Right/Space cycling on the metal Material row (revert T014's original narrowing of `pane_radio_focused` — see that task's correction note) so it stays available alongside Enter's dialog, and add FR-014's hint: `split_pane.py::render_bottom_bar` shows a new `tui.material_picker.pane_hint` catalog key ("↑↓ move   ←→/Space change   ↵ detailed search   Esc back") in place of the generic `tui.pane.hint` whenever the metal Material row is selected and the dialog is closed (research.md Decision 9). Covered by a new regression test (`test_left_right_space_still_cycle_the_metal_material_row_directly` in `tests/integration/test_tui_material_picker.py`) and spec.md's Session 2026-09-23 Clarifications entry/FR-001/FR-014
 - [ ] T042 **REQUIRED (Constitution Principle XIII)** Manually verify the material selector dialog against a real terminal, at exactly 80x25 (the 022-tui-min-size-25x80 floor) and at a larger size, for drilling, turning, and milling, per quickstart.md's 5 scenarios — column alignment, highlight visibility, Shadow/Frame border fit within the floor, and focus transfer in/out of the dialog are not directly asserted by the headless integration tests above. If the implementing agent has no access to a real terminal, leave this task unchecked and say so rather than marking it complete on the agent's behalf.
 
@@ -203,8 +203,8 @@ Task: "Unit tests for cycle_column() wrapping in both directions"
 3. Complete Phase 3: User Story 1 (common-name search)
 4. **STOP and VALIDATE**: Run quickstart.md Scenario 1 manually; confirm User Story 1's
    Independent Test passes
-5. Deploy/demo if ready — this alone already replaces today's Left/Right-cycle interaction with
-   a searchable dialog for the identification method users already rely on
+5. Deploy/demo if ready — this alone already adds a searchable dialog alongside today's
+   Left/Right-cycle interaction, which remains available unchanged
 
 ### Incremental Delivery
 

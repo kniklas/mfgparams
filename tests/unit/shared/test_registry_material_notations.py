@@ -173,9 +173,10 @@ short_notation = "42CrMo4+N"
 
 class TestStickyFieldMerge:
     """A user override omitting either key carries over the bundled value
-    (research.md Decision 5), tested at ``merge_entries``'s own level since
-    the bundled registry does not yet populate these fields for real
-    materials (specs/023-material-selector-dialog tasks.md T035)."""
+    (research.md Decision 5), tested at ``merge_entries``'s own level
+    directly -- isolating the sticky-field merge mechanism itself from
+    which real bundled entries currently happen to carry notation values
+    (see ``TestBundledNotations`` below for that)."""
 
     def test_override_without_notations_keeps_the_bundled_values(self):
         from mfgparams.registry import _STICKY_FIELDS
@@ -252,7 +253,6 @@ class TestBundledNotations:
         [
             ("Mild Steel", "1.0038", "S235JR"),
             ("Stainless Steel", "1.4301", "X5CrNi18-10"),
-            ("Brass", "2.0321", "CuZn37"),
         ],
     )
     def test_populated_bundled_metals_carry_their_documented_notations(
@@ -262,7 +262,7 @@ class TestBundledNotations:
         assert material.material_number == material_number
         assert material.short_notation == short_notation
 
-    @pytest.mark.parametrize("name", ["Aluminum", "Cast Iron", "Titanium"])
+    @pytest.mark.parametrize("name", ["Aluminum", "Cast Iron", "Brass", "Titanium"])
     def test_unpopulated_bundled_metals_have_neither_notation(self, name):
         material = get_material(name)
         assert material.material_number is None

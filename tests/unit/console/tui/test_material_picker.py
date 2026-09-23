@@ -8,9 +8,13 @@ incrementally per story below).
 
 from __future__ import annotations
 
+from prompt_toolkit.utils import get_cwidth
+
 from mfgparams.console.i18n import translate
 from mfgparams.console.tui.app import FieldId, OperationScreen
 from mfgparams.console.tui.material_picker import (
+    _COMMON_WIDTH,
+    _NUMBER_WIDTH,
     MaterialPickerState,
     candidates,
     cycle_column,
@@ -321,6 +325,32 @@ class TestRender:
 
         assert "No matching materials." in text
 
+    def test_two_candidates_with_identical_rows_are_disambiguated_by_name(self):
+        """Two different registry entries (different `.name`) can share
+        the same translated common name and both leave material_number/
+        short_notation blank, rendering an otherwise indistinguishable
+        row -- `unique_labels`' "(key)" suffix convention (`forms.py`)
+        must kick in here exactly as it already does for radio-row labels
+        elsewhere, or a human could not tell which row Up/Down is on. Force
+        the collision directly via `translations`, since two *different*
+        bundled/configured entries sharing one translated common name is
+        exactly the real-world case (e.g. a user's materials-config adding
+        a second, differently-sourced "Mild Steel")."""
+
+        twin_a = _material("a", translations={"en": "Mild Steel"})
+        twin_b = _material("b", translations={"en": "Mild Steel"})
+
+        text = self._text(MaterialPickerState(), [twin_a, twin_b])
+
+        assert "Mild Steel (a)" in text
+        assert "Mild Steel (b)" in text
+
+    def test_no_disambiguation_when_rows_are_already_distinct(self):
+        text = self._text(MaterialPickerState(), [_STEEL, _CHROMOLY])
+
+        assert "(Mild Steel)" not in text
+        assert "(Chromoly Steel)" not in text
+
     def test_the_highlighted_row_carries_the_selected_style(self):
         state = MaterialPickerState(highlighted_name="Mild Steel")
 
@@ -329,11 +359,81 @@ class TestRender:
         highlighted = [(style, text) for style, text in fragments if "Mild Steel" in text]
         assert highlighted and highlighted[0][0] == "class:selected"
 
+    def test_the_highlighted_row_carries_a_set_cursor_position_marker(self):
+        """A candidate list taller than the dialog's viewport must keep the
+        highlighted row scrolled into view as Up/Down moves it (spec.md
+        Edge Cases). Tags the row with prompt_toolkit's own documented
+        `("[SetCursorPosition]", "")` fragment so the enclosing `Window`'s
+        native scroll-to-cursor logic does this without app.py tracking a
+        scroll offset by hand."""
+
+        state = MaterialPickerState(highlighted_name="Chromoly Steel")
+
+        fragments = render(state, [_STEEL, _CHROMOLY], "en", "en")
+
+        marker_index = next(
+            i for i, (style, _text) in enumerate(fragments) if style == "[SetCursorPosition]"
+        )
+        # The marker must sit immediately before the highlighted row's own
+        # fragment, not anywhere else in the output.
+        assert "Chromoly Steel" in fragments[marker_index + 1][1]
+
+    def test_no_cursor_position_marker_when_nothing_is_highlighted(self):
+        fragments = render(MaterialPickerState(), [_STEEL, _CHROMOLY], "en", "en")
+
+        assert all(style != "[SetCursorPosition]" for style, _text in fragments)
+
     def test_column_headers_are_translated_not_hardcoded(self):
         text = self._text(MaterialPickerState(), [_STEEL])
 
         assert "Material No." in text
         assert "Short" in text
+
+    def test_a_name_longer_than_its_column_does_not_overflow_the_row(self):
+        """A translated common name (or a long material_number/short_notation
+        from a user-supplied materials config) longer than its fixed column
+        width must be clipped, not expand the row -- otherwise the dialog
+        can overflow the 80-column floor (022-tui-min-size-25x80)."""
+
+        long_name = "X" * (_COMMON_WIDTH + 10)
+        material = _material(long_name, material_number="Y" * (_NUMBER_WIDTH + 10))
+
+        fragments = render(MaterialPickerState(), [material], "en", "en")
+        row_text = next(text for _style, text in fragments if long_name[0] in text)
+
+        # The row is "<common> <number> <short>\n" -- the line up to (and
+        # not including) the trailing newline must be exactly the three
+        # fixed column widths plus the two single-space separators.
+        assert len(row_text.rstrip("\n")) == _COMMON_WIDTH + 1 + _NUMBER_WIDTH + 1 + 14
+
+    def test_a_query_longer_than_its_column_does_not_overflow_the_search_row(self):
+        state = MaterialPickerState(query_common="X" * (_COMMON_WIDTH + 10))
+
+        fragments = render(state, [_STEEL], "en", "en")
+        query_fragment_text = fragments[1][1]
+
+        assert len(query_fragment_text) == _COMMON_WIDTH
+
+    def test_clipping_counts_display_columns_not_code_points(self):
+        """A wide (e.g. CJK) character occupies two display columns per
+        `get_cwidth` -- clipping/padding by code-point *count* alone (a
+        naive `:<N`) would let such a name overflow its column by up to
+        double its intended width, since each character both under-counts
+        the clip point and over-counts the padding needed."""
+
+        # Each "あ" is 2 display columns wide; 15 of them is a 30-column
+        # string that must clip to exactly 10 of them (20 columns) plus
+        # zero padding -- not naively truncate to 20 *characters* (which
+        # would still be 40 display columns).
+        wide_name = "あ" * 15
+        material = _material(wide_name)
+
+        fragments = render(MaterialPickerState(), [material], "en", "en")
+        row_text = next(text for _style, text in fragments if "あ" in text)
+        common_cell = row_text.split(" ", 1)[0]
+
+        assert common_cell == "あ" * 10
+        assert sum(get_cwidth(char) for char in common_cell) == _COMMON_WIDTH
 
 
 class TestPaneHint:

@@ -17,12 +17,15 @@ unfiltered material list directly (023 tasks.md T013's note).
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Literal
 
 from prompt_toolkit.formatted_text import StyleAndTextTuples
+from prompt_toolkit.utils import get_cwidth
 
 from mfgparams.console.i18n import translate
+from mfgparams.console.tui.forms import unique_labels
 from mfgparams.registry import WorkpieceMaterial
 
 #: Fixed column widths for the three-column table (render() below). Chosen
@@ -36,6 +39,28 @@ ColumnName = Literal["common", "number", "short"]
 
 #: Cycling order for `cycle_column()` (research.md Decision 7).
 _COLUMN_ORDER: tuple[ColumnName, ...] = ("common", "number", "short")
+
+
+def _clip_and_pad(text: str, max_width: int) -> str:
+    """Truncate then pad ``text`` to exactly ``max_width`` *display*
+    columns, not code points -- `app.py::_bar_entry_offsets`'s identical
+    reasoning applies here: `get_cwidth` is prompt-toolkit's own per-
+    character display-column measure (a wide/CJK glyph renders two columns
+    wide), and plain `str.format`'s `:<N` padding counts code points, not
+    columns, so it would under- or over-pad a string containing one.
+    Without this, a translated common name or a long material-number/
+    short-notation value could expand a column past its fixed width and
+    overflow the dialog's 80-column floor (022-tui-min-size-25x80)."""
+
+    width = 0
+    clipped_chars: list[str] = []
+    for character in text:
+        character_width = get_cwidth(character)
+        if width + character_width > max_width:
+            break
+        clipped_chars.append(character)
+        width += character_width
+    return "".join(clipped_chars) + " " * (max_width - width)
 
 
 @dataclass
@@ -142,6 +167,35 @@ def candidates(
     return [material for material in materials if _matches(material)]
 
 
+def _row_common_names(
+    candidates: list[WorkpieceMaterial], display_locale: str
+) -> dict[str, str]:
+    """Common-name cell text per candidate, keyed by `.name` (the unique
+    registry key) -- identical to `display_name(display_locale)` unless
+    two or more candidates would otherwise render an indistinguishable row
+    (same translated common name *and* the same `material_number`/
+    `short_notation`, including both blank), in which case `unique_labels`'
+    "(key)" suffix convention (`forms.py`, ported from `console/cli.py`'s
+    `_unique_labels`) disambiguates just those rows. Highlight tracking
+    (`state.highlighted_name`) always keys off `.name` regardless of what
+    is shown (FR-005) -- this only fixes what a human sees, since two
+    identical-looking rows would otherwise be impossible to tell apart
+    well enough to pick the right one with Up/Down."""
+
+    row_keys = {
+        material.name: (
+            material.display_name(display_locale),
+            material.material_number or "",
+            material.short_notation or "",
+        )
+        for material in candidates
+    }
+    collision_counts = Counter(row_keys.values())
+    ambiguous = {name: key[0] for name, key in row_keys.items() if collision_counts[key] > 1}
+    disambiguated = unique_labels(ambiguous)
+    return {name: disambiguated.get(name, key[0]) for name, key in row_keys.items()}
+
+
 def render(
     state: MaterialPickerState,
     candidates: list[WorkpieceMaterial],
@@ -159,7 +213,11 @@ def render(
     catalog (FR-013)."""
 
     def _row_text(common: str, number: str, short: str) -> str:
-        return f"{common:<{_COMMON_WIDTH}} {number:<{_NUMBER_WIDTH}} {short:<{_SHORT_WIDTH}}"
+        return (
+            f"{_clip_and_pad(common, _COMMON_WIDTH)} "
+            f"{_clip_and_pad(number, _NUMBER_WIDTH)} "
+            f"{_clip_and_pad(short, _SHORT_WIDTH)}"
+        )
 
     fragments: StyleAndTextTuples = [
         ("class:pane-title", f"{translate(locale, 'tui.material_picker.title')}\n\n")
@@ -169,11 +227,13 @@ def render(
         column: "class:selected" if state.active_column == column else ""
         for column in _COLUMN_ORDER
     }
-    fragments.append((column_style["common"], f"{state.query_common:<{_COMMON_WIDTH}}"))
+    fragments.append((column_style["common"], _clip_and_pad(state.query_common, _COMMON_WIDTH)))
     fragments.append(("", " "))
-    fragments.append((column_style["number"], f"{state.query_number:<{_NUMBER_WIDTH}}"))
+    fragments.append((column_style["number"], _clip_and_pad(state.query_number, _NUMBER_WIDTH)))
     fragments.append(("", " "))
-    fragments.append((column_style["short"], f"{state.query_short:<{_SHORT_WIDTH}}\n"))
+    fragments.append(
+        (column_style["short"], f"{_clip_and_pad(state.query_short, _SHORT_WIDTH)}\n")
+    )
 
     header = _row_text(
         translate(locale, "tui.material_picker.column_common"),
@@ -186,13 +246,27 @@ def render(
         fragments.append(("class:hint", translate(locale, "tui.material_picker.empty")))
         return fragments
 
+    common_names = _row_common_names(candidates, display_locale)
     for material in candidates:
-        style = "class:selected" if material.name == state.highlighted_name else ""
+        is_highlighted = material.name == state.highlighted_name
+        style = "class:selected" if is_highlighted else ""
         row_text = _row_text(
-            material.display_name(display_locale),
+            common_names[material.name],
             material.material_number or "",
             material.short_notation or "",
         )
+        if is_highlighted:
+            # Marks this row as the cursor position for the enclosing
+            # `Window` (prompt_toolkit's own documented convention: a
+            # `("[SetCursorPosition]", "")` fragment, `FormattedTextControl`'s
+            # constructor docstring). A candidate list taller than the
+            # dialog's viewport must keep the highlighted row scrolled into
+            # view as Up/Down moves it (spec.md Edge Cases) -- `show_cursor=
+            # False` on the control (app.py) only suppresses the blinking
+            # cursor glyph; `Window._scroll_when_linewrapping` reads this
+            # position for scrolling regardless (verified directly against
+            # prompt_toolkit's source, not assumed).
+            fragments.append(("[SetCursorPosition]", ""))
         fragments.append((style, f"{row_text}\n"))
 
     return fragments

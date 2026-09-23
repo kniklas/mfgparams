@@ -8,12 +8,14 @@
 
 ## Summary
 
-Replace the metal Material field's current Left/Right-cycling `RadioRow` interaction with a
-dedicated, centered floating dialog (matching the existing operation-window `Float`/`Frame`/
-`Shadow` pattern already used in `app.py`) offering three side-by-side, independently
+Add a dedicated, centered floating dialog (matching the existing operation-window `Float`/
+`Frame`/`Shadow` pattern already used in `app.py`) offering three side-by-side, independently
 searchable columns — common name (locale-translated, per Clarification 1), EN material
 number, and shortened designation — sharing one row highlight, opened by Enter on the metal
-Material row and closed by Enter (confirm) or Escape (cancel, no change). The two new
+Material row and closed by Enter (confirm) or Escape (cancel, no change), *alongside* the
+metal Material field's existing Left/Right-cycling `RadioRow` interaction, which is
+unchanged and still works exactly as before (Session 2026-09-23 spec amendment: Enter's
+dialog is additive, not a replacement for cycling). The two new
 identifying columns require two new optional fields on `WorkpieceMaterial` and the materials
 TOML schema; because `RawRegistryEntry.fields` already passes through arbitrary TOML keys
 generically (`registry_config.py::_parse_entries`), no config-parsing code changes — only
