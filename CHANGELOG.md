@@ -33,7 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The minimum supported terminal size is lowered back from 30×80 to
   **25×80**, restoring the classic 80-column/25-line terminal standard
-  (specs/022-tui-min-size-25x80).
+  (specs/022-tui-min-size-25x80, #103 — merged 2026-09-18, between the
+  2.4.0 and 2.5.0 bump commits; it received no `__version__` bump of its
+  own, so it is documented here, in the next version that did bump).
 
 ## [2.4.0] - 2026-09-18
 
