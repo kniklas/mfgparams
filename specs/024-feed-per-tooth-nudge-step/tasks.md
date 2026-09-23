@@ -111,7 +111,8 @@ testable — this is the entire feature (single-story scope).
   Regression check (`pytest tests/unit/console/tui/ tests/integration/ -k
   milling -q`) and confirm all pre-existing milling TUI tests still pass.
   36 passed. Full suite also run: 1606 passed, 12 skipped.
-- [ ] T008 **REQUIRED (Constitution Principle XIII)** Manually verify, on a
+- [X] T008 **REQUIRED (Constitution Principle XIII)** — confirmed complete
+  by the user (2026-09-23) on a real terminal. Manually verify, on a
   real terminal, `quickstart.md` Scenarios 1-4 (metric nudge lands on
   exactly 0.1/0.2/0.3/0.4/0.3; nudge-below-zero clears to unset; imperial
   nudge is exactly 0.001 in, not 0.1 or 0.005; every other milling field's
