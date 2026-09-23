@@ -32,9 +32,15 @@ defined there. The `[[tools]]` schema is untouched by this feature.
 
 ## Example
 
+Entries populating `material_number`/`short_notation` MUST be named after the specific grade
+those fields describe, not a generic material family — `materials.toml`'s own top-of-file
+comment explains why none of the bundled entries (Mild Steel, Stainless Steel, ...) populate
+either field: each is a generic family with no single grade unambiguous enough across
+standards traditions to stamp a number onto (PR #106 review).
+
 ```toml
 [[materials]]
-name = "Mild Steel"
+name = "S235JR Structural Steel"
 material_type = "metal"
 reference_cutting_speed = 25.0
 reference_feed_per_rev = 0.20
@@ -47,7 +53,7 @@ short_notation = "S235JR"
 # entry's material_number/short_notation, because both are sticky fields (rule 10) — the
 # user file below need not repeat them.
 [[materials]]
-name = "Mild Steel"
+name = "S235JR Structural Steel"
 reference_cutting_speed = 28.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1900.0

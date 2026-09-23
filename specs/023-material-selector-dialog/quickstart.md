@@ -13,13 +13,16 @@ looking at a real terminal can.
 - `mfgparams` installed with the `console` extra (`pip install -e ".[console]"` from the repo
   root, or however this repo's contributor docs currently recommend).
 - A small test materials-config file with sample notation data, so Scenarios 2–4 below have
-  something real to search even before the separate bundled-data-entry task (plan.md's Project
-  Structure: `data/materials.toml` population) is complete. Save this as
+  something real to search — none of the bundled `data/materials.toml` entries populate
+  `material_number`/`short_notation` (plan.md's Project Structure; each bundled name is a
+  generic material family, not a single unambiguous grade). Entries below are named after the
+  specific grade their notation fields describe, per
+  contracts/materials-config-schema-delta.md's example. Save this as
   `/tmp/mfgparams-quickstart-materials.toml` (or your OS equivalent):
 
   ```toml
   [[materials]]
-  name = "Mild Steel"
+  name = "S235JR Structural Steel"
   material_type = "metal"
   reference_cutting_speed = 25.0
   reference_feed_per_rev = 0.20
@@ -77,13 +80,14 @@ mfgparams --materials-config /tmp/mfgparams-quickstart-materials.toml
    - **Expect**: a centered floating dialog appears, showing three columns (common name /
      material number / shortened designation) side by side, listing every metal material —
      the 6 bundled defaults (Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium)
-     plus this fixture's 2 additions (Chromoly Steel, Unlabeled Alloy) — since step 5 already
-     cycled the Material row to "Mild Steel" (a value present in the unfiltered list), **expect
-     that row highlighted** — not the empty-highlight case data-model.md's Open transition
-     describes for a field that was never set.
+     plus this fixture's 3 additions (S235JR Structural Steel, Chromoly Steel, Unlabeled Alloy)
+     — since step 5 already cycled the Material row to "Mild Steel" (a value present in the
+     unfiltered list), **expect that row highlighted** — not the empty-highlight case
+     data-model.md's Open transition describes for a field that was never set.
 7. Type `steel` (common-name column, the default active column).
-   - **Expect**: the list narrows to "Mild Steel", "Stainless Steel", and "Chromoly Steel" (all
-     three contain "steel"); every other material, including "Unlabeled Alloy", drops out.
+   - **Expect**: the list narrows to "Mild Steel", "Stainless Steel", "S235JR Structural Steel",
+     and "Chromoly Steel" (all four contain "steel"); every other material, including
+     "Unlabeled Alloy", drops out.
 8. Press **Down** once.
    - **Expect**: the highlight moves from "Mild Steel" (the first filtered row — typing a query
      always re-highlights the first match, per data-model.md's Edit query transition, regardless
@@ -97,7 +101,7 @@ mfgparams --materials-config /tmp/mfgparams-quickstart-materials.toml
 
 1. Re-open the Material picker (Enter on the Material row).
    - **Expect**: the row for whatever you selected in Scenario 1 starts highlighted, all three
-     search fields are empty, and the full 8-material list (6 bundled + this fixture's 2) is
+     search fields are empty, and the full 9-material list (6 bundled + this fixture's 3) is
      shown (Clarification 2, FR-011).
 2. Move column focus to the material-number column (Right or Tab, once).
 3. Type `1.72`.

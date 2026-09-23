@@ -376,6 +376,25 @@ class TestRender:
         assert "(supplier-a)" in text
         assert "(supplier-b)" in text
 
+    def test_disambiguation_falls_back_to_an_ordinal_when_the_key_itself_is_too_wide(self):
+        """A `.name` long enough that even ``" (name)"`` alone exceeds
+        `_COMMON_WIDTH` cannot be reserved room for -- shortening the base
+        name to zero still wouldn't fit the suffix. The fallback must
+        still render the two colliding rows distinctly (PR #106 review,
+        round 3), via a short " #N" ordinal instead of the unfitting key."""
+
+        long_name = "X" * (_COMMON_WIDTH + 10)
+        twin_a = _material(long_name + "-a", translations={"en": long_name})
+        twin_b = _material(long_name + "-b", translations={"en": long_name})
+
+        text = self._text(MaterialPickerState(), [twin_a, twin_b])
+
+        assert "#1" in text
+        assert "#2" in text
+        rows = [line for line in text.splitlines() if line.strip().startswith("X")]
+        assert len(rows) == 2
+        assert rows[0] != rows[1]
+
     def test_the_highlighted_row_carries_the_selected_style(self):
         state = MaterialPickerState(highlighted_name="Mild Steel")
 

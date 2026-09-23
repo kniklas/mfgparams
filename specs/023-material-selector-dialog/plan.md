@@ -126,12 +126,18 @@ src/mfgparams/
 ├── registry_config.py                    # NO CHANGE — RawRegistryEntry.fields already passes
 │                                          # unknown TOML keys through generically (verified by
 │                                          # reading _parse_entries directly)
-├── data/materials.toml                   # Bundled data-entry task: populate material_number/
-│                                          # short_notation for as many of the 6 bundled metal
-│                                          # materials as have a known EN/DIN designation (out of
-│                                          # scope for interaction-behavior tasks per spec.md
-│                                          # Assumptions, but needed for quickstart.md to have real
-│                                          # data to search)
+├── data/materials.toml                   # Bundled data-entry task (T035): evaluated all 6
+│                                          # bundled metal materials for a known EN/DIN
+│                                          # designation; none qualified — each is a generic
+│                                          # family (Mild Steel, Stainless Steel, ...), not a
+│                                          # single grade unambiguous enough across standards
+│                                          # traditions to populate (PR #106 review). Both
+│                                          # fields stay `None` on every bundled entry; a
+│                                          # materials-config entry named after the specific
+│                                          # grade is the intended way to populate them
+│                                          # (contracts/materials-config-schema-delta.md's
+│                                          # example), which is what quickstart.md's fixture
+│                                          # uses to have real data to search
 └── console/
     ├── locales/en.py                     # NEW tui.material_picker.* keys (FR-013)
     └── tui/
