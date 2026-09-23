@@ -588,8 +588,9 @@ class TestScrollIntoView:
         materials = [_material(f"Material {i}") for i in range(candidate_count)]
         state = MaterialPickerState(highlighted_name=materials[highlighted_index].name)
 
-        with create_pipe_input() as pipe_input, create_app_session(
-            input=pipe_input, output=DummyOutput()
+        with (
+            create_pipe_input() as pipe_input,
+            create_app_session(input=pipe_input, output=DummyOutput()),
         ):
             control = FormattedTextControl(
                 lambda: render(state, materials, "en", "en"), show_cursor=False

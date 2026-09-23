@@ -136,8 +136,7 @@ class WorkpieceMaterial:
             isinstance(value, str)
             and value.strip()
             and not any(
-                unicodedata.category(character) in _FORBIDDEN_ID_CATEGORIES
-                for character in value
+                unicodedata.category(character) in _FORBIDDEN_ID_CATEGORIES for character in value
             )
         ):
             return value.strip()

@@ -166,9 +166,7 @@ def candidates(
     return [material for material in materials if _matches(material)]
 
 
-def _row_common_names(
-    candidates: list[WorkpieceMaterial], display_locale: str
-) -> dict[str, str]:
+def _row_common_names(candidates: list[WorkpieceMaterial], display_locale: str) -> dict[str, str]:
     """Common-name cell text per candidate, keyed by `.name` (the unique
     registry key) -- identical to `display_name(display_locale)` unless
     the resulting *rendered* row (common name and number/notation once
@@ -293,9 +291,7 @@ def render(
     fragments.append(("", " "))
     fragments.append((column_style["number"], _clip_and_pad(state.query_number, _NUMBER_WIDTH)))
     fragments.append(("", " "))
-    fragments.append(
-        (column_style["short"], f"{_clip_and_pad(state.query_short, _SHORT_WIDTH)}\n")
-    )
+    fragments.append((column_style["short"], f"{_clip_and_pad(state.query_short, _SHORT_WIDTH)}\n"))
 
     header = _row_text(
         translate(locale, "tui.material_picker.column_common"),
