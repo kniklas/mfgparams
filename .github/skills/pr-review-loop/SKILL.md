@@ -851,6 +851,23 @@ rm /tmp/pr-aic-summary.md
    necessarily lands *after* the merge — that is expected and fine; it does
    not need to land before merge the way earlier drafts of this skill
    required.
+3. **Verify it landed — do not trust that the post above ran.** Issue
+   #108's retrospective found this comment missing entirely on 5 of 17
+   PRs driven by this skill across 2026-08-30–2026-09-23 (#87, #94, #95,
+   #105, #106), with round counts reconstructed from commit messages
+   instead. Confirm mechanically, the same way §5 confirms thread hygiene
+   rather than trusting memory:
+
+   ```bash
+   gh api repos/<owner>/<repo>/issues/<number>/comments --paginate \
+     --jq '[.[] | select(.body | contains("Session usage summary"))] | length'
+   ```
+
+   Must return `>= 1` for this PR before you report the loop as closed.
+   `0` means the post above did not actually land — a bad `--repo`
+   inference, a transient `gh` failure, or the step simply being skipped
+   — and you go back and post it before finishing, regardless of whether
+   merge/cleanup already happened.
 
 
 ## 7. Anti-patterns to avoid
@@ -907,3 +924,7 @@ rm /tmp/pr-aic-summary.md
   §1, or finalizing total wall time right after closure approval instead
   of after merge/close and cleanup actually finish — both under-measure
   the metric by excluding a real span of the session it is meant to cover.
+- Considering the loop closed once merge/cleanup finish without
+  mechanically confirming the §6 usage-summary comment actually posted.
+  It is easy to believe this step ran and be wrong — verify with the
+  `--jq` check in §6 step 2, not by memory (issue #108).
