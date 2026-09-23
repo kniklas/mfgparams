@@ -175,16 +175,15 @@ needed; T009-T011 confirm it holds.
   "milling or drilling or turning" -q`) and confirm all pre-existing
   milling/drilling/turning TUI tests still pass. 92 passed. Full suite
   also run: 1615 passed, 12 skipped, 95.96% coverage.
-- [ ] T014 **REQUIRED (Constitution Principle XIII)** Manually verify, on a
-  real terminal, `quickstart.md` Scenarios 1-6 (all nine fields nudge by
-  exactly 0.1 in under Imperial; unchanged 1.0 mm under Metric; the step
-  used immediately after switching unit system, twice, matches the newly
-  active system; feed-per-tooth/feed-rate-per-rotation and non-geometry
-  fields are unaffected) — not satisfied by T001-T003/T009-T011's
+- [X] T014 **REQUIRED (Constitution Principle XIII)** — confirmed complete
+  by the user (2026-09-23) on a real terminal: all 6 `quickstart.md`
+  scenarios (all nine fields nudge by exactly 0.1 in under Imperial;
+  unchanged 1.0 mm under Metric; the step used immediately after switching
+  unit system, twice, matches the newly active system;
+  feed-per-tooth/feed-rate-per-rotation and non-geometry fields are
+  unaffected) confirmed working — not satisfied by T001-T003/T009-T011's
   automated tests alone. This is the interactive-TUI case of Principle
-  XIII: it MUST be performed by the developer or a reviewer, not the
-  implementing agent alone. Leave unchecked and say so rather than marking
-  it complete without that confirmation.
+  XIII, performed by the user, not the implementing agent.
 
 > **NOTE (Principle XIII)**: This feature is the interactive console/TUI
 > case only (arrow-key nudge behavior) — the non-interactive
