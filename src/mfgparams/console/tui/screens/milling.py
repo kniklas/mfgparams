@@ -49,6 +49,19 @@ _SUB_OPERATION_OPTION_KEYS = {
     MillingSubOperation.FACE_MILLING: "tui.milling_sub_operation.face_milling",
 }
 
+#: 025-imperial-geometry-nudge-step: the FieldIds whose row gets
+#: `step=geometry_step` in `rows_for()` -- single source of truth so
+#: tests assert against this list rather than a separately hand-maintained
+#: copy of it (Constitution Principle I).
+GEOMETRY_FIELD_IDS = frozenset(
+    {
+        FieldId.DIAMETER,
+        FieldId.AXIAL_DEPTH_OF_CUT,
+        FieldId.RADIAL_ENGAGEMENT,
+        FieldId.LENGTH_OF_CUT,
+    }
+)
+
 
 @dataclass
 class MillingSessionState:
@@ -337,7 +350,7 @@ def rows_for(
     # under IMPERIAL as of 025-imperial-geometry-nudge-step), and the
     # imperial value is a standard chip-load shop-practice increment, not
     # a literal conversion of the metric one.
-    feed_per_tooth_step = split_pane.step_for(state.unit_system, 0.1, 0.001)
+    feed_per_tooth_step = forms.step_for(state.unit_system, 0.1, 0.001)
     rows.append(
         _number_row(
             FieldId.FEED_PER_TOOTH,

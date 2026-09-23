@@ -70,8 +70,22 @@ def geometry_nudge_step(unit_system: UnitSystem) -> float:
     return NUDGE_STEP if unit_system is UnitSystem.METRIC else 0.1
 ```
 
-Each of the nine call sites calls this helper and passes the result as
-`step=`:
+**Second correction (local round 3)**: the metric/imperial *selection*
+inside `geometry_nudge_step()` was itself further generalized into
+`forms.step_for(unit_system, metric, imperial)` — the same shape milling's
+`feed_per_tooth_step` and turning's `target_feed_rate` step now also use
+— once a local review noted the selection logic belongs alongside
+`forms.py`'s other `UnitSystem`-dispatched helpers
+(`convert_length`/`convert_power`), not in `split_pane.py`. Current body:
+
+```python
+def geometry_nudge_step(unit_system: UnitSystem) -> float:
+    return forms.step_for(unit_system, NUDGE_STEP, 0.1)
+```
+
+Each of the nine call sites calls `split_pane.geometry_nudge_step()` (its
+name and call signature are unchanged by this correction) and passes the
+result as `step=`:
 
 ```python
 geometry_step = split_pane.geometry_nudge_step(state.unit_system)

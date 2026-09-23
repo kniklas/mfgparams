@@ -38,6 +38,12 @@ _MODE_OPTION_KEYS = {
     CalculationMode.FIXED_RPM: "tui.mode.fixed_rpm",
 }
 
+#: 025-imperial-geometry-nudge-step: the FieldIds whose row gets
+#: `step=geometry_step` in `rows_for()` -- single source of truth so
+#: tests assert against this list rather than a separately hand-maintained
+#: copy of it (Constitution Principle I).
+GEOMETRY_FIELD_IDS = frozenset({FieldId.DIAMETER, FieldId.DEPTH})
+
 
 @dataclass
 class DrillingSessionState:

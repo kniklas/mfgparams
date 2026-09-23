@@ -194,6 +194,23 @@ needed; T009-T011 confirm it holds.
   switched to it too (`specs/020-turning-feed-per-rotation` and
   `specs/024-feed-per-tooth-nudge-step`'s own contracts annotated with a
   forward-pointing note, not reopened).
+- [X] T017 Local round 3 (very-high intensity, `pr-review-loop`,
+  local-only mode): 3 LOW findings, 2 fixed, 1 deferred. (a) Fixed —
+  `step_for()` relocated from `split_pane.py` to `forms.py` (this
+  module's existing home for `UnitSystem`-dispatched logic:
+  `convert_length`, `convert_power`, `UNIT_LABELS`); `geometry_nudge_step()`
+  now calls `forms.step_for()`, and milling's/turning's own call sites
+  switched from `split_pane.step_for(...)` to `forms.step_for(...)`
+  directly. (b) Fixed — added a public `GEOMETRY_FIELD_IDS` frozenset
+  constant to each of the three screens (single source of truth for which
+  `FieldId`s get `step=geometry_step`); the three integration test files
+  now import it instead of separately hand-maintaining their own copy.
+  (c) Deferred — the three screens' `_number_row()` wrapper is now
+  byte-identical across all three files; re-banded down from the review's
+  LOW rating on blast-radius grounds (a proper fix touches ~17 call sites
+  for every numeric field, not just this PR's 9 geometry fields, and two
+  of the three copies predate this PR) rather than folded in here — see
+  the PR's `## Deferred findings` comment.
 - [X] T012 [P] Check `docs/source/milling.rst`, `docs/source/drilling.rst`,
   and `docs/source/turning.rst` for prose describing the default nudge
   step ("1 display unit for most fields" / "small step" / "1

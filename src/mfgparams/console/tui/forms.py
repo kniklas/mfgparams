@@ -79,6 +79,23 @@ def convert_power(value: float, from_system: UnitSystem, to_system: UnitSystem) 
     return kw_to_hp(value) if to_system is UnitSystem.IMPERIAL else hp_to_kw(value)
 
 
+def step_for(unit_system: UnitSystem, metric: float, imperial: float) -> float:
+    """025-imperial-geometry-nudge-step/research.md #2: the general shape
+    every per-unit-system arrow-key nudge step in the TUI already followed
+    independently (020-turning-feed-per-rotation's `target_feed_rate`,
+    024-feed-per-tooth-nudge-step's `feed_per_tooth`,
+    025's own geometry fields) -- pick `metric` or `imperial` by which unit
+    system is currently active. Lives alongside `convert_length`/
+    `convert_power` (this module's existing home for UnitSystem-dispatched
+    logic) rather than in `screens/split_pane.py`, since it has no
+    dependency on the split-pane row/nudge machinery itself. Each feature's
+    own METRIC/IMPERIAL pair differs (independently chosen values, not
+    conversions of one another), so this only factors out the
+    *selection*, not the values."""
+
+    return metric if unit_system is UnitSystem.METRIC else imperial
+
+
 def render_error(error: ErrorInfo, locale: str) -> str:
     """Render an :class:`ErrorInfo` for display, translating it if needed.
 

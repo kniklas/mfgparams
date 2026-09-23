@@ -12,7 +12,12 @@ from mfgparams import CalculationMode, UnitSystem, calculate_turning
 from mfgparams.console.tui import forms
 from mfgparams.console.tui.app import FieldId, OperationScreen
 from mfgparams.console.tui.screens import split_pane
-from mfgparams.console.tui.screens.turning import TurningSessionState, calculate_result, rows_for
+from mfgparams.console.tui.screens.turning import (
+    GEOMETRY_FIELD_IDS,
+    TurningSessionState,
+    calculate_result,
+    rows_for,
+)
 
 
 def _screen(state: TurningSessionState | None = None) -> OperationScreen:
@@ -455,16 +460,13 @@ def test_power_and_feed_constrained_mode_offers_the_right_rows_and_matches_the_c
     assert "adjusted to fit available power" in text
 
 
-_GEOMETRY_FIELD_IDS = (FieldId.DIAMETER, FieldId.DEPTH_OF_CUT, FieldId.LENGTH_OF_CUT)
-
-
 def test_geometry_fields_nudge_by_the_default_step_under_metric():
     """specs/025-imperial-geometry-nudge-step FR-004: workpiece diameter,
     depth of cut, and length of cut keep today's default step under
     METRIC, unchanged by this feature."""
 
     screen = _screen()
-    for field_id in _GEOMETRY_FIELD_IDS:
+    for field_id in GEOMETRY_FIELD_IDS:
         row = _row(_rows(screen), field_id)
         assert isinstance(row, split_pane.NumberRow)
         assert row.step == split_pane.NUDGE_STEP
@@ -479,7 +481,7 @@ def test_geometry_fields_nudge_by_a_finer_step_under_imperial():
     _row(_rows(screen), FieldId.UNIT_SYSTEM).on_select("imperial")
     _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FEED_RATE_CONSTRAINED.value)
 
-    for field_id in _GEOMETRY_FIELD_IDS:
+    for field_id in GEOMETRY_FIELD_IDS:
         row = _row(_rows(screen), field_id)
         assert isinstance(row, split_pane.NumberRow)
         assert row.step == 0.1

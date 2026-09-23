@@ -38,6 +38,12 @@ _MODE_OPTION_KEYS = {
     CalculationMode.POWER_AND_FEED_CONSTRAINED: "tui.mode.power_and_feed_constrained",
 }
 
+#: 025-imperial-geometry-nudge-step: the FieldIds whose row gets
+#: `step=geometry_step` in `rows_for()` -- single source of truth so
+#: tests assert against this list rather than a separately hand-maintained
+#: copy of it (Constitution Principle I).
+GEOMETRY_FIELD_IDS = frozenset({FieldId.DIAMETER, FieldId.DEPTH_OF_CUT, FieldId.LENGTH_OF_CUT})
+
 
 @dataclass
 class TurningSessionState:
@@ -283,7 +289,7 @@ def rows_for(
         # shared 1.0-display-unit default -- 0.1 mm/rev under METRIC, or
         # 0.005 in/rev (a standard imperial shop-practice feed value, not a
         # coarse literal conversion of 0.1 mm) under IMPERIAL.
-        step = split_pane.step_for(state.unit_system, 0.1, 0.005)
+        step = forms.step_for(state.unit_system, 0.1, 0.005)
         return split_pane.NumberRow(
             field_id=FieldId.TARGET_FEED_RATE,
             label=translate(locale, "tui.label.target_feed_rate"),

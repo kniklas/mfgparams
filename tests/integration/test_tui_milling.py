@@ -16,7 +16,12 @@ from mfgparams import (
 )
 from mfgparams.console.tui.app import FieldId, OperationScreen, SessionUI
 from mfgparams.console.tui.screens import split_pane
-from mfgparams.console.tui.screens.milling import MillingSessionState, calculate_result, rows_for
+from mfgparams.console.tui.screens.milling import (
+    GEOMETRY_FIELD_IDS,
+    MillingSessionState,
+    calculate_result,
+    rows_for,
+)
 
 
 def _ui() -> SessionUI:
@@ -410,12 +415,6 @@ def test_feed_per_tooth_step_applies_to_face_milling_too():
     assert row.step == 0.1
 
 
-_GEOMETRY_FIELD_IDS = (
-    FieldId.DIAMETER,
-    FieldId.AXIAL_DEPTH_OF_CUT,
-    FieldId.RADIAL_ENGAGEMENT,
-    FieldId.LENGTH_OF_CUT,
-)
 
 
 def test_geometry_fields_nudge_by_the_default_step_under_metric():
@@ -425,7 +424,7 @@ def test_geometry_fields_nudge_by_the_default_step_under_metric():
 
     ui = _ui()
     screen = _screen(ui)
-    for field_id in _GEOMETRY_FIELD_IDS:
+    for field_id in GEOMETRY_FIELD_IDS:
         row = _row(_rows(ui, screen), field_id)
         assert isinstance(row, split_pane.NumberRow)
         assert row.step == split_pane.NUDGE_STEP
@@ -441,7 +440,7 @@ def test_geometry_fields_nudge_by_a_finer_step_under_imperial():
     screen = _screen(ui)
     _row(_rows(ui, screen), FieldId.UNIT_SYSTEM).on_select("imperial")
 
-    for field_id in _GEOMETRY_FIELD_IDS:
+    for field_id in GEOMETRY_FIELD_IDS:
         row = _row(_rows(ui, screen), field_id)
         assert isinstance(row, split_pane.NumberRow)
         assert row.step == 0.1

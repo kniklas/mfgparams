@@ -19,7 +19,12 @@ from __future__ import annotations
 from mfgparams import CalculationMode, UnitSystem, calculate
 from mfgparams.console.tui.app import FieldId, OperationScreen
 from mfgparams.console.tui.screens import split_pane
-from mfgparams.console.tui.screens.drilling import DrillingSessionState, calculate_result, rows_for
+from mfgparams.console.tui.screens.drilling import (
+    GEOMETRY_FIELD_IDS,
+    DrillingSessionState,
+    calculate_result,
+    rows_for,
+)
 
 
 def _screen(state: DrillingSessionState | None = None) -> OperationScreen:
@@ -206,16 +211,13 @@ def test_switching_mode_clears_the_previous_modes_power_or_rpm_value():
     assert state.target_rpm is None
 
 
-_GEOMETRY_FIELD_IDS = (FieldId.DIAMETER, FieldId.DEPTH)
-
-
 def test_geometry_fields_nudge_by_the_default_step_under_metric():
     """specs/025-imperial-geometry-nudge-step FR-004: drill diameter and
     hole depth keep today's default step under METRIC, unchanged by this
     feature."""
 
     screen = _screen()
-    for field_id in _GEOMETRY_FIELD_IDS:
+    for field_id in GEOMETRY_FIELD_IDS:
         row = _row(_rows(screen), field_id)
         assert isinstance(row, split_pane.NumberRow)
         assert row.step == split_pane.NUDGE_STEP
@@ -229,7 +231,7 @@ def test_geometry_fields_nudge_by_a_finer_step_under_imperial():
     screen = _screen()
     _row(_rows(screen), FieldId.UNIT_SYSTEM).on_select("imperial")
 
-    for field_id in _GEOMETRY_FIELD_IDS:
+    for field_id in GEOMETRY_FIELD_IDS:
         row = _row(_rows(screen), field_id)
         assert isinstance(row, split_pane.NumberRow)
         assert row.step == 0.1
