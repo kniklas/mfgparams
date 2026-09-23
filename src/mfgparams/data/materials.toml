@@ -14,6 +14,49 @@
 # code change (FR-004). Entries omitting the key fall back to "uncategorized".
 #
 # Schema: specs/005-configurable-materials-tools/contracts/materials-config-schema.md
+#
+# `material_number`/`short_notation` (specs/023-material-selector-dialog) each
+# carry the single most common/widely-published EN or DIN designation
+# conventionally associated with the bundled entry's name -- e.g. Mild
+# Steel -> EN 10025-2's S235JR (1.0038), the baseline general-purpose
+# structural/mild-steel grade; Stainless Steel -> X5CrNi18-10 (1.4301,
+# AISI 304), the default assumed whenever "stainless steel" is named
+# with no further qualifier. These are explicitly *representative*
+# defaults, not a claim that e.g. "Mild Steel" and "S235JR" are one and
+# the same thing -- a generic family name genuinely can span more than
+# one grade (ASTM's A36 is also commonly meant by "mild steel" in some
+# traditions) -- but showing the single most conventional choice out of
+# the box, rather than leaving every cell blank until a user supplies
+# their own `--materials-config`, is what makes the picker's EN-number/
+# short-notation search actually usable on first run (PR #106 follow-up:
+# real manual testing after the original review loop found the picker
+# had nothing at all to search once every entry's notation had been
+# blanked out over this same representativeness concern -- a real
+# feature-usability regression, not just an overcautious data choice).
+# A user materials-config entry follows the identical pattern for its
+# own, more specific materials -- see quickstart.md's "Chromoly Steel"
+# fixture, or contracts/materials-config-schema-delta.md, for an example
+# (023-material-selector-dialog tasks.md T035, T052, T053).
+#
+# IMPORTANT -- the `material_number`/`short_notation` label above and the
+# `reference_cutting_speed`/`reference_feed_per_rev`/`specific_cutting_force`
+# *numbers* on each entry below are independent claims, not one verified
+# package: the numbers are this file's original, long-standing
+# generic-family baseline figures (line 5 above), never re-derived
+# specifically for the grade now named alongside them. Cross-checked
+# against one consistent published reference (Sandvik Coromant's kc1.1/mc
+# table, applying the Kienzle chip-thickness relation at each entry's own
+# `reference_feed_per_rev`) during 023-material-selector-dialog's PR #106
+# follow-up: Mild Steel/Cast Iron/Titanium land within ~15% of that
+# source's prediction, Stainless Steel/Aluminum within ~40%, and no
+# comparable published figure exists for Brass at all. That level of
+# disagreement is normal -- published Kc tables vary 20-40%+ between
+# reputable sources for nominally the same material -- and all six are
+# the right order of magnitude for their family, but none should be read
+# as independently verified to be S235JR's (or X5CrNi18-10's, etc.) own
+# measured cutting data specifically. Treat the numeric fields as the
+# same generic-family estimates they always were; only the notation
+# fields are grade-specific by design.
 
 [[materials]]
 name = "Mild Steel"
@@ -22,6 +65,8 @@ reference_cutting_speed = 25.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1900.0
 unit_system = "metric"
+material_number = "1.0038"
+short_notation = "S235JR"
 
 [[materials]]
 name = "Stainless Steel"
@@ -30,6 +75,8 @@ reference_cutting_speed = 15.0
 reference_feed_per_rev = 0.15
 specific_cutting_force = 2400.0
 unit_system = "metric"
+material_number = "1.4301"
+short_notation = "X5CrNi18-10"
 
 [[materials]]
 name = "Aluminum"
@@ -38,6 +85,8 @@ reference_cutting_speed = 60.0
 reference_feed_per_rev = 0.25
 specific_cutting_force = 700.0
 unit_system = "metric"
+material_number = "3.2315"
+short_notation = "AlSi1MgMn"
 
 [[materials]]
 name = "Cast Iron"
@@ -46,6 +95,8 @@ reference_cutting_speed = 20.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1500.0
 unit_system = "metric"
+material_number = "EN-JL1030"
+short_notation = "EN-GJL-200"
 
 [[materials]]
 name = "Brass"
@@ -54,6 +105,8 @@ reference_cutting_speed = 45.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 800.0
 unit_system = "metric"
+material_number = "2.0321"
+short_notation = "CuZn37"
 
 [[materials]]
 name = "Titanium"
@@ -62,6 +115,8 @@ reference_cutting_speed = 12.0
 reference_feed_per_rev = 0.10
 specific_cutting_force = 2100.0
 unit_system = "metric"
+material_number = "3.7035"
+short_notation = "Ti99.8"
 
 [[materials]]
 name = "Oak"

@@ -41,6 +41,11 @@ _OPEN_DRILLING_AND_SELECT_DIAMETER = [
     # within any more; a radio field is always a single line).
     "l",  # cycles Material type to its first option, committing immediately
     "j",  # Down to Material (now present, since Material type is set)
+    # Left/Right/Space still cycle the metal Material row directly, exactly
+    # like any other radio row (specs/023-material-selector-dialog research.md
+    # Decision 3 -- Enter on this row *additionally* opens a dedicated
+    # selection window, but that path isn't needed here and isn't exercised
+    # by this test; see test_tui_material_picker.py for it).
     "l",  # cycles Material to its first option, committing immediately
     "j",  # Down to Tool
     "l",  # cycles Tool to its first option, committing immediately

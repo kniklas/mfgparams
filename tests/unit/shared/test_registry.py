@@ -195,6 +195,68 @@ def test_display_name_falls_back_to_english_when_no_translations():
     assert material.display_name("fr") == "Test"
 
 
+def test_display_name_falls_back_when_translation_is_not_a_string():
+    """`translations` is typed `dict[str, str]`, but the TOML loader
+    (registry_config.py's `_parse_entries`) never actually checks that --
+    a config `[materials.translations]` table with `en = 123` reaches
+    here as an int despite the annotation. `display_name()` must fall
+    back to `name` rather than return the non-string value, or every
+    caller that treats its result as a string (picker rendering/search,
+    radio-row label building) would crash (PR #106 review round 4)."""
+
+    bad_translations: dict[str, str] = {"en": 123}  # type: ignore[dict-item]
+    material = WorkpieceMaterial("Test", 1.0, 1.0, 1.0, translations=bad_translations)
+    assert material.display_name("en") == "Test"
+
+
+def test_display_name_falls_back_when_translation_is_blank():
+    material = WorkpieceMaterial("Test", 1.0, 1.0, 1.0, translations={"en": "   "})
+    assert material.display_name("en") == "Test"
+
+
+def test_a_non_string_translation_loaded_from_config_does_not_crash_the_material(tmp_path):
+    path = tmp_path / "bad-translation.toml"
+    path.write_text("""
+        [[materials]]
+        name = "Test Alloy"
+        reference_cutting_speed = 25.0
+        reference_feed_per_rev = 0.20
+        specific_cutting_force = 1900.0
+
+        [materials.translations]
+        en = 123
+        """)
+    material = get_material("Test Alloy", str(path))
+    assert material is not None
+    assert material.display_name("en") == "Test Alloy"
+
+
+def test_display_name_falls_back_when_translation_contains_a_control_character():
+    """A TOML multiline string (``en = \"\"\"Foo\\nBar\"\"\"``) is a valid
+    *string*, so the non-string guard alone doesn't catch it -- a
+    translation containing a line break would break the picker's
+    fixed-width row alignment and highlight/cursor positioning if it
+    reached rendering (PR #106 review round 5)."""
+
+    material = WorkpieceMaterial("Test", 1.0, 1.0, 1.0, translations={"en": "Foo\nBar"})
+    assert material.display_name("en") == "Test"
+
+
+def test_a_multiline_translation_loaded_from_config_does_not_break_layout(tmp_path):
+    path = tmp_path / "multiline-translation.toml"
+    path.write_text(
+        '\n        [[materials]]\n        name = "Test Alloy"\n'
+        "        reference_cutting_speed = 25.0\n"
+        "        reference_feed_per_rev = 0.20\n"
+        "        specific_cutting_force = 1900.0\n\n"
+        "        [materials.translations]\n"
+        '        en = """Foo\nBar"""\n        '
+    )
+    material = get_material("Test Alloy", str(path))
+    assert material is not None
+    assert material.display_name("en") == "Test Alloy"
+
+
 def test_translation_merge_preserves_untouched_locale(tmp_path):
     path = tmp_path / "translations.toml"
     path.write_text("""

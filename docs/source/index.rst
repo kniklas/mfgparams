@@ -24,6 +24,15 @@ a specific material. See:
 - ``specs/008-material-categorization/spec.md``
 - ``specs/005-configurable-materials-tools/contracts/materials-config-schema.md``
 
+For metal materials, the text GUI's Material field opens a dedicated
+selection window offering three independently-searchable identifiers side
+by side (common name, EN material number, shortened/DIN-style designation).
+A materials config file may add ``material_number``/``short_notation`` to a
+``[[materials]]`` entry to make it searchable by those identifiers too. See:
+
+- ``specs/023-material-selector-dialog/spec.md``
+- ``specs/023-material-selector-dialog/contracts/materials-config-schema-delta.md``
+
 Milling support (end milling and face milling, with operation selection in
 the text GUI) is covered in:
 

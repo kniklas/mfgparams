@@ -17,6 +17,17 @@ value with wraparound, committing it immediately; a numeric field's typed
 text lives in `field_buffer` only and commits to `session_state` when the
 user navigates away from it (Up/Down), not on every keystroke and not on
 Escape.
+
+Revision note (specs/023-material-selector-dialog): once Material type is
+"metal", the Material row also opens a dedicated selection window on
+Enter, alongside its existing Left/Right/Space cycling (both stay
+available, per direct user feedback -- Enter does not replace the cycle).
+This file exercises the Enter/dialog path below purely as one more scripted
+route to a committed material, not because Left/Right/Space stopped
+working; see `test_tui_material_picker.py` for a direct test of the cycle
+still working on this row. The raw ANSI Down arrow (`\x1b[B`, not `j`,
+since the dialog accepts free-text search input that must not swallow the
+letter "j") highlights the first candidate; Enter confirms and closes it.
 """
 
 from __future__ import annotations
@@ -34,7 +45,9 @@ _OPEN_DRILLING_COMPLETE_AND_EXIT = [
     "l",  # cycles Material type to its first option ("metal"), committing
     # immediately (no separate confirm step for radio fields)
     "j",  # Down to Material (now present, since Material type is set)
-    "l",  # cycles Material to its first option ("Mild Steel"), committing
+    "\r",  # opens the metal material selection window (023-material-selector-dialog)
+    "\x1b[B",  # highlights the first candidate ("Mild Steel")
+    "\r",  # confirms it, closing the window
     "j",  # Down to Tool
     "l",  # cycles Tool to its first option ("HSS"), committing
     "j",  # Down to Diameter
