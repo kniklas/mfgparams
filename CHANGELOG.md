@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-09-23
+
 ### Added
 
 - Console text GUI: once **metal** is chosen as the material type, the
@@ -26,6 +28,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   config file can add either key to any `[[materials]]` entry the same
   way. Non-metal material types are unaffected and only ever offer the
   existing radio-cycling behavior.
+
+### Changed
+
+- The minimum supported terminal size is lowered back from 30×80 to
+  **25×80**, restoring the classic 80-column/25-line terminal standard
+  (specs/022-tui-min-size-25x80).
+
+## [2.4.0] - 2026-09-18
+
+### Added
+
 - Two new turning-only calculation modes: `CalculationMode.ROTATION_AND_FEED_CONSTRAINED`
   (spindle speed and feed per rotation both supplied directly, neither
   derived) and `CalculationMode.POWER_AND_FEED_CONSTRAINED` (available
@@ -43,18 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (turning, drilling, or milling) is open, and reappears — in the same
   selection state — as soon as you exit back to the top level, for all
   three operations symmetrically (specs/021-turning-combined-constraints).
-- A new `turning` machining process (`mfgparams.calculate_turning`,
-  `mfgparams.list_turning_tools`), a sibling to the existing drilling and
-  milling processes, covering standard cylindrical (straight/outside-
-  diameter) turning across all three calculation modes (standard, fixed-
-  RPM, power-constrained): spindle speed, feed rate, machining time,
-  cutting force, torque, and power, reusing the existing workpiece-material
-  registry and configurable-tool pattern (specs/019-turning-calculations).
-  Exposed in the console text GUI as a third Machining tree leaf alongside
-  Milling and Drilling. `CalculationResult` gains a new optional
-  `cutting_force` field (populated for turning; `None` for drilling and
-  milling), following the same precedent `material_removal_rate` already
-  set for milling.
+
+## [2.3.0] - 2026-09-18
+
+### Added
+
 - Every turning calculation result now also reports `feed_per_rotation` —
   the feed rate expressed as material advance per workpiece rotation
   (mm/rev under metric, in/rev under imperial), the way feed rate is
@@ -70,6 +76,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the supplied feed rate. In the console text GUI, this mode's new
   "Feed rate per rotation" field nudges by a finer step (0.1 mm/rev metric,
   0.005 in/rev imperial) than every other numeric field's default.
+
+## [2.2.0] - 2026-09-12
+
+### Added
+
+- A new `turning` machining process (`mfgparams.calculate_turning`,
+  `mfgparams.list_turning_tools`), a sibling to the existing drilling and
+  milling processes, covering standard cylindrical (straight/outside-
+  diameter) turning across all three calculation modes (standard, fixed-
+  RPM, power-constrained): spindle speed, feed rate, machining time,
+  cutting force, torque, and power, reusing the existing workpiece-material
+  registry and configurable-tool pattern (specs/019-turning-calculations).
+  Exposed in the console text GUI as a third Machining tree leaf alongside
+  Milling and Drilling. `CalculationResult` gains a new optional
+  `cutting_force` field (populated for turning; `None` for drilling and
+  milling), following the same precedent `material_removal_rate` already
+  set for milling.
+
+## [2.1.0] - 2026-09-11
 
 ### Changed
 
@@ -131,9 +156,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The minimum supported terminal size is raised from 25×80 to **30×80** —
   the persistent menu bar and tree, shown alongside an operation screen's two
   panes, no longer reliably fit the previous floor.
-- The minimum supported terminal size is lowered back from 30×80 to
-  **25×80**, restoring the classic 80-column/25-line terminal standard
-  (specs/022-tui-min-size-25x80).
 
 ## [2.0.0] - 2026-09-08
 
