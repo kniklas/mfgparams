@@ -283,7 +283,7 @@ def rows_for(
         # shared 1.0-display-unit default -- 0.1 mm/rev under METRIC, or
         # 0.005 in/rev (a standard imperial shop-practice feed value, not a
         # coarse literal conversion of 0.1 mm) under IMPERIAL.
-        step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.005
+        step = split_pane.step_for(state.unit_system, 0.1, 0.005)
         return split_pane.NumberRow(
             field_id=FieldId.TARGET_FEED_RATE,
             label=translate(locale, "tui.label.target_feed_rate"),

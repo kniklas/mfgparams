@@ -333,10 +333,11 @@ def rows_for(
     )
     # 024-feed-per-tooth-nudge-step/research.md #1: 0.1 mm/tooth under
     # METRIC, 0.001 in/tooth under IMPERIAL -- both far finer than the
-    # shared NUDGE_STEP (1.0) every other row here keeps, and the
+    # geometry rows' step above (which is itself finer than NUDGE_STEP
+    # under IMPERIAL as of 025-imperial-geometry-nudge-step), and the
     # imperial value is a standard chip-load shop-practice increment, not
     # a literal conversion of the metric one.
-    feed_per_tooth_step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.001
+    feed_per_tooth_step = split_pane.step_for(state.unit_system, 0.1, 0.001)
     rows.append(
         _number_row(
             FieldId.FEED_PER_TOOTH,

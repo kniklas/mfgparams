@@ -97,3 +97,18 @@ screen's fields on the old step with no test catching the
 *inconsistency* (each screen's tests only assert their own file's value in
 isolation). Fixed by extracting `split_pane.geometry_nudge_step()`, used
 by all three screens' `rows_for()`; see the contract delta.
+
+**Second correction (same PR, local round 2, before merge)**: this fix
+left milling's `feed_per_tooth_step` and turning's `_feed_rate_row()` step
+computation as their own pre-existing inline ternaries, so the same
+per-unit-system-step decision was now expressed two different ways in the
+same `rows_for()` functions — a local `/code-review` pass caught this as
+a consistency gap (LOW): a future per-unit-system-step feature is more
+likely to add yet another bespoke ternary rather than converge on one
+mechanism. Generalized `geometry_nudge_step()`'s own body into
+`split_pane.step_for(unit_system, metric, imperial)` — the metric/imperial
+*selection* logic all three features already shared independently, factored
+out without touching any feature's own METRIC/IMPERIAL values, which
+remain three distinct, independently-chosen pairs (`NUDGE_STEP`/`0.1`,
+`0.1`/`0.001`, `0.1`/`0.005`) — and switched milling's and turning's own
+call sites to it too.

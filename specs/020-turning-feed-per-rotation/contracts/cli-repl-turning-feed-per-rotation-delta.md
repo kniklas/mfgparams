@@ -65,7 +65,7 @@ if state.target_feed_rate is not None:
 
 ```python
 def _feed_rate_row() -> split_pane.NumberRow:
-    step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.005
+    step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.005  # see note below
     return split_pane.NumberRow(
         field_id=FieldId.TARGET_FEED_RATE,
         label=translate(locale, "tui.label.target_feed_rate"),
@@ -76,6 +76,15 @@ def _feed_rate_row() -> split_pane.NumberRow:
         step=step,
     )
 ```
+
+**Note (added by `025-imperial-geometry-nudge-step`, not a re-opening of
+this spec)**: this line's inline ternary was later factored into a shared
+`split_pane.step_for(unit_system, metric, imperial)` helper — the current
+source reads `step = split_pane.step_for(state.unit_system, 0.1, 0.005)`,
+same values, same behavior. Left here as historical record of the
+decision this contract documents (research.md #7); see
+`specs/025-imperial-geometry-nudge-step/research.md` #2 for the
+extraction's own rationale.
 
 and passes it through the shared `power_and_rpm_rows()` helper
 (data-model.md), alongside the new `feed_rate_constrained` flag:

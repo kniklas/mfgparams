@@ -70,6 +70,16 @@ rows.append(
 )
 ```
 
+**Note (added by `025-imperial-geometry-nudge-step`, not a re-opening of
+this spec)**: the `step = ...` line's inline ternary was later factored
+into a shared `split_pane.step_for(unit_system, metric, imperial)`
+helper — the current source reads
+`feed_per_tooth_step = split_pane.step_for(state.unit_system, 0.1, 0.001)`,
+same values, same behavior. Left here as historical record of this
+spec's own decision; see
+`specs/025-imperial-geometry-nudge-step/research.md` #2 for the
+extraction's rationale.
+
 ## Arrow-key nudge step
 
 The feed-per-tooth row's `step` (0.1 under METRIC, 0.001 under IMPERIAL —

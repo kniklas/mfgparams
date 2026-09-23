@@ -61,6 +61,19 @@ from mfgparams.models import CalculationResult
 NUDGE_STEP = 1.0
 
 
+def step_for(unit_system: UnitSystem, metric: float, imperial: float) -> float:
+    """The general shape every per-unit-system nudge step in this codebase
+    already followed independently (020-turning-feed-per-rotation's
+    `target_feed_rate`, 024-feed-per-tooth-nudge-step's `feed_per_tooth`,
+    025-imperial-geometry-nudge-step's nine geometry fields) -- pick
+    `metric` or `imperial` by which unit system is currently active. Each
+    feature's own METRIC/IMPERIAL pair differs (they are independently
+    chosen values, not conversions of one another), so this only factors
+    out the *selection*, not the values themselves."""
+
+    return metric if unit_system is UnitSystem.METRIC else imperial
+
+
 def geometry_nudge_step(unit_system: UnitSystem) -> float:
     """025-imperial-geometry-nudge-step/research.md #1: the arrow-key nudge
     step for a whole geometry dimension (diameter, depth, length) -- 0.1 in
@@ -69,7 +82,7 @@ def geometry_nudge_step(unit_system: UnitSystem) -> float:
     drilling's, and turning's `rows_for()` so the same literal value isn't
     duplicated per screen (Constitution Principle I)."""
 
-    return NUDGE_STEP if unit_system is UnitSystem.METRIC else 0.1
+    return step_for(unit_system, NUDGE_STEP, 0.1)
 
 
 @dataclass(frozen=True)

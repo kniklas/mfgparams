@@ -182,6 +182,18 @@ needed; T009-T011 confirm it holds.
   screen's fields on the old step with no test catching the
   *inconsistency*. research.md #2's correction and the contract delta have
   the full before/after.
+- [X] T016 Local round 2 (very-high intensity, `pr-review-loop`, local-only
+  mode): two LOW findings, both fixed. (a) `screens/milling.py`'s
+  `feed_per_tooth_step` comment falsely claimed "every other row here
+  keeps" `NUDGE_STEP`, no longer true post-T015 for the four geometry
+  rows under IMPERIAL — reworded. (b) T015's `geometry_nudge_step()` left
+  milling's `feed_per_tooth_step` and turning's `_feed_rate_row()` step as
+  ad hoc inline ternaries instead of the same abstraction — generalized
+  into `split_pane.step_for(unit_system, metric, imperial)`, with
+  `geometry_nudge_step()` now calling it and both other call sites
+  switched to it too (`specs/020-turning-feed-per-rotation` and
+  `specs/024-feed-per-tooth-nudge-step`'s own contracts annotated with a
+  forward-pointing note, not reopened).
 - [X] T012 [P] Check `docs/source/milling.rst`, `docs/source/drilling.rst`,
   and `docs/source/turning.rst` for prose describing the default nudge
   step ("1 display unit for most fields" / "small step" / "1
