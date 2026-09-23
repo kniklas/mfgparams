@@ -269,6 +269,21 @@ largest recoverable cost in this loop.
      mention of any concept/flag/command you changed, and verify any
      newly-asserted CLI/API behavior claim in a real shell before writing
      it down as fact.
+   - Changes under `src/`/`tests/` for a feature that has its own
+     `specs/<NNN>-slug/` directory: check for spec-kit artifact drift
+     (`code-review` §6b) mechanically rather than re-reading §6b and
+     trusting judgement to catch it — on #101 and #102 that re-read-and-hope
+     pass didn't work, and 2-3 *remote* Copilot rounds apiece went to stale
+     `plan.md`/`research.md`/`data-model.md`/`tasks.md` entries a local
+     grep would have caught (issue #108). For every public
+     function/parameter/behavior name this round's diff touches, run
+     `grep -rn '<name>' specs/<NNN>-slug/{plan,research,data-model,tasks,
+     quickstart}.md specs/<NNN>-slug/contracts/` and resolve or flag any
+     hit that still describes the pre-fix mechanism. Treat an unresolved
+     hit as a local finding, banded per `code-review` §6b (usually
+     MEDIUM) — fix it in this round's batch or defer it via §3a like any
+     other local finding, not something to leave for the remote round to
+     find.
    - Then run **`/code-review` locally** on the batch and fix what it
      finds, before pushing. A local round costs no Copilot credit and no
      CI cycle, so it is strictly cheaper than discovering the same
