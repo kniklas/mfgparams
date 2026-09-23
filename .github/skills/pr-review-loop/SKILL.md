@@ -276,14 +276,22 @@ largest recoverable cost in this loop.
      pass didn't work, and 2-3 *remote* Copilot rounds apiece went to stale
      `plan.md`/`research.md`/`data-model.md`/`tasks.md` entries a local
      grep would have caught (issue #108). For every public
-     function/parameter/behavior name this round's diff touches, run
-     `grep -rn '<name>' specs/<NNN>-slug/{plan,research,data-model,tasks,
-     quickstart}.md specs/<NNN>-slug/contracts/` and resolve or flag any
-     hit that still describes the pre-fix mechanism. Treat an unresolved
-     hit as a local finding, banded per `code-review` §6b (usually
-     MEDIUM) — fix it in this round's batch or defer it via §3a like any
-     other local finding, not something to leave for the remote round to
-     find.
+     function/parameter/behavior name this round's diff touches, run:
+
+     ```bash
+     grep -rn '<name>' \
+       specs/<NNN>-slug/{plan,research,data-model,tasks,quickstart}.md \
+       specs/<NNN>-slug/contracts/
+     ```
+
+     (Keep the brace expansion on one line — a line-wrap inside it, even
+     just inside an inline code span, embeds a literal newline that
+     breaks the glob; verified against `specs/023-material-selector-dialog`.)
+     Resolve or flag any hit that still describes the pre-fix mechanism.
+     Treat an unresolved hit as a local finding, banded per `code-review`
+     §6b (usually MEDIUM) — fix it in this round's batch or defer it via
+     §3a like any other local finding, not something to leave for the
+     remote round to find.
    - Then run **`/code-review` locally** on the batch and fix what it
      finds, before pushing. A local round costs no Copilot credit and no
      CI cycle, so it is strictly cheaper than discovering the same
