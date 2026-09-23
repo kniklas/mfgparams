@@ -204,7 +204,8 @@ def test_display_name_falls_back_when_translation_is_not_a_string():
     caller that treats its result as a string (picker rendering/search,
     radio-row label building) would crash (PR #106 review round 4)."""
 
-    material = WorkpieceMaterial("Test", 1.0, 1.0, 1.0, translations={"en": 123})  # type: ignore[dict-item]
+    bad_translations: dict[str, str] = {"en": 123}  # type: ignore[dict-item]
+    material = WorkpieceMaterial("Test", 1.0, 1.0, 1.0, translations=bad_translations)
     assert material.display_name("en") == "Test"
 
 
