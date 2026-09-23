@@ -54,11 +54,18 @@ shipped it. No new field, parameter, or code path.
 **Rationale**: This is the same problem `020-turning-feed-per-rotation`
 already solved generically — a `NumberRow` MAY override the shared
 `NUDGE_STEP` default with a smaller, unit-system-dependent value, computed
-in the screen's own row factory and passed through at construction time.
-`screens/turning.py::_feed_rate_row()` is the exact pattern to mirror for
-`screens/milling.py`'s feed-per-tooth row factory: a two-branch
-`step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.001`
-expression, passed as `step=step` to the existing `NumberRow` call.
+by the caller and passed through at construction time.
+`screens/turning.py::_feed_rate_row()`'s two-branch
+`step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.005`
+expression (0.005 is turning's own imperial value; milling's, per #1
+above, is the different value 0.001) is the pattern to mirror — but not
+via a dedicated per-field
+factory the way turning's is. `screens/milling.py` routes every row
+through one shared `_number_row()` helper, so the implementation instead
+gives that helper an optional `step` parameter (defaulting to the
+existing `NUDGE_STEP`) and computes the same two-branch expression only
+at the `feed_per_tooth` call site (contracts/cli-repl-feed-per-tooth-nudge-step-delta.md
+has the exact shape).
 
 **Alternatives considered**:
 

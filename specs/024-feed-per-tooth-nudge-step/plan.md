@@ -34,8 +34,8 @@ console's existing `prompt-toolkit`-based split-pane TUI.
 
 **Storage**: N/A (stateless per-render UI constant, unchanged).
 
-**Testing**: `pytest`, extending milling's existing TUI test suite
-(`tests/unit/console/tui/`, `tests/integration/`) with a nudge-step
+**Testing**: `pytest`, extending milling's existing TUI integration test
+suite (`tests/integration/test_tui_milling.py`) with a nudge-step
 assertion for `feed_per_tooth` under both unit systems, mirroring the
 equivalent test `020-turning-feed-per-rotation` added for
 `target_feed_rate`.
@@ -71,7 +71,10 @@ mechanism.
   on an existing `NumberRow` construction, computed with the same
   `if state.unit_system is UnitSystem.METRIC else ...` shape
   `screens/turning.py::_feed_rate_row()` already uses — no new
-  abstraction, no duplicated logic. PASS.
+  abstraction, no duplicated logic. Milling routes every row through one
+  shared `_number_row()` helper rather than turning's per-field factory,
+  so the `step` parameter is added there instead, defaulted so every
+  other call site is unaffected (research.md #2). PASS.
 - **Principle II (Testing Standards)**: New unit/integration test(s)
   asserting `feed_per_tooth`'s row carries the correct `step` under each
   unit system and that `nudge_selected` moves its buffer by that step,
@@ -147,9 +150,8 @@ specs/024-feed-per-tooth-nudge-step/
 ### Source Code (repository root)
 
 ```text
-src/mfgparams/console/tui/screens/milling.py    # feed_per_tooth row factory gains step=
-tests/unit/console/tui/                          # new/extended nudge-step assertion
-tests/integration/                               # new/extended arrow-key integration assertion
+src/mfgparams/console/tui/screens/milling.py    # _number_row() gains step=; feed_per_tooth row uses it
+tests/integration/test_tui_milling.py            # new nudge-step/conversion/other-rows-unaffected assertions
 docs/source/milling.rst                          # checked/updated if it names the old default step
 ```
 

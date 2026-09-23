@@ -84,7 +84,7 @@ exactly as they do today.
 - `feed_per_tooth`'s value, validation, or its use in
   `calculate_end_milling()`/`calculate_face_milling()` — unchanged.
 - Unit-system conversion of the field's remembered value
-  (`_convert_units` in `screens/milling.py`) — unchanged; the step value
+  (`_convert_on_unit_change` in `screens/milling.py`) — unchanged; the step value
   itself is simply re-evaluated against the current unit system on every
   render, the same way `screens/turning.py`'s equivalent step already is.
 - Every other row's nudge step, label, or layout — unchanged.

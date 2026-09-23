@@ -161,8 +161,7 @@ testable — this is the entire feature (single-story scope).
 
 ```bash
 # Launch all tests for User Story 1 together:
-Task: "Extend test_number_row_step_defaults_to_nudge_step() for feed_per_tooth in tests/integration/test_tui_field_editing.py"
-Task: "Integration test: feed_per_tooth nudge step under METRIC/IMPERIAL, both sub-operations, in tests/integration/test_tui_milling.py"
+Task: "Integration test: feed_per_tooth nudge step under METRIC/IMPERIAL, both sub-operations, other rows unaffected, in tests/integration/test_tui_milling.py"
 Task: "Integration test: feed_per_tooth unit-conversion and nudge-below-zero behavior, in tests/integration/test_tui_milling.py"
 ```
 
