@@ -1394,8 +1394,7 @@ def build_app(  # noqa: C901
         event.app.layout.focus(material_picker_control)
 
     material_picker_focused = Condition(
-        lambda: view.material_picker is not None
-        and app.layout.has_focus(material_picker_control)
+        lambda: view.material_picker is not None and app.layout.has_focus(material_picker_control)
     )
 
     @bindings.add("up", filter=material_picker_focused)

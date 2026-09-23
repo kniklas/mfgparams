@@ -259,8 +259,7 @@ def _write_material_number_config(tmp_path) -> str:
     neither yet -- tasks.md T035 is a separate data-entry task)."""
 
     path = tmp_path / "config.toml"
-    path.write_text(
-        """
+    path.write_text("""
 [[materials]]
 name = "Chromoly Steel"
 material_type = "metal"
@@ -278,8 +277,7 @@ reference_feed_per_rev = 0.12
 specific_cutting_force = 2600.0
 material_number = "1.2080"
 short_notation = "100Cr6"
-"""
-    )
+""")
     return str(path)
 
 

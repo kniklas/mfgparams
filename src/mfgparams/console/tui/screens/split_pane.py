@@ -417,10 +417,7 @@ def render_bottom_bar(screen: OperationScreen, locale: str) -> StyleAndTextTuple
 
     if screen.status:
         return [("class:error", screen.status)]
-    if (
-        screen.selected_field is FieldId.MATERIAL
-        and screen.session_state.material_type == "metal"
-    ):
+    if screen.selected_field is FieldId.MATERIAL and screen.session_state.material_type == "metal":
         return [("class:hint", translate(locale, "tui.material_picker.pane_hint"))]
     return [("class:hint", translate(locale, "tui.pane.hint"))]
 

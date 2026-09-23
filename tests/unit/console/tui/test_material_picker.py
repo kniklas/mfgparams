@@ -326,9 +326,7 @@ class TestRender:
 
         fragments = render(state, [_STEEL, _CHROMOLY], "en", "en")
 
-        highlighted = [
-            (style, text) for style, text in fragments if "Mild Steel" in text
-        ]
+        highlighted = [(style, text) for style, text in fragments if "Mild Steel" in text]
         assert highlighted and highlighted[0][0] == "class:selected"
 
     def test_column_headers_are_translated_not_hardcoded(self):
