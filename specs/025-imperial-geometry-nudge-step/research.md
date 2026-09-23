@@ -56,12 +56,14 @@ row through one shared `_number_row()` helper (unlike turning's separate
 `_feed_rate_row()` factory for its one custom-step field), mirroring
 milling's own pre-024 shape exactly. Giving each helper the identical
 optional `step` parameter milling's already has keeps all three screens'
-`_number_row()` signatures consistent and reuses the same computation
-shape (`NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1`) at
-each of the nine call sites — no new field, dataclass, or nudge-handling
-code path in `split_pane.py` itself, which already handles sub-1.0 steps
-correctly via its existing `Decimal`-safe `nudge_selected()` arithmetic
-(proven by 020 and 024).
+`_number_row()` signatures consistent — no new field, dataclass, or
+nudge-handling code path in `split_pane.py`'s existing nudge mechanics
+itself, which already handles sub-1.0 steps correctly via its existing
+`Decimal`-safe `nudge_selected()` arithmetic (proven by 020 and 024).
+
+The step *value itself*, per the correction below, is computed by one
+shared `split_pane.geometry_nudge_step(unit_system)` function — not
+duplicated inline at each of the nine call sites.
 
 **Alternatives considered**:
 
@@ -74,10 +76,24 @@ correctly via its existing `Decimal`-safe `nudge_selected()` arithmetic
   fields already going through each screen's shared `_number_row()`
   helper — extending that helper (as 024 did for milling) is the
   established, lower-footprint precedent for this shape of row.
-- **A shared step-computation helper function in `split_pane.py`**:
-  Rejected as unnecessary abstraction for a two-branch, one-line
-  expression already duplicated (not shared) across the 020/024
-  precedents at their respective call sites — introducing a shared helper
-  now would touch code outside this feature's scope for a marginal
-  readability gain, contrary to Principle I's "no premature abstraction"
-  spirit reflected elsewhere in this codebase's own review history.
+
+**Correction (same PR, before merge — not a separate spec revision): this
+alternative originally read "A shared step-computation helper function in
+`split_pane.py`: Rejected as unnecessary abstraction for a two-branch,
+one-line expression already duplicated (not shared) across the 020/024
+precedents at their respective call sites." That reasoning held for 020/024
+individually (each introduces its own distinct imperial value — 0.005,
+0.001 — at one call site apiece, genuinely not shared logic), but does not
+hold for this feature's own nine call sites, which all compute the
+identical literal expression
+(`NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1`) verbatim
+across three files. A local `/code-review` pass (very-high intensity,
+`pr-review-loop`) caught this as real triplication of this feature's own
+logic — Constitution Principle I's "absence of duplicated logic" and
+"magic numbers tied to physical meaning are named" — with a concrete
+failure scenario: a future revision to the imperial geometry step value
+requires editing three files, and missing one silently leaves that
+screen's fields on the old step with no test catching the
+*inconsistency* (each screen's tests only assert their own file's value in
+isolation). Fixed by extracting `split_pane.geometry_nudge_step()`, used
+by all three screens' `rows_for()`; see the contract delta.

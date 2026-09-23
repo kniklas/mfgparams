@@ -84,7 +84,9 @@ Scenarios 1-4, 6).
   `src/mfgparams/console/tui/screens/milling.py` (milling's `_number_row()`
   already accepts `step`, added by `024-feed-per-tooth-nudge-step`;
   research.md #1; contracts/cli-repl-imperial-geometry-nudge-step-delta.md;
-  depends on T001 existing and failing).
+  depends on T001 existing and failing). **Post-implementation
+  correction**: superseded by T015 — this call site now reads
+  `geometry_step = split_pane.geometry_nudge_step(state.unit_system)`.
 - [X] T005 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
   parameter to `_number_row()` in
   `src/mfgparams/console/tui/screens/drilling.py`, passed through to the
@@ -96,7 +98,8 @@ Scenarios 1-4, 6).
   state.unit_system is UnitSystem.METRIC else 0.1` and pass it as `step=`
   to the drill diameter and hole depth rows' `_number_row(...)` calls in
   `rows_for()`, `src/mfgparams/console/tui/screens/drilling.py`
-  (research.md #1; depends on T005).
+  (research.md #1; depends on T005). **Post-implementation correction**:
+  superseded by T015, same as T004.
 - [X] T007 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
   parameter to `_number_row()` in
   `src/mfgparams/console/tui/screens/turning.py`, passed through to the
@@ -109,7 +112,8 @@ Scenarios 1-4, 6).
   to the workpiece diameter, depth of cut, and length of cut rows'
   `_number_row(...)` calls in `rows_for()`,
   `src/mfgparams/console/tui/screens/turning.py` (research.md #1; depends
-  on T007).
+  on T007). **Post-implementation correction**: superseded by T015, same
+  as T004.
 
 **Checkpoint**: User Story 1 is fully functional and independently
 testable — all nine fields nudge by 0.1 in under Imperial across the
@@ -164,6 +168,20 @@ needed; T009-T011 confirm it holds.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
+- [X] T015 Extract the `geometry_step` computation
+  (`NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1`),
+  duplicated verbatim by T004/T006/T008 across
+  `screens/milling.py`/`screens/drilling.py`/`screens/turning.py`, into
+  one shared `split_pane.geometry_nudge_step(unit_system)` function; update
+  all three call sites to call it instead. Found by a local `/code-review`
+  pass (very-high intensity, `pr-review-loop`, run in local-only mode
+  after Copilot review credits were exhausted): Constitution Principle I
+  ("absence of duplicated logic"; magic numbers tied to physical meaning
+  named) — a future revision to the imperial geometry step value would
+  require editing three files, and missing one would silently leave that
+  screen's fields on the old step with no test catching the
+  *inconsistency*. research.md #2's correction and the contract delta have
+  the full before/after.
 - [X] T012 [P] Check `docs/source/milling.rst`, `docs/source/drilling.rst`,
   and `docs/source/turning.rst` for prose describing the default nudge
   step ("1 display unit for most fields" / "small step" / "1

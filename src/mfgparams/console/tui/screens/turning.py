@@ -223,10 +223,7 @@ def rows_for(
         )
     )
 
-    # 025-imperial-geometry-nudge-step/research.md #1: 0.1 in under
-    # IMPERIAL for geometry fields -- the shared NUDGE_STEP (1.0) is left
-    # unchanged under METRIC.
-    geometry_step = split_pane.NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1
+    geometry_step = split_pane.geometry_nudge_step(state.unit_system)
     rows.append(
         _number_row(
             FieldId.DIAMETER,

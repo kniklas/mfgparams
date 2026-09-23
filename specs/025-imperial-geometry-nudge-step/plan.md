@@ -70,11 +70,13 @@ the three screens' `_number_row()` helpers gain a `step` parameter
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - **Principle I (Code Quality)**: Each field's step is a `step=` keyword
-  argument computed with the same
-  `NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1` shape
-  the 020/024 precedents already use — no new abstraction. Drilling's and
-  turning's `_number_row()` gain an optional `step` parameter, defaulted
-  to `split_pane.NUDGE_STEP` so every other call site (available power,
+  argument sourced from one shared `split_pane.geometry_nudge_step()`
+  function (extracted during review after a local `/code-review` pass
+  caught the same two-branch expression duplicated verbatim across all
+  nine call sites — see research.md #2's correction and the contract
+  delta), not a per-call-site literal. Drilling's and turning's
+  `_number_row()` gain an optional `step` parameter, defaulted to
+  `split_pane.NUDGE_STEP` so every other call site (available power,
   target RPM, number of teeth, etc.) is unaffected, matching how milling's
   024 change was scoped. PASS.
 - **Principle II (Testing Standards)**: New unit/integration tests

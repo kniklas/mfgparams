@@ -54,13 +54,27 @@ def _number_row(
     )
 ```
 
-## The nine geometry rows pass a unit-system-dependent step
+## A shared helper computes the geometry step
 
-Each of the nine call sites computes the same two-branch expression
-(research.md #1) and passes it as `step=`:
+**Post-implementation correction**: an earlier draft of this contract had
+each of the nine call sites compute the two-branch expression inline
+(`NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1`),
+duplicated verbatim across three files. A local `/code-review` pass
+(very-high intensity, `pr-review-loop`) flagged this as real duplication
+of this feature's own logic under Constitution Principle I (see
+research.md #2's correction) and it was extracted into one shared
+function in `split_pane.py` before merge:
 
 ```python
-geometry_step = split_pane.NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1
+def geometry_nudge_step(unit_system: UnitSystem) -> float:
+    return NUDGE_STEP if unit_system is UnitSystem.METRIC else 0.1
+```
+
+Each of the nine call sites calls this helper and passes the result as
+`step=`:
+
+```python
+geometry_step = split_pane.geometry_nudge_step(state.unit_system)
 ```
 
 Applied at:
@@ -75,7 +89,7 @@ Applied at:
 Example (drilling's drill diameter row):
 
 ```python
-geometry_step = split_pane.NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1
+geometry_step = split_pane.geometry_nudge_step(state.unit_system)
 rows.append(
     _number_row(
         FieldId.DIAMETER,
