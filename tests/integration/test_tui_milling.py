@@ -415,8 +415,6 @@ def test_feed_per_tooth_step_applies_to_face_milling_too():
     assert row.step == 0.1
 
 
-
-
 def test_geometry_fields_nudge_by_the_default_step_under_metric():
     """specs/025-imperial-geometry-nudge-step FR-004: cutter diameter,
     axial depth of cut, radial engagement, and length of cut keep today's
