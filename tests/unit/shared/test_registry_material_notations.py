@@ -246,28 +246,27 @@ class TestBundledNotations:
     `TestBundledCategorization` precedent, which tests real bundled
     `material_type` values the same way (tasks.md T049).
 
-    Every *generic-family* bundled metal is deliberately left without
-    either field (PR #106 review, second round): each such name is a
-    family, not a single EN/DIN grade unambiguous enough across standards
-    traditions to stamp onto it -- see `data/materials.toml`'s own
-    top-of-file comment for the full rationale. `S235JR Structural Steel`
-    is the one bundled entry that does populate both, since its own name
-    states the specific grade (PR #106 follow-up, tasks.md T052) -- added
-    after manual testing found the picker had no real out-of-the-box data
-    to search once every generic entry's notations were removed. This
-    file's `TestValidNotations`/`TestInvalidNotations` above cover the
-    same *specific*-grade pattern via a synthetic materials-config
-    override round-tripping correctly."""
+    Every bundled metal carries the single most conventional EN/DIN
+    designation for its name (PR #106 follow-up, tasks.md T053) -- real
+    manual testing found leaving every entry blank (the review loop's
+    original, more conservative decision) left the picker with nothing
+    real to search on first run. See `data/materials.toml`'s own
+    top-of-file comment for the full rationale and each grade's source."""
 
     @pytest.mark.parametrize(
-        "name", ["Mild Steel", "Stainless Steel", "Aluminum", "Cast Iron", "Brass", "Titanium"]
+        ("name", "material_number", "short_notation"),
+        [
+            ("Mild Steel", "1.0038", "S235JR"),
+            ("Stainless Steel", "1.4301", "X5CrNi18-10"),
+            ("Aluminum", "3.2315", "AlSi1MgMn"),
+            ("Cast Iron", "EN-JL1030", "EN-GJL-200"),
+            ("Brass", "2.0321", "CuZn37"),
+            ("Titanium", "3.7035", "Ti99.8"),
+        ],
     )
-    def test_generic_bundled_metals_have_neither_notation(self, name):
+    def test_bundled_metals_carry_their_documented_notations(
+        self, name, material_number, short_notation
+    ):
         material = get_material(name)
-        assert material.material_number is None
-        assert material.short_notation is None
-
-    def test_the_grade_specific_bundled_metal_carries_its_documented_notation(self):
-        material = get_material("S235JR Structural Steel")
-        assert material.material_number == "1.0038"
-        assert material.short_notation == "S235JR"
+        assert material.material_number == material_number
+        assert material.short_notation == short_notation

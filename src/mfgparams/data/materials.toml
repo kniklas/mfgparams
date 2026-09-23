@@ -15,30 +15,28 @@
 #
 # Schema: specs/005-configurable-materials-tools/contracts/materials-config-schema.md
 #
-# `material_number`/`short_notation` (specs/023-material-selector-dialog) are
-# deliberately left blank on every *generic-family* bundled entry below
-# (Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium):
-# each name is a family, not a single grade, and even a name with a
-# widely-cited "default" grade in one standards tradition (e.g. Mild
-# Steel -> EN 10025-2's S235JR) is not the unambiguous default in every
-# tradition (ASTM's A36 is at least as commonly meant by "mild steel"),
-# so stamping one EN/DIN number on the generic entry would misrepresent
-# it to a user relying on the picker's search as if it were authoritative
-# (FR-010's supported blank case, used here rather than guessing).
-#
-# "S235JR Structural Steel" below is the one bundled entry that *does*
-# populate both fields, precisely because its own name states the exact
-# grade the numbers describe -- unlike the generic entries above, there
-# is no ambiguity to misrepresent. It exists so the picker has real,
-# out-of-the-box EN-number/short-notation data to search without
-# requiring a `--materials-config` override (PR #106 follow-up: manual
-# testing after the review loop found the picker had nothing to search
-# at all once every generic entry's notations were removed -- a real
+# `material_number`/`short_notation` (specs/023-material-selector-dialog) each
+# carry the single most common/widely-published EN or DIN designation
+# conventionally associated with the bundled entry's name -- e.g. Mild
+# Steel -> EN 10025-2's S235JR (1.0038), the baseline general-purpose
+# structural/mild-steel grade; Stainless Steel -> X5CrNi18-10 (1.4301,
+# AISI 304), the default assumed whenever "stainless steel" is named
+# with no further qualifier. These are explicitly *representative*
+# defaults, not a claim that e.g. "Mild Steel" and "S235JR" are one and
+# the same thing -- a generic family name genuinely can span more than
+# one grade (ASTM's A36 is also commonly meant by "mild steel" in some
+# traditions) -- but showing the single most conventional choice out of
+# the box, rather than leaving every cell blank until a user supplies
+# their own `--materials-config`, is what makes the picker's EN-number/
+# short-notation search actually usable on first run (PR #106 follow-up:
+# real manual testing after the original review loop found the picker
+# had nothing at all to search once every entry's notation had been
+# blanked out over this same representativeness concern -- a real
 # feature-usability regression, not just an overcautious data choice).
-# A user materials-config entry follows the same pattern for its own
-# grade-specific materials -- see quickstart.md's "Chromoly Steel"
-# fixture, or contracts/materials-config-schema-delta.md, for another
-# example (023-material-selector-dialog tasks.md T035/T052).
+# A user materials-config entry follows the identical pattern for its
+# own, more specific materials -- see quickstart.md's "Chromoly Steel"
+# fixture, or contracts/materials-config-schema-delta.md, for an example
+# (023-material-selector-dialog tasks.md T035, T052, T053).
 
 [[materials]]
 name = "Mild Steel"
@@ -47,6 +45,8 @@ reference_cutting_speed = 25.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1900.0
 unit_system = "metric"
+material_number = "1.0038"
+short_notation = "S235JR"
 
 [[materials]]
 name = "Stainless Steel"
@@ -55,6 +55,8 @@ reference_cutting_speed = 15.0
 reference_feed_per_rev = 0.15
 specific_cutting_force = 2400.0
 unit_system = "metric"
+material_number = "1.4301"
+short_notation = "X5CrNi18-10"
 
 [[materials]]
 name = "Aluminum"
@@ -63,6 +65,8 @@ reference_cutting_speed = 60.0
 reference_feed_per_rev = 0.25
 specific_cutting_force = 700.0
 unit_system = "metric"
+material_number = "3.2315"
+short_notation = "AlSi1MgMn"
 
 [[materials]]
 name = "Cast Iron"
@@ -71,6 +75,8 @@ reference_cutting_speed = 20.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1500.0
 unit_system = "metric"
+material_number = "EN-JL1030"
+short_notation = "EN-GJL-200"
 
 [[materials]]
 name = "Brass"
@@ -79,6 +85,8 @@ reference_cutting_speed = 45.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 800.0
 unit_system = "metric"
+material_number = "2.0321"
+short_notation = "CuZn37"
 
 [[materials]]
 name = "Titanium"
@@ -87,16 +95,8 @@ reference_cutting_speed = 12.0
 reference_feed_per_rev = 0.10
 specific_cutting_force = 2100.0
 unit_system = "metric"
-
-[[materials]]
-name = "S235JR Structural Steel"
-material_type = "metal"
-reference_cutting_speed = 25.0
-reference_feed_per_rev = 0.20
-specific_cutting_force = 1900.0
-unit_system = "metric"
-material_number = "1.0038"
-short_notation = "S235JR"
+material_number = "3.7035"
+short_notation = "Ti99.8"
 
 [[materials]]
 name = "Oak"

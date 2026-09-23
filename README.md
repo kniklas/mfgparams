@@ -269,8 +269,7 @@ material that actually belongs to the chosen type.
 
 The built-in materials are grouped into two types:
 
-- `metal` — Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium,
-  S235JR Structural Steel
+- `metal` — Mild Steel, Stainless Steel, Aluminum, Cast Iron, Brass, Titanium
 - `wood` — Oak, Maple (hardwood), Pine, Spruce, Fir (softwood),
   Plywood, MDF (engineered wood)
 

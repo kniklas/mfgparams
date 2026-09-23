@@ -19,14 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed search text, Enter confirms and closes, Escape cancels without
   changing the current selection (specs/023-material-selector-dialog).
   `WorkpieceMaterial` gains two new optional fields,
-  `material_number`/`short_notation`; none of the original six bundled
-  metal materials populate either (each is a generic family, not a
-  single unambiguous grade), but a materials config file can add either
-  key to any `[[materials]]` entry named after a specific grade. A
-  seventh bundled metal, **S235JR Structural Steel**, does populate both
-  (its own name states the specific grade), so the picker has real data
-  to search out of the box. Non-metal material types are unaffected and
-  only ever offer the existing radio-cycling behavior.
+  `material_number`/`short_notation`, populated on all six bundled metal
+  materials with each one's single most conventional EN/DIN designation
+  (e.g. Mild Steel → S235JR/1.0038, Stainless Steel → X5CrNi18-10/1.4301),
+  so the picker has real data to search out of the box; a materials
+  config file can add either key to any `[[materials]]` entry the same
+  way. Non-metal material types are unaffected and only ever offer the
+  existing radio-cycling behavior.
 - Two new turning-only calculation modes: `CalculationMode.ROTATION_AND_FEED_CONSTRAINED`
   (spindle speed and feed per rotation both supplied directly, neither
   derived) and `CalculationMode.POWER_AND_FEED_CONSTRAINED` (available

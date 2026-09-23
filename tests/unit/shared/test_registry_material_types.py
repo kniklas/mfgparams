@@ -19,15 +19,7 @@ from mfgparams.registry import (
     list_materials,
 )
 
-_METALS = (
-    "Mild Steel",
-    "Stainless Steel",
-    "Aluminum",
-    "Cast Iron",
-    "Brass",
-    "Titanium",
-    "S235JR Structural Steel",
-)
+_METALS = ("Mild Steel", "Stainless Steel", "Aluminum", "Cast Iron", "Brass", "Titanium")
 _WOODS = ("Oak", "Maple", "Pine", "Spruce", "Fir", "Plywood", "MDF")
 
 

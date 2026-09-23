@@ -126,18 +126,20 @@ src/mfgparams/
 ├── registry_config.py                    # NO CHANGE — RawRegistryEntry.fields already passes
 │                                          # unknown TOML keys through generically (verified by
 │                                          # reading _parse_entries directly)
-├── data/materials.toml                   # Bundled data-entry task (T035): evaluated all 6
-│                                          # bundled metal materials for a known EN/DIN
-│                                          # designation; none qualified — each is a generic
-│                                          # family (Mild Steel, Stainless Steel, ...), not a
-│                                          # single grade unambiguous enough across standards
-│                                          # traditions to populate (PR #106 review). Both
-│                                          # fields stay `None` on every bundled entry; a
-│                                          # materials-config entry named after the specific
-│                                          # grade is the intended way to populate them
-│                                          # (contracts/materials-config-schema-delta.md's
-│                                          # example), which is what quickstart.md's fixture
-│                                          # uses to have real data to search
+├── data/materials.toml                   # Bundled data-entry task (T035/T053): every bundled
+│                                          # metal populates material_number/short_notation
+│                                          # with its single most conventional EN/DIN
+│                                          # designation (e.g. Mild Steel -> S235JR/1.0038),
+│                                          # fact-checked, and documented as an explicitly
+│                                          # *representative* default rather than a claim of
+│                                          # exact equivalence (PR #106 review, then a
+│                                          # post-review usability fix per real manual
+│                                          # testing). A materials-config entry follows the
+│                                          # same named-after-its-grade pattern for its own,
+│                                          # more specific materials (contracts/
+│                                          # materials-config-schema-delta.md's example),
+│                                          # which is what quickstart.md's fixture uses for
+│                                          # additional search variety
 └── console/
     ├── locales/en.py                     # NEW tui.material_picker.* keys (FR-013)
     └── tui/

@@ -32,11 +32,10 @@ defined there. The `[[tools]]` schema is untouched by this feature.
 
 ## Example
 
-Entries populating `material_number`/`short_notation` MUST be named after the specific grade
-those fields describe, not a generic material family — `materials.toml`'s own top-of-file
-comment explains why none of the bundled entries (Mild Steel, Stainless Steel, ...) populate
-either field: each is a generic family with no single grade unambiguous enough across
-standards traditions to stamp a number onto (PR #106 review).
+An entry populating `material_number`/`short_notation` SHOULD be named after the specific
+grade those fields describe, unless (like the bundled defaults — see `materials.toml`'s own
+top-of-file comment) the value is an explicitly documented *representative* default for a
+more generic name.
 
 ```toml
 [[materials]]
