@@ -8,6 +8,13 @@ incrementally per story below).
 
 from __future__ import annotations
 
+from prompt_toolkit.application import create_app_session
+from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.layout.containers import Window, WritePosition
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout.mouse_handlers import MouseHandlers
+from prompt_toolkit.layout.screen import Screen
+from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.utils import get_cwidth
 
 from mfgparams.console.i18n import translate
@@ -351,6 +358,24 @@ class TestRender:
         assert "(Mild Steel)" not in text
         assert "(Chromoly Steel)" not in text
 
+    def test_disambiguation_survives_a_name_that_already_fills_the_column(self):
+        """A collision on a name already at/near `_COMMON_WIDTH` must not
+        have its "(key)" discriminator silently clipped away by
+        `_row_text`'s later padding -- the two rows would render
+        identically again, defeating the whole point of disambiguating
+        (PR #106 review, round 2). The fix reserves the suffix's space by
+        shortening the *base* name first, rather than appending the
+        suffix and clipping the combined text."""
+
+        long_name = "X" * _COMMON_WIDTH
+        twin_a = _material("supplier-a", translations={"en": long_name})
+        twin_b = _material("supplier-b", translations={"en": long_name})
+
+        text = self._text(MaterialPickerState(), [twin_a, twin_b])
+
+        assert "(supplier-a)" in text
+        assert "(supplier-b)" in text
+
     def test_the_highlighted_row_carries_the_selected_style(self):
         state = MaterialPickerState(highlighted_name="Mild Steel")
 
@@ -495,3 +520,61 @@ class TestPaneHint:
         text = self._text(screen)
 
         assert text == "some pending validation message"
+
+
+class TestScrollIntoView:
+    """End-to-end proof that `render()`'s `[SetCursorPosition]` marker
+    (`TestRender` above only checks the marker is present in the fragment
+    list, not that prompt_toolkit actually *acts* on it) really does keep
+    a highlighted row scrolled into view, against a real `Window`/
+    `FormattedTextControl` pair rather than prompt_toolkit's source read
+    alone (raised again as a HIGH finding in PR #106 review round 2,
+    against `app.py`'s `Window(content=material_picker_control, ...)`
+    line, despite the marker already existing in `render()` -- app.py's
+    own Window has no scroll code of its own to point to, since
+    prompt_toolkit's built-in mechanism is what handles it; this test is
+    the durable, repo-side evidence for that claim rather than a one-off
+    interactive check)."""
+
+    @staticmethod
+    def _vertical_scroll_after_render(
+        candidate_count: int, highlighted_index: int, viewport_height: int
+    ) -> tuple[int, int]:
+        """Render `candidate_count` synthetic materials with the one at
+        `highlighted_index` highlighted, through a real `Window` bounded
+        to `viewport_height` rows, and return
+        ``(window.vertical_scroll, last_visible_line)``."""
+
+        materials = [_material(f"Material {i}") for i in range(candidate_count)]
+        state = MaterialPickerState(highlighted_name=materials[highlighted_index].name)
+
+        with create_pipe_input() as pipe_input, create_app_session(
+            input=pipe_input, output=DummyOutput()
+        ):
+            control = FormattedTextControl(
+                lambda: render(state, materials, "en", "en"), show_cursor=False
+            )
+            window = Window(content=control, wrap_lines=True)
+            wp = WritePosition(xpos=0, ypos=0, width=60, height=viewport_height)
+            window._write_to_screen_at_index(Screen(), MouseHandlers(), wp, "", True)
+            assert window.render_info is not None
+            return window.vertical_scroll, window.render_info.last_visible_line()
+
+    def test_a_highlight_below_the_fold_scrolls_the_window_down(self):
+        """20 candidates, a 6-row viewport, highlight on the last one --
+        without scrolling, row 19 would render far past row 6 and never
+        appear on screen at all."""
+
+        vertical_scroll, last_visible_line = self._vertical_scroll_after_render(
+            candidate_count=20, highlighted_index=19, viewport_height=6
+        )
+
+        assert vertical_scroll > 0
+        assert last_visible_line >= 19 + 4  # +4 for the title/header lines render() adds
+
+    def test_a_highlight_within_the_first_viewport_does_not_scroll(self):
+        vertical_scroll, _last_visible_line = self._vertical_scroll_after_render(
+            candidate_count=20, highlighted_index=0, viewport_height=6
+        )
+
+        assert vertical_scroll == 0

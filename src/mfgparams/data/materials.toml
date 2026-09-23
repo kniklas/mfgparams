@@ -16,22 +16,23 @@
 # Schema: specs/005-configurable-materials-tools/contracts/materials-config-schema.md
 #
 # `material_number`/`short_notation` (specs/023-material-selector-dialog) are
-# populated only for the two bundled entries where a single EN/DIN
-# designation is *the* unambiguous, universally-cited default for that
-# generic name -- not merely "a" plausible grade: Mild Steel -> S235JR
-# (1.0038, EN 10025-2's baseline structural/mild-steel grade) and
-# Stainless Steel -> X5CrNi18-10 (1.4301, AISI 304, the default assumed
-# whenever "stainless steel" is named with no further qualifier). Every
-# other bundled entry -- Aluminum, Cast Iron, Brass, Titanium -- is left
-# without either field: each spans multiple, materially different alloys
-# in ordinary use (e.g. Brass covers CuZn37, CuZn40, CuZn30, ... with no
-# single alloy any more "the" default brass than another) with no single
-# conventional default the way the two populated entries have -- assigning
-# one arbitrary grade's number here would misrepresent the entry, so it
-# stays blank per FR-010's supported case rather than guessed
-# (023-material-selector-dialog tasks.md T035; Brass's notation fields
-# were removed during PR #106 review after this exact ambiguity was
-# raised against all three originally-populated entries).
+# deliberately left blank on every bundled entry below, including Mild
+# Steel and Stainless Steel: each bundled name is a generic material
+# family, not a single grade, and even a name with a widely-cited "default"
+# grade in one standards tradition (e.g. Mild Steel -> EN 10025-2's S235JR)
+# is not the unambiguous default in every tradition (ASTM's A36 is at
+# least as commonly meant by "mild steel"), so stamping one EN/DIN number
+# on the generic entry would misrepresent it to a user relying on the
+# picker's search as if it were authoritative (FR-010's supported blank
+# case, used here rather than guessing). Populate these two fields on a
+# *specific*, grade-named entry instead -- see
+# specs/023-material-selector-dialog/quickstart.md's "Chromoly Steel"
+# fixture, or contracts/materials-config-schema-delta.md, for the pattern
+# -- in a materials-config file, where the entry's own name states the
+# exact grade the number/notation describes (023-material-selector-dialog
+# tasks.md T035; narrowed to zero populated bundled entries during PR #106
+# review after this same ambiguity was raised first against Brass, then
+# against Mild Steel/Stainless Steel too).
 
 [[materials]]
 name = "Mild Steel"
@@ -40,8 +41,6 @@ reference_cutting_speed = 25.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1900.0
 unit_system = "metric"
-material_number = "1.0038"
-short_notation = "S235JR"
 
 [[materials]]
 name = "Stainless Steel"
@@ -50,8 +49,6 @@ reference_cutting_speed = 15.0
 reference_feed_per_rev = 0.15
 specific_cutting_force = 2400.0
 unit_system = "metric"
-material_number = "1.4301"
-short_notation = "X5CrNi18-10"
 
 [[materials]]
 name = "Aluminum"

@@ -19,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed search text, Enter confirms and closes, Escape cancels without
   changing the current selection (specs/023-material-selector-dialog).
   `WorkpieceMaterial` gains two new optional fields,
-  `material_number`/`short_notation`, populated for two of the six
-  bundled metal materials (Mild Steel, Stainless Steel) where a single,
-  unambiguous conventional EN/DIN designation applies; a materials config
-  file can add either key to any `[[materials]]` entry the same way. Non-metal
+  `material_number`/`short_notation`; none of the six bundled metal
+  materials populate either (each is a generic family, not a single
+  unambiguous grade), but a materials config file can add either key to
+  any `[[materials]]` entry named after a specific grade. Non-metal
   material types are unaffected and only ever offer the existing
   radio-cycling behavior.
 - Two new turning-only calculation modes: `CalculationMode.ROTATION_AND_FEED_CONSTRAINED`

@@ -25,7 +25,6 @@ from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.utils import get_cwidth
 
 from mfgparams.console.i18n import translate
-from mfgparams.console.tui.forms import unique_labels
 from mfgparams.registry import WorkpieceMaterial
 
 #: Fixed column widths for the three-column table (render() below). Chosen
@@ -172,28 +171,42 @@ def _row_common_names(
 ) -> dict[str, str]:
     """Common-name cell text per candidate, keyed by `.name` (the unique
     registry key) -- identical to `display_name(display_locale)` unless
-    two or more candidates would otherwise render an indistinguishable row
-    (same translated common name *and* the same `material_number`/
-    `short_notation`, including both blank), in which case `unique_labels`'
-    "(key)" suffix convention (`forms.py`, ported from `console/cli.py`'s
-    `_unique_labels`) disambiguates just those rows. Highlight tracking
-    (`state.highlighted_name`) always keys off `.name` regardless of what
-    is shown (FR-005) -- this only fixes what a human sees, since two
-    identical-looking rows would otherwise be impossible to tell apart
-    well enough to pick the right one with Up/Down."""
+    two or more candidates would otherwise render an indistinguishable
+    *rendered* row (same common name and number/notation once each is
+    clipped to its column width, per `_clip_and_pad` -- not just same
+    before clipping, since two names differing only past column ``N`` of
+    `_COMMON_WIDTH` are just as indistinguishable on screen), in which
+    case a `unique_labels`-style (`forms.py`) " (key)" suffix
+    disambiguates just those rows. The suffix's space is reserved by
+    shortening the *base* name before appending it, rather than appending
+    then letting `_row_text`'s later `_clip_and_pad` call truncate the
+    combined text -- a discriminator that a column-width clip could still
+    remove would defeat the whole point of adding one (PR #106 review).
+    Highlight tracking (`state.highlighted_name`) always keys off `.name`
+    regardless of what is shown (FR-005) -- this only fixes what a human
+    sees, since two identical-looking rows would otherwise be impossible
+    to tell apart well enough to pick the right one with Up/Down."""
 
-    row_keys = {
-        material.name: (
-            material.display_name(display_locale),
-            material.material_number or "",
-            material.short_notation or "",
+    def _rendered_key(material: WorkpieceMaterial) -> tuple[str, str, str]:
+        return (
+            _clip_and_pad(material.display_name(display_locale), _COMMON_WIDTH),
+            _clip_and_pad(material.material_number or "", _NUMBER_WIDTH),
+            _clip_and_pad(material.short_notation or "", _SHORT_WIDTH),
         )
-        for material in candidates
-    }
-    collision_counts = Counter(row_keys.values())
-    ambiguous = {name: key[0] for name, key in row_keys.items() if collision_counts[key] > 1}
-    disambiguated = unique_labels(ambiguous)
-    return {name: disambiguated.get(name, key[0]) for name, key in row_keys.items()}
+
+    rendered_keys = {material.name: _rendered_key(material) for material in candidates}
+    collision_counts = Counter(rendered_keys.values())
+
+    common_names: dict[str, str] = {}
+    for material in candidates:
+        base_name = material.display_name(display_locale)
+        if collision_counts[rendered_keys[material.name]] == 1:
+            common_names[material.name] = base_name
+            continue
+        suffix = f" ({material.name})"
+        budget = max(_COMMON_WIDTH - len(suffix), 0)
+        common_names[material.name] = _clip_and_pad(base_name, budget).rstrip() + suffix
+    return common_names
 
 
 def render(

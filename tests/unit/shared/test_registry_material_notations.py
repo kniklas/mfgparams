@@ -240,30 +240,25 @@ class TestStickyFieldMerge:
 
 
 class TestBundledNotations:
-    """The real bundled `data/materials.toml` (no config override) carries
-    the exact notation values tasks.md T035 populated -- not just the
-    synthetic values the classes above construct via `tmp_path` configs.
-    Mirrors `test_registry_material_types.py`'s `TestBundledCategorization`
-    precedent, which tests real bundled `material_type` values the same way
-    (tasks.md T049, from the second `/speckit-converge` pass on this
-    feature)."""
+    """The real bundled `data/materials.toml` (no config override) -- not
+    just the synthetic values the classes above construct via `tmp_path`
+    configs. Mirrors `test_registry_material_types.py`'s
+    `TestBundledCategorization` precedent, which tests real bundled
+    `material_type` values the same way (tasks.md T049).
+
+    Every bundled metal is deliberately left without either field (PR #106
+    review, second round): each bundled name is a generic material family
+    with no single EN/DIN grade unambiguous enough across standards
+    traditions to stamp onto it -- see `data/materials.toml`'s own
+    top-of-file comment for the full rationale, and this file's
+    `TestValidNotations`/`TestInvalidNotations` above for coverage of a
+    *specific*-grade entry (the intended way to populate these fields, via
+    a materials-config override) round-tripping correctly."""
 
     @pytest.mark.parametrize(
-        ("name", "material_number", "short_notation"),
-        [
-            ("Mild Steel", "1.0038", "S235JR"),
-            ("Stainless Steel", "1.4301", "X5CrNi18-10"),
-        ],
+        "name", ["Mild Steel", "Stainless Steel", "Aluminum", "Cast Iron", "Brass", "Titanium"]
     )
-    def test_populated_bundled_metals_carry_their_documented_notations(
-        self, name, material_number, short_notation
-    ):
-        material = get_material(name)
-        assert material.material_number == material_number
-        assert material.short_notation == short_notation
-
-    @pytest.mark.parametrize("name", ["Aluminum", "Cast Iron", "Brass", "Titanium"])
-    def test_unpopulated_bundled_metals_have_neither_notation(self, name):
+    def test_bundled_metals_have_neither_notation(self, name):
         material = get_material(name)
         assert material.material_number is None
         assert material.short_notation is None

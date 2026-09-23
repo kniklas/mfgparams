@@ -932,6 +932,19 @@ def build_app(  # noqa: C901
     material_picker_control = FormattedTextControl(
         _render_material_picker, focusable=True, show_cursor=False
     )
+    # No explicit vertical_scroll/cursor-marker code lives here: that's
+    # deliberate, not an oversight. `material_picker.render()`'s own
+    # `[SetCursorPosition]` fragment on the highlighted row (see that
+    # function's docstring) is prompt_toolkit's own documented mechanism
+    # for exactly this -- `Window._write_to_screen_at_index` reads
+    # `ui_content.cursor_position` and calls `_scroll`/
+    # `_scroll_when_linewrapping` unconditionally on every render,
+    # independent of `show_cursor`, keeping the highlighted row inside
+    # whatever height this `Window` is actually given (bounded to the
+    # terminal via `Float`'s own preferred-height trim, `containers.py`'s
+    # `_draw_float`) -- verified empirically against a real `Window`/
+    # `FormattedTextControl` pair, not merely read off prompt_toolkit's
+    # source (PR #106 review, round 2).
     material_picker_float = Float(
         content=ConditionalContainer(
             content=Box(
