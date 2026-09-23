@@ -69,6 +69,15 @@ MESSAGES: dict[str, str] = {
     "tui.label.material": "Material",
     "tui.label.tool": "Drilling tool",
     "tui.label.unit_system_suffix": "{name} [{unit_system}]",
+    # --- Material selection window (specs/023-material-selector-dialog) ---
+    "tui.material_picker.title": "Select material",
+    "tui.material_picker.column_common": "Name",
+    "tui.material_picker.column_number": "Material No.",
+    "tui.material_picker.column_short": "Short",
+    "tui.material_picker.empty": "No matching materials.",
+    "tui.material_picker.pane_hint": (
+        "↑↓ move   ←→/Space change   ↵ detailed search   Esc back"
+    ),
     # --- Drilling form (FR-002) ---
     "tui.drilling.title": "Drilling",
     "tui.label.diameter": "Drill diameter",

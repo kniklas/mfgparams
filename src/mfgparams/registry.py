@@ -42,8 +42,12 @@ _FORBIDDEN_ID_CATEGORIES = frozenset({"Cc", "Zl", "Zp"})
 #: Fields carried over from the bundled entry when a user override omits
 #: them (``registry_config.merge_entries``). Without this, a config file
 #: written before ``material_type`` existed would silently move the
-#: materials it overrides into ``DEFAULT_MATERIAL_TYPE``.
-_STICKY_FIELDS = ("material_type",)
+#: materials it overrides into ``DEFAULT_MATERIAL_TYPE``. ``material_number``/
+#: ``short_notation`` (023-material-selector-dialog) are sticky for the same
+#: reason: a config file written before either key existed would otherwise
+#: silently drop the bundled entry's notations on override (research.md
+#: Decision 5).
+_STICKY_FIELDS = ("material_type", "material_number", "short_notation")
 
 # TOML key -> dataclass field mapping (data-model.md "TOML key -> dataclass
 # field mapping"). Dataclass field names are never renamed; only this
@@ -83,6 +87,12 @@ class WorkpieceMaterial:
             always uses the canonical-metric fields above.
         translations: Locale code -> translated display name (FR-009);
             empty by default.
+        material_number: EN material number notation (e.g. ``"1.7225+N"``),
+            023-material-selector-dialog FR-002/FR-010. Opaque display/search
+            string, not validated against any numbering-standard format;
+            ``None`` when not recorded for this material.
+        short_notation: Shortened/DIN-style designation (e.g.
+            ``"42CrMo4+N"``), same feature/notes as ``material_number``.
     """
 
     name: str
@@ -92,6 +102,8 @@ class WorkpieceMaterial:
     unit_system: str = "metric"
     translations: dict[str, str] = field(default_factory=dict)
     material_type: str = DEFAULT_MATERIAL_TYPE
+    material_number: str | None = None
+    short_notation: str | None = None
 
     def display_name(self, locale: str) -> str:
         """Return the translated display name for ``locale``, or English fallback.
@@ -207,6 +219,36 @@ def _parse_material_type(entry: RawRegistryEntry, issues: list[str]) -> str:
     return value
 
 
+def _parse_notation_field(entry: RawRegistryEntry, key: str, issues: list[str]) -> str | None:
+    """Resolve an optional opaque display/search string field (``material_number``
+    or ``short_notation``), appending any issue to ``issues``.
+
+    Mirrors ``_parse_material_type``'s warn-and-continue policy
+    (023-material-selector-dialog research.md Decision 6): absent is valid
+    (returns ``None``), and a present-but-invalid value is recorded as a
+    validation issue while falling back to ``None`` rather than raising, so
+    an invalid notation never blocks the material from being loaded/selected
+    via its other identifiers. No numbering-standard format is enforced --
+    only the same control-character/line-separator guard ``material_type``
+    already applies, since this value is rendered as picker cell text and
+    searched character-by-character.
+    """
+
+    raw = entry.fields.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw.strip():
+        issues.append(f"field {key!r} must be a non-empty string, got {raw!r}")
+        return None
+    value = raw.strip()
+    if any(unicodedata.category(character) in _FORBIDDEN_ID_CATEGORIES for character in value):
+        issues.append(
+            f"field {key!r} must be a single line without control characters, got {raw!r}"
+        )
+        return None
+    return value
+
+
 def _to_material(entry: RawRegistryEntry) -> tuple[WorkpieceMaterial, MaterialValidationRecord]:
     """Convert a merged :class:`RawRegistryEntry` into a `WorkpieceMaterial`.
 
@@ -257,6 +299,8 @@ def _to_material(entry: RawRegistryEntry) -> tuple[WorkpieceMaterial, MaterialVa
         unit_system=entry.unit_system,
         translations=dict(entry.translations),
         material_type=_parse_material_type(entry, issues),
+        material_number=_parse_notation_field(entry, "material_number", issues),
+        short_notation=_parse_notation_field(entry, "short_notation", issues),
     )
     for field_name in _CANONICAL_NUMERIC_FIELDS:
         value = getattr(material, field_name)

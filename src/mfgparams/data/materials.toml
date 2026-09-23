@@ -14,6 +14,18 @@
 # code change (FR-004). Entries omitting the key fall back to "uncategorized".
 #
 # Schema: specs/005-configurable-materials-tools/contracts/materials-config-schema.md
+#
+# `material_number`/`short_notation` (specs/023-material-selector-dialog) are
+# populated only where a single EN/DIN designation is the conventional
+# default for this bundled entry's generic name (Mild Steel -> S235JR,
+# Stainless Steel -> 304-type X5CrNi18-10, Brass -> CuZn37 -- all common,
+# widely-published defaults). Aluminum/Cast Iron/Titanium are left without
+# either field: these bundled entries are deliberately generic (no specific
+# alloy/grade in their name), and EN/DIN numbering for those materials is
+# grade-specific with no single conventional default the way the three
+# populated entries have -- assigning one arbitrary grade's number here
+# would misrepresent the entry, so it stays blank per FR-010's supported
+# case rather than guessed (023-material-selector-dialog tasks.md T035).
 
 [[materials]]
 name = "Mild Steel"
@@ -22,6 +34,8 @@ reference_cutting_speed = 25.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 1900.0
 unit_system = "metric"
+material_number = "1.0038"
+short_notation = "S235JR"
 
 [[materials]]
 name = "Stainless Steel"
@@ -30,6 +44,8 @@ reference_cutting_speed = 15.0
 reference_feed_per_rev = 0.15
 specific_cutting_force = 2400.0
 unit_system = "metric"
+material_number = "1.4301"
+short_notation = "X5CrNi18-10"
 
 [[materials]]
 name = "Aluminum"
@@ -54,6 +70,8 @@ reference_cutting_speed = 45.0
 reference_feed_per_rev = 0.20
 specific_cutting_force = 800.0
 unit_system = "metric"
+material_number = "2.0321"
+short_notation = "CuZn37"
 
 [[materials]]
 name = "Titanium"

@@ -407,10 +407,21 @@ def render_bottom_bar(screen: OperationScreen, locale: str) -> StyleAndTextTuple
     panes -- matches the prototype's `render_bottom` exactly: an ordinary
     keyboard hint by default, replaced by `OperationScreen.status` (FR-006b's
     unparseable-number message, set only by `_commit_current`) when one is
-    pending."""
+    pending.
+
+    When the currently-selected field is the metal Material row
+    (023-material-selector-dialog), the generic hint is swapped for one
+    naming Enter's extra behavior there (opening the detailed multi-column
+    search window) -- Left/Right/Space still cycle it like any other radio
+    row, so that part of the generic hint remains true and isn't repeated."""
 
     if screen.status:
         return [("class:error", screen.status)]
+    if (
+        screen.selected_field is FieldId.MATERIAL
+        and screen.session_state.material_type == "metal"
+    ):
+        return [("class:hint", translate(locale, "tui.material_picker.pane_hint"))]
     return [("class:hint", translate(locale, "tui.pane.hint"))]
 
 

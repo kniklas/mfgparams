@@ -29,10 +29,13 @@ change an input. Choosing **Milling** instead switches to the flow described
 in :doc:`milling`.
 
 **Up/Down** (or **j/k**) always moves to the next/previous field, regardless
-of its type. A radio field (unit system, mode, material type, material,
+of its type. A radio field (unit system, mode, material type, material, and
 tool) is always a single ``Label: value`` line — **Left/Right**/**h/l**/
 **Space** cycle its value with wraparound and commit it immediately, with no
-separate confirm step. Numeric fields (drill diameter, hole depth, available
+separate confirm step. Once **metal** is chosen as the material type, the
+Material field also opens a dedicated selection window on **Enter**, on top
+of that ordinary cycling — see `Selecting a metal material`_ below. Numeric
+fields (drill diameter, hole depth, available
 power) become editable the instant you select them — start typing a digit
 (or ``.``/``-``) and it edits the field's buffer immediately, no separate
 "start editing" step; Left/Right nudges the buffer up or down by a small
@@ -51,6 +54,31 @@ same operation or a different one — without leaving the text GUI. Each
 operation remembers its *own* previous answers as defaults for the rest of
 the session, so switching from drilling to milling and back does not lose
 your drilling inputs.
+
+Selecting a metal material
+---------------------------
+
+Once **metal** is chosen as the material type, the Material field still
+cycles one material at a time with **Left/Right**/**h/l**/**Space**, exactly
+like any other radio field — but pressing **Enter** on it instead opens a
+centered selection window for finding a material by more than just cycling
+through the list. It lists every metal material in three columns — common
+name, EN material number (e.g. ``1.0038``), and shortened/DIN-style
+designation (e.g. ``S235JR``) — with an independent search field for each
+column; a material missing a recorded number/designation shows that cell
+blank. **Tab**/**Right** and **Shift+Tab**/**Left** switch which column's
+search field receives typed characters, without losing text already typed
+into the others; typing narrows the list to materials matching *every*
+non-empty search across all three columns at once. **Up**/**Down** move the
+highlighted row; **Enter** selects the highlighted material and closes the
+window; **Escape** closes it without changing the current selection.
+Reopening the window always starts with the material you already had
+selected (if any) highlighted, and every search field cleared. A materials
+config file can add ``material_number``/``short_notation`` to a
+``[[materials]]`` entry to make it searchable this way too — see
+``specs/023-material-selector-dialog/contracts/materials-config-schema-delta.md``.
+Non-metal material types are unaffected and only ever offer the ordinary
+Left/Right/Space radio-cycling behavior, with no selection window.
 
 Drilling inputs
 ----------------

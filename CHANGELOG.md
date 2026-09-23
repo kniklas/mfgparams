@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Console text GUI: once **metal** is chosen as the material type, the
+  Material field now also opens a dedicated selection window on Enter,
+  alongside its existing Left/Right/Space one-at-a-time cycling (both stay
+  available). The window lists every metal material in three
+  independently-searchable columns — common name, EN material number, and
+  shortened/DIN-style designation — sharing one row highlight; Up/Down
+  navigate, Tab/Shift+Tab (or Left/Right) switch which column receives
+  typed search text, Enter confirms and closes, Escape cancels without
+  changing the current selection (specs/023-material-selector-dialog).
+  `WorkpieceMaterial` gains two new optional fields,
+  `material_number`/`short_notation`, populated for three of the six
+  bundled metal materials (Mild Steel, Stainless Steel, Brass) where a
+  single conventional EN/DIN designation applies; a materials config file
+  can add either key to any `[[materials]]` entry the same way. Non-metal
+  material types are unaffected and only ever offer the existing
+  radio-cycling behavior.
 - Two new turning-only calculation modes: `CalculationMode.ROTATION_AND_FEED_CONSTRAINED`
   (spindle speed and feed per rotation both supplied directly, neither
   derived) and `CalculationMode.POWER_AND_FEED_CONSTRAINED` (available

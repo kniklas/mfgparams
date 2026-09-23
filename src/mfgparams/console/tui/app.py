@@ -30,6 +30,7 @@ from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.utils import get_cwidth
 
 from mfgparams.console.i18n import get_locale
+from mfgparams.console.tui.material_picker import MaterialPickerState
 from mfgparams.console.tui.menu import MenuEntry
 from mfgparams.i18n import get_raw_locale
 from mfgparams.i18n import translate as _translate_core
@@ -257,6 +258,14 @@ class _ViewState:
     """
 
     body_mode: Literal["tree", "configuration", "about", "help"] | None = None
+    #: The metal Material selection window's own state (023-material-
+    #: selector-dialog), or `None` when it is closed. Lives here rather than
+    #: on `OperationScreen` -- it is dialog-open UI state, not session/
+    #: business state (mirroring `confirming_exit`/`confirm_selected` above),
+    #: and `OperationScreen` is the exact input to `_current_pane_rows`'s own
+    #: memoization cache key, which a new field here would have to be added
+    #: to as well (research.md Decision 1).
+    material_picker: MaterialPickerState | None = None
     bar_selected: int = 0
     tree_selected: int = 0
     #: Whether the Exit confirmation dialog ("Are you sure you want to
@@ -486,13 +495,15 @@ def build_app(  # noqa: C901
     from prompt_toolkit.styles import Style
     from prompt_toolkit.widgets import Box, Frame, Shadow
 
+    from mfgparams import list_materials
     from mfgparams.console.i18n import translate
-    from mfgparams.console.tui import forms, machining_menu
+    from mfgparams.console.tui import forms, machining_menu, material_picker
     from mfgparams.console.tui.menu import _assign_mnemonics, default_entries, render_menu_bar
     from mfgparams.console.tui.screens import drilling, milling, split_pane, turning
     from mfgparams.console.tui.screens.about import render_about
     from mfgparams.console.tui.screens.configuration import render_configuration
     from mfgparams.console.tui.screens.help import render_help
+    from mfgparams.registry import WorkpieceMaterial, get_material
 
     bar_entries = default_entries(locale)
     bar_mnemonics = _assign_mnemonics(bar_entries)
@@ -887,6 +898,55 @@ def build_app(  # noqa: C901
             ),
         )
 
+    # The metal Material selection window (023-material-selector-dialog,
+    # FR-001/FR-012): centered, bordered, shadowed, matching
+    # `operation_window`'s own centering pattern -- unlike the bar-entry
+    # dropdowns/Exit-confirm above, it is not anchored to a bar entry, since
+    # it opens from a row *inside* the already-open operation window.
+    def _open_metal_materials() -> list[WorkpieceMaterial]:
+        """The current operation's metal-material list, mirroring
+        `drilling.py`'s own Material-row option-building exactly. Assumes an
+        operation is open -- only ever called from contexts already gated
+        that way (`pane_material_picker_trigger`/`material_picker_focused`)."""
+
+        names = list_materials(materials_config_path, material_type="metal")
+        materials = [get_material(name, materials_config_path) for name in names]
+        return [item for item in materials if item is not None]
+
+    def _material_picker_candidates() -> list[WorkpieceMaterial]:
+        """The dialog's current candidate list: `_open_metal_materials()`
+        filtered by `material_picker.candidates()` against whichever
+        queries are wired up so far (User Story 1 onward, tasks.md T022)."""
+
+        state = view.material_picker
+        assert state is not None
+        return material_picker.candidates(state, _open_metal_materials(), display_locale)
+
+    def _render_material_picker() -> StyleAndTextTuples:
+        state = view.material_picker
+        assert state is not None
+        return material_picker.render(
+            state, _material_picker_candidates(), ui.locale, display_locale
+        )
+
+    material_picker_control = FormattedTextControl(
+        _render_material_picker, focusable=True, show_cursor=False
+    )
+    material_picker_float = Float(
+        content=ConditionalContainer(
+            content=Box(
+                body=Shadow(
+                    Frame(
+                        body=Window(content=material_picker_control, wrap_lines=True),
+                        style="class:dialog.body",
+                    )
+                ),
+                style="class:dialog",
+            ),
+            filter=Condition(lambda: view.material_picker is not None),
+        )
+    )
+
     # Exit's own confirmation dialog -- "are you sure you want to exit?
     # Yes/No", per direct user feedback, shown instead of exiting
     # immediately. Positioned under the Exit entry itself, the same way
@@ -949,6 +1009,7 @@ def build_app(  # noqa: C901
                     filter=Condition(lambda: ui.open_operation is not None),
                 )
             ),
+            material_picker_float,
         ],
     )
 
@@ -1019,11 +1080,21 @@ def build_app(  # noqa: C901
         else:
             event.app.exit()
 
-    # Excludes the Exit confirmation dialog: it gets its own dedicated
-    # Escape binding below (`_exit_confirm_cancel`), distinct from every
-    # other floating window since it has no `body_mode`/`on_pane()` state
-    # of its own to fall back on -- just `view.confirming_exit`.
-    @bindings.add("escape", filter=Condition(lambda: not on_bar() and not view.confirming_exit))
+    # Excludes the Exit confirmation dialog and the metal Material selection
+    # window: both get their own dedicated Escape binding
+    # (`_exit_confirm_cancel`/`_material_picker_cancel`), distinct from
+    # every other floating window since neither has a `body_mode`/
+    # `on_pane()` state of its own to fall back on -- just
+    # `view.confirming_exit`/`view.material_picker` (research.md Decision 4:
+    # without this exclusion, Escape inside the material picker would hit
+    # this handler's `else` branch and jump focus all the way to the bar,
+    # past the still-open operation window underneath).
+    @bindings.add(
+        "escape",
+        filter=Condition(
+            lambda: not on_bar() and not view.confirming_exit and view.material_picker is None
+        ),
+    )
     def _escape_body(event) -> None:
         # Escaping any open floating window -- the Drilling/Milling
         # operation window, or a bar entry's own dropdown/panel (Machining's
@@ -1225,11 +1296,26 @@ def build_app(  # noqa: C901
             return None
         return split_pane.selected_row(_current_pane_rows(), ui.open_operation)
 
+    def _is_metal_material_row(row: split_pane.Row | None) -> bool:
+        """Whether `row` is the metal Material row (023-material-selector-
+        dialog): Enter opens the dedicated selection window on it, *in
+        addition to* Left/Right/Space still cycling it one-by-one like any
+        other radio row (per direct user feedback -- both paths stay
+        available, rather than Enter replacing the cycle entirely)."""
+
+        if not isinstance(row, split_pane.RadioRow) or row.field_id is not FieldId.MATERIAL:
+            return False
+        op = ui.open_operation
+        return op is not None and op.session_state.material_type == "metal"
+
     pane_radio_focused = Condition(
         lambda: _pane_is_focused() and isinstance(_current_pane_row(), split_pane.RadioRow)
     )
     pane_numeric_focused = Condition(
         lambda: _pane_is_focused() and isinstance(_current_pane_row(), split_pane.NumberRow)
+    )
+    pane_material_picker_trigger = Condition(
+        lambda: _pane_is_focused() and _is_metal_material_row(_current_pane_row())
     )
 
     # Up/Down (and j/k) always move between fields, unconditionally,
@@ -1293,6 +1379,115 @@ def build_app(  # noqa: C901
         data = event.data
         if data and (data.isdigit() or data in ".-"):
             split_pane.edit_selected(_current_pane_rows(), ui.open_operation, data)
+
+    # The metal Material selection window's own bindings (023-material-
+    # selector-dialog). `enter` on the metal Material row (FR-001) opens it;
+    # every binding below is gated on `material_picker_focused` instead of
+    # `pane_focused` once it's open, mirroring the Exit-confirmation
+    # dialog's own dedicated-focus-state pattern.
+    @bindings.add("enter", filter=pane_material_picker_trigger)
+    def _open_material_picker(event) -> None:
+        op = ui.open_operation
+        assert op is not None
+        materials = _open_metal_materials()
+        view.material_picker = material_picker.open_state(op.session_state.material, materials)
+        event.app.layout.focus(material_picker_control)
+
+    material_picker_focused = Condition(
+        lambda: view.material_picker is not None
+        and app.layout.has_focus(material_picker_control)
+    )
+
+    @bindings.add("up", filter=material_picker_focused)
+    def _material_picker_up(event) -> None:
+        state = view.material_picker
+        assert state is not None
+        material_picker.move_highlight(state, _material_picker_candidates(), -1)
+
+    @bindings.add("down", filter=material_picker_focused)
+    def _material_picker_down(event) -> None:
+        state = view.material_picker
+        assert state is not None
+        material_picker.move_highlight(state, _material_picker_candidates(), 1)
+
+    @bindings.add("escape", filter=material_picker_focused)
+    def _material_picker_cancel(event) -> None:
+        """FR-009: closes without changing the operation's material."""
+
+        view.material_picker = None
+        event.app.layout.focus(left_control)
+
+    @bindings.add("enter", filter=material_picker_focused)
+    def _material_picker_confirm(event) -> None:
+        state = view.material_picker
+        assert state is not None
+        if state.highlighted_name is None:
+            # FR-008: no candidate highlighted (e.g. an empty filtered
+            # list) -- no-op, dialog stays open.
+            return
+        op = ui.open_operation
+        assert op is not None
+        op.session_state.material = state.highlighted_name
+        view.material_picker = None
+        event.app.layout.focus(left_control)
+
+    def _material_picker_requery() -> None:
+        """Re-derives `state.highlighted_name` against the freshly-filtered
+        candidate list after a query edit (data-model.md "Edit query"
+        transition, tasks.md T023): the first candidate, or `None` if the
+        list is now empty -- the previously-highlighted material may no
+        longer be a candidate."""
+
+        state = view.material_picker
+        assert state is not None
+        remaining = _material_picker_candidates()
+        state.highlighted_name = remaining[0].name if remaining else None
+
+    #: `MaterialPickerState.active_column` -> the query field it names,
+    #: used by the char/backspace bindings below to edit whichever column
+    #: currently has focus (FR-006, tasks.md T030) instead of always
+    #: `query_common` (User Story 1's interim behavior).
+    _MATERIAL_PICKER_QUERY_ATTR = {
+        "common": "query_common",
+        "number": "query_number",
+        "short": "query_short",
+    }
+
+    @bindings.add("left", filter=material_picker_focused)
+    @bindings.add("s-tab", filter=material_picker_focused)
+    def _material_picker_cycle_left(event) -> None:
+        state = view.material_picker
+        assert state is not None
+        material_picker.cycle_column(state, -1)
+
+    @bindings.add("right", filter=material_picker_focused)
+    @bindings.add("tab", filter=material_picker_focused)
+    def _material_picker_cycle_right(event) -> None:
+        state = view.material_picker
+        assert state is not None
+        material_picker.cycle_column(state, 1)
+
+    @bindings.add("backspace", filter=material_picker_focused)
+    def _material_picker_backspace(event) -> None:
+        state = view.material_picker
+        assert state is not None
+        attr = _MATERIAL_PICKER_QUERY_ATTR[state.active_column]
+        setattr(state, attr, getattr(state, attr)[:-1])
+        _material_picker_requery()
+
+    @bindings.add(Keys.Any, filter=material_picker_focused)
+    def _material_picker_char(event) -> None:
+        """FR-003/FR-004: typing immediately edits the active column's
+        query and re-filters."""
+
+        data = event.data
+        if not data or len(data) != 1 or not data.isprintable():
+            return
+        state = view.material_picker
+        assert state is not None
+        attr = _MATERIAL_PICKER_QUERY_ATTR[state.active_column]
+        setattr(state, attr, getattr(state, attr) + data)
+        _material_picker_requery()
 
     app: Application[None] = Application(
         layout=Layout(root, focused_element=bar_control),
