@@ -1484,7 +1484,18 @@ def build_app(  # noqa: C901
         state = view.material_picker
         assert state is not None
         attr = _MATERIAL_PICKER_QUERY_ATTR[state.active_column]
-        setattr(state, attr, getattr(state, attr)[:-1])
+        current = getattr(state, attr)
+        if not current:
+            # An already-empty query has nothing to delete -- requerying
+            # anyway would still re-derive `highlighted_name` as if a
+            # query edit had happened (`_material_picker_requery()`'s own
+            # "Edit query" semantics), silently snapping an unrelated
+            # highlight (from Up/Down navigation, or the dialog's own
+            # open-with-no-selection state) back to the first candidate.
+            # A no-op keypress must leave the highlight exactly where it
+            # was (PR #106 review, round 7).
+            return
+        setattr(state, attr, current[:-1])
         _material_picker_requery()
 
     @bindings.add(Keys.Any, filter=material_picker_focused)

@@ -171,61 +171,90 @@ def _row_common_names(
 ) -> dict[str, str]:
     """Common-name cell text per candidate, keyed by `.name` (the unique
     registry key) -- identical to `display_name(display_locale)` unless
-    two or more candidates would otherwise render an indistinguishable
-    *rendered* row (same common name and number/notation once each is
-    clipped to its column width, per `_clip_and_pad` -- not just same
+    the resulting *rendered* row (common name and number/notation once
+    each is clipped to its column width, per `_clip_and_pad` -- not just
     before clipping, since two names differing only past column ``N`` of
-    `_COMMON_WIDTH` are just as indistinguishable on screen), in which
+    `_COMMON_WIDTH` are just as indistinguishable on screen) would
+    otherwise be indistinguishable from another candidate's, in which
     case a `unique_labels`-style (`forms.py`) " (key)" suffix
-    disambiguates just those rows. The suffix's *display-column* width
-    (`get_cwidth`, not `len()` -- a wide/CJK key would otherwise still
-    silently under-reserve room for itself) is reserved by shortening the
-    *base* name before appending the suffix, rather than appending then
-    letting `_row_text`'s later `_clip_and_pad` call truncate the combined
-    text -- a discriminator that a column-width clip could still remove
-    would defeat the whole point of adding one. If the key itself is too
-    wide to fit as a suffix at all (an extreme case, but `_COMMON_WIDTH`
-    is a fixed budget regardless of key length), fall back to a short
-    per-collision-group ordinal (" #2", " #3", ...) that is always
-    guaranteed to fit and to be distinct within that group, mirroring
-    `unique_labels`' own fallback for its analogous case (PR #106 review,
-    round 3). Highlight tracking (`state.highlighted_name`) always keys
-    off `.name` regardless of what is shown (FR-005) -- this only fixes
-    what a human sees, since two identical-looking rows would otherwise
-    be impossible to tell apart well enough to pick the right one with
-    Up/Down."""
+    disambiguates it, falling back to a short " #N" ordinal if that still
+    collides.
 
-    def _rendered_key(material: WorkpieceMaterial) -> tuple[str, str, str]:
-        return (
-            _clip_and_pad(material.display_name(display_locale), _COMMON_WIDTH),
-            _clip_and_pad(material.material_number or "", _NUMBER_WIDTH),
-            _clip_and_pad(material.short_notation or "", _SHORT_WIDTH),
-        )
+    Mirrors `unique_labels`'s own two-phase, single `taken`-set algorithm
+    exactly, rather than only comparing each candidate against its own
+    pre-disambiguation collision group: a *third*, otherwise-unique
+    candidate can still collide with an already-disambiguated row from an
+    earlier group (e.g. two "Foo" entries produce "Foo (a)"/"Foo (b)", and
+    a third candidate's own raw name happens to already render as
+    "Foo (a)") -- checking only within each candidate's original group, as
+    an earlier version of this function did, misses that case entirely
+    (PR #106 review, round 7). Processing `candidates` in order and
+    claiming each row into `taken` as it's assigned is what catches it: a
+    later candidate whose *proposed* row is already taken keeps trying
+    ordinals until one isn't.
 
-    rendered_keys = {material.name: _rendered_key(material) for material in candidates}
-    collision_counts = Counter(rendered_keys.values())
-    collision_groups: dict[tuple[str, str, str], list[WorkpieceMaterial]] = {}
-    for material in candidates:
-        collision_groups.setdefault(rendered_keys[material.name], []).append(material)
+    The suffix's *display-column* width (`get_cwidth`, not `len()` -- a
+    wide/CJK key would otherwise still silently under-reserve room for
+    itself) is reserved by shortening the *base* name before appending
+    the suffix, rather than appending then letting `_row_text`'s later
+    `_clip_and_pad` call truncate the combined text -- a discriminator
+    that a column-width clip could still remove would defeat the whole
+    point of adding one. Highlight tracking (`state.highlighted_name`)
+    always keys off `.name` regardless of what is shown (FR-005) -- this
+    only fixes what a human sees, since two identical-looking rows would
+    otherwise be impossible to tell apart well enough to pick the right
+    one with Up/Down."""
 
     def _display_width(text: str) -> int:
         return sum(get_cwidth(character) for character in text)
 
+    def _row_key(material: WorkpieceMaterial, common_name: str) -> tuple[str, str, str]:
+        return (
+            _clip_and_pad(common_name, _COMMON_WIDTH),
+            _clip_and_pad(material.material_number or "", _NUMBER_WIDTH),
+            _clip_and_pad(material.short_notation or "", _SHORT_WIDTH),
+        )
+
+    def _with_suffix(base_name: str, suffix: str) -> str:
+        budget = max(_COMMON_WIDTH - _display_width(suffix), 0)
+        return _clip_and_pad(base_name, budget).rstrip() + suffix
+
+    raw_rows = {
+        material.name: _row_key(material, material.display_name(display_locale))
+        for material in candidates
+    }
+    collision_counts = Counter(raw_rows.values())
+
     common_names: dict[str, str] = {}
+    taken: set[tuple[str, str, str]] = set()
     for material in candidates:
         base_name = material.display_name(display_locale)
-        key = rendered_keys[material.name]
-        if collision_counts[key] == 1:
-            common_names[material.name] = base_name
-            continue
+        common_name: str | None
+        row_key: tuple[str, str, str] | None
 
-        suffix = f" ({material.name})"
-        if _display_width(suffix) > _COMMON_WIDTH:
-            ordinal = collision_groups[key].index(material) + 1
-            suffix = f" #{ordinal}"
+        if collision_counts[raw_rows[material.name]] == 1:
+            common_name, row_key = base_name, raw_rows[material.name]
+        else:
+            key_suffix = f" ({material.name})"
+            if _display_width(key_suffix) <= _COMMON_WIDTH:
+                common_name = _with_suffix(base_name, key_suffix)
+                row_key = _row_key(material, common_name)
+            else:
+                common_name, row_key = None, None
 
-        budget = max(_COMMON_WIDTH - _display_width(suffix), 0)
-        common_names[material.name] = _clip_and_pad(base_name, budget).rstrip() + suffix
+        if row_key is None or row_key in taken:
+            discriminator = 2
+            while True:
+                trial = _with_suffix(base_name, f" #{discriminator}")
+                trial_key = _row_key(material, trial)
+                if trial_key not in taken:
+                    common_name, row_key = trial, trial_key
+                    break
+                discriminator += 1
+
+        assert common_name is not None and row_key is not None
+        taken.add(row_key)
+        common_names[material.name] = common_name
     return common_names
 
 

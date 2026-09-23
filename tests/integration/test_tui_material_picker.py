@@ -254,6 +254,23 @@ def test_backspace_widens_the_filtered_list_again():
     assert snapshot == (True, "Mild Steel", None, "")
 
 
+def test_backspace_on_an_already_empty_query_does_not_move_the_highlight():
+    """PR #106 review, round 7: Backspace on an empty query is a no-op
+    keypress (nothing to delete), but the binding used to call
+    `_material_picker_requery()` unconditionally anyway -- which silently
+    snapped whatever Up/Down had highlighted back to the first candidate,
+    so a following Enter could confirm a material the user never
+    navigated to. Down twice (no typing) highlights the second candidate,
+    "Stainless Steel"; Backspace on the still-empty query field must
+    leave that highlight exactly where it was."""
+
+    interesting = _REACH_METAL_MATERIAL_ROW + [_ENTER, _DOWN, _DOWN, "\x7f"]
+
+    snapshot = _run_and_snapshot(interesting)
+
+    assert snapshot == (True, "Stainless Steel", None, "")
+
+
 def _write_material_number_config(tmp_path) -> str:
     """Two new metal materials with distinct `material_number`s/
     `short_notation`s, added alongside the bundled defaults (none of

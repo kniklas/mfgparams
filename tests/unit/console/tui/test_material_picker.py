@@ -352,6 +352,25 @@ class TestRender:
         assert "Mild Steel (a)" in text
         assert "Mild Steel (b)" in text
 
+    def test_a_candidate_whose_raw_name_matches_a_generated_disambiguation_is_still_unique(self):
+        """PR #106 review, round 7: two "Foo" candidates ("a"/"b") produce
+        "Foo (a)"/"Foo (b)". A *third*, otherwise-unique candidate whose
+        raw name happens to already be "Foo (a)" is not itself part of
+        that collision group, so comparing only within each candidate's
+        own original group (an earlier version of this function did)
+        misses that it now collides with what "a" was just disambiguated
+        to. All three rendered rows must end up distinct."""
+
+        twin_a = _material("a", translations={"en": "Foo"})
+        twin_b = _material("b", translations={"en": "Foo"})
+        lookalike = _material("c", translations={"en": "Foo (a)"})
+
+        text = self._text(MaterialPickerState(), [twin_a, twin_b, lookalike])
+
+        rows = [line for line in text.splitlines() if line.strip().startswith("Foo")]
+        assert len(rows) == 3
+        assert len(set(rows)) == 3
+
     def test_no_disambiguation_when_rows_are_already_distinct(self):
         text = self._text(MaterialPickerState(), [_STEEL, _CHROMOLY])
 
@@ -381,7 +400,9 @@ class TestRender:
         `_COMMON_WIDTH` cannot be reserved room for -- shortening the base
         name to zero still wouldn't fit the suffix. The fallback must
         still render the two colliding rows distinctly (PR #106 review,
-        round 3), via a short " #N" ordinal instead of the unfitting key."""
+        round 3), via a short " #N" ordinal instead of the unfitting key
+        -- starting at " #2" for the *first* colliding row too, mirroring
+        `unique_labels`'s own ordinal convention exactly (round 7)."""
 
         long_name = "X" * (_COMMON_WIDTH + 10)
         twin_a = _material(long_name + "-a", translations={"en": long_name})
@@ -389,8 +410,8 @@ class TestRender:
 
         text = self._text(MaterialPickerState(), [twin_a, twin_b])
 
-        assert "#1" in text
         assert "#2" in text
+        assert "#3" in text
         rows = [line for line in text.splitlines() if line.strip().startswith("X")]
         assert len(rows) == 2
         assert rows[0] != rows[1]
