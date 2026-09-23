@@ -114,20 +114,33 @@ class WorkpieceMaterial:
 
         ``translations`` is populated straight from a user's
         ``[materials.translations]`` TOML table (``registry_config.py``'s
-        ``_parse_entries``) with no type check against this dataclass's
+        ``_parse_entries``) with no validation against this dataclass's
         declared ``dict[str, str]`` -- a config such as ``en = 123``
         reaches this method as a non-string value despite the
-        annotation. Guarded here (the one place every caller -- picker
-        rendering/search, radio-row label building -- goes through)
-        rather than at each call site, so a malformed translation falls
-        back to the material's own ``name`` instead of crashing the first
-        caller that treats the result as a string (023-material-selector-
-        dialog, PR #106 review round 4).
+        annotation, and even a genuine string could be a TOML multiline
+        value containing a line break or control character, which would
+        break the picker's fixed-width row alignment and highlight/
+        cursor positioning (the same single-line-control-character
+        concern ``_parse_material_type``/``_parse_notation_field`` already
+        guard against for other free-form identifiers). Guarded here (the
+        one place every caller -- picker rendering/search, radio-row
+        label building -- goes through) rather than at each call site, so
+        a malformed translation falls back to the material's own
+        ``name`` instead of crashing or corrupting layout for the first
+        caller that treats the result as plain single-line text
+        (023-material-selector-dialog, PR #106 review rounds 4-5).
         """
 
         value = self.translations.get(locale, self.name)
-        if isinstance(value, str) and value.strip():
-            return value
+        if (
+            isinstance(value, str)
+            and value.strip()
+            and not any(
+                unicodedata.category(character) in _FORBIDDEN_ID_CATEGORIES
+                for character in value
+            )
+        ):
+            return value.strip()
         return self.name
 
     @property

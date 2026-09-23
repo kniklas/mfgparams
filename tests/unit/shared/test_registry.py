@@ -230,6 +230,32 @@ def test_a_non_string_translation_loaded_from_config_does_not_crash_the_material
     assert material.display_name("en") == "Test Alloy"
 
 
+def test_display_name_falls_back_when_translation_contains_a_control_character():
+    """A TOML multiline string (``en = \"\"\"Foo\\nBar\"\"\"``) is a valid
+    *string*, so the non-string guard alone doesn't catch it -- a
+    translation containing a line break would break the picker's
+    fixed-width row alignment and highlight/cursor positioning if it
+    reached rendering (PR #106 review round 5)."""
+
+    material = WorkpieceMaterial("Test", 1.0, 1.0, 1.0, translations={"en": "Foo\nBar"})
+    assert material.display_name("en") == "Test"
+
+
+def test_a_multiline_translation_loaded_from_config_does_not_break_layout(tmp_path):
+    path = tmp_path / "multiline-translation.toml"
+    path.write_text(
+        '\n        [[materials]]\n        name = "Test Alloy"\n'
+        "        reference_cutting_speed = 25.0\n"
+        "        reference_feed_per_rev = 0.20\n"
+        "        specific_cutting_force = 1900.0\n\n"
+        "        [materials.translations]\n"
+        '        en = """Foo\nBar"""\n        '
+    )
+    material = get_material("Test Alloy", str(path))
+    assert material is not None
+    assert material.display_name("en") == "Test Alloy"
+
+
 def test_translation_merge_preserves_untouched_locale(tmp_path):
     path = tmp_path / "translations.toml"
     path.write_text("""
