@@ -115,11 +115,18 @@ def current_sub_operation(ui: SessionUI, state: MillingSessionState) -> MillingS
 
 
 def _number_row(
-    field_id: FieldId, label: str, unit: str, value: float | None, required: bool, setter
+    field_id: FieldId,
+    label: str,
+    unit: str,
+    value: float | None,
+    required: bool,
+    setter,
+    step: float = split_pane.NUDGE_STEP,
 ) -> split_pane.NumberRow:
     """See drilling.py's identically-shaped helper: `on_commit` is called
     only on navigating away from this field, with the already-parsed
-    value."""
+    value. `step` (024-feed-per-tooth-nudge-step) defaults to the shared
+    NUDGE_STEP, matching every row that doesn't pass one explicitly."""
 
     return split_pane.NumberRow(
         field_id=field_id,
@@ -128,6 +135,7 @@ def _number_row(
         value=value,
         required=required,
         on_commit=setter,
+        step=step,
     )
 
 
@@ -319,6 +327,12 @@ def rows_for(
             lambda value: setattr(state, "radial_engagement", value),
         )
     )
+    # 024-feed-per-tooth-nudge-step/research.md #1: 0.1 mm/tooth under
+    # METRIC, 0.001 in/tooth under IMPERIAL -- both far finer than the
+    # shared NUDGE_STEP (1.0) every other row here keeps, and the
+    # imperial value is a standard chip-load shop-practice increment, not
+    # a literal conversion of the metric one.
+    feed_per_tooth_step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.001
     rows.append(
         _number_row(
             FieldId.FEED_PER_TOOTH,
@@ -327,6 +341,7 @@ def rows_for(
             state.feed_per_tooth,
             True,
             lambda value: setattr(state, "feed_per_tooth", value),
+            step=feed_per_tooth_step,
         )
     )
     rows.append(

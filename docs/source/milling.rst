@@ -39,7 +39,11 @@ window on **Enter**, on top of that ordinary cycling — see `Selecting a
 metal material`_ below. Numeric fields become editable the instant you
 select them — start typing a digit (or ``.``/``-``) and it edits the
 field's buffer immediately, no separate "start editing" step; Left/Right
-nudges the buffer up or down by a small step; Backspace removes the last
+nudges the buffer up or down by a small step (1 display unit for most
+fields). **Feed per tooth** nudges by a finer step than the rest: 0.1
+mm/tooth under the metric unit system, or 0.001 in/tooth under imperial —
+a standard chip-load shop-practice increment, not a literal conversion of
+the metric value — for either sub-operation. Backspace removes the last
 character. That text is only written to the field once you navigate away
 from it (Up/Down) — text that still doesn't parse as a number at that
 point is discarded (the field keeps its last valid value) and a message

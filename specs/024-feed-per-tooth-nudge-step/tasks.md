@@ -52,34 +52,44 @@ field's arrow-key step is unchanged (quickstart.md Scenarios 1-4).
 
 > **NOTE**: Write these tests FIRST, ensure they FAIL before implementation.
 
-- [ ] T001 [P] [US1] Extend the existing
-  `test_number_row_step_defaults_to_nudge_step()` (and its neighboring
-  step-default assertions) in `tests/integration/test_tui_field_editing.py`
-  to also cover milling's `feed_per_tooth` row, confirming every other
-  pre-existing milling row (diameter, axial depth of cut, radial
-  engagement/width of cut, number of teeth, available power, target RPM)
-  is unaffected by this feature.
-- [ ] T002 [P] [US1] Integration test: milling's feed-per-tooth field nudges
+- [X] T001 [P] [US1] ~~Extend `test_number_row_step_defaults_to_nudge_step()`
+  in `tests/integration/test_tui_field_editing.py`~~ — **post-implementation
+  correction**: that test only ever exercised drilling's screen as the
+  generic-default representative (never milling/turning individually,
+  despite its docstring's broader claim); `020-turning-feed-per-rotation`'s
+  own field-specific step tests likewise lived in `test_tui_turning.py`,
+  not there. Folded into T002 instead: the "other milling rows keep
+  `NUDGE_STEP`" assertion is now part of
+  `test_feed_per_tooth_row_nudges_by_a_finer_step_than_other_milling_rows()`
+  in `tests/integration/test_tui_milling.py`, alongside the step-value
+  assertion itself — matching where the equivalent turning coverage
+  actually lives, not the plan's original (mistaken) file guess.
+- [X] T002 [P] [US1] Integration test: milling's feed-per-tooth field nudges
   by `0.1` under METRIC and `0.001` under IMPERIAL via Left/Right arrows,
   distinct from milling's other rows' default `1.0` step, in
-  `tests/integration/test_tui_milling.py` (or the existing equivalent
-  milling integration test module) — covers both End Milling and Face
-  Milling sub-operations (spec.md Acceptance Scenario 4 / FR-006).
-- [ ] T003 [P] [US1] Integration test: the feed-per-tooth field's
+  `tests/integration/test_tui_milling.py`
+  (`test_feed_per_tooth_row_nudges_by_a_finer_step_than_other_milling_rows`,
+  `test_feed_per_tooth_row_nudges_by_a_finer_step_under_imperial`,
+  `test_feed_per_tooth_step_applies_to_face_milling_too`) — covers both
+  End Milling and Face Milling sub-operations (spec.md Acceptance
+  Scenario 4 / FR-006).
+- [X] T003 [P] [US1] Integration test: the feed-per-tooth field's
   remembered value converts correctly (not silently relabeled) across a
   mid-session unit-system switch, and a nudge that would take it at or
   below zero clears it to unset, mirroring the existing pattern for other
-  nudge-adjustable fields, in `tests/integration/test_tui_milling.py`.
+  nudge-adjustable fields, in `tests/integration/test_tui_milling.py`
+  (`test_feed_per_tooth_converts_across_a_unit_system_switch`,
+  `test_feed_per_tooth_nudge_below_zero_clears_rather_than_going_negative`).
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
+- [X] T004 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
   parameter to `_number_row()` in
   `src/mfgparams/console/tui/screens/milling.py`, passed through to the
   underlying `split_pane.NumberRow(..., step=step)` construction
   (contracts/cli-repl-feed-per-tooth-nudge-step-delta.md; depends on
   T001-T003 existing and failing).
-- [ ] T005 [US1] Compute `step = 0.1 if state.unit_system is
+- [X] T005 [US1] Compute `step = 0.1 if state.unit_system is
   UnitSystem.METRIC else 0.001` and pass it to the `feed_per_tooth` row's
   `_number_row(...)` call in `rows_for()`,
   `src/mfgparams/console/tui/screens/milling.py` (research.md #1;
@@ -92,11 +102,15 @@ testable — this is the entire feature (single-story scope).
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T006 [P] Check `docs/source/milling.rst` for any prose naming the old
-  default nudge step for feed per tooth and update it if present.
-- [ ] T007 Run `specs/024-feed-per-tooth-nudge-step/quickstart.md`'s
+- [X] T006 [P] Check `docs/source/milling.rst` for any prose naming the old
+  default nudge step for feed per tooth and update it if present. Found
+  (line 42, generic "small step" prose) and updated to name the new
+  0.1 mm/tooth / 0.001 in/tooth step explicitly, mirroring how
+  `docs/source/turning.rst` documents its own equivalent field.
+- [X] T007 Run `specs/024-feed-per-tooth-nudge-step/quickstart.md`'s
   Regression check (`pytest tests/unit/console/tui/ tests/integration/ -k
   milling -q`) and confirm all pre-existing milling TUI tests still pass.
+  36 passed. Full suite also run: 1606 passed, 12 skipped.
 - [ ] T008 **REQUIRED (Constitution Principle XIII)** Manually verify, on a
   real terminal, `quickstart.md` Scenarios 1-4 (metric nudge lands on
   exactly 0.1/0.2/0.3/0.4/0.3; nudge-below-zero clears to unset; imperial
