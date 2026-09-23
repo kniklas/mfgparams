@@ -297,6 +297,10 @@ def rows_for(
         )
     )
 
+    # 025-imperial-geometry-nudge-step/research.md #1: 0.1 in under
+    # IMPERIAL for geometry fields -- the shared NUDGE_STEP (1.0) is left
+    # unchanged under METRIC.
+    geometry_step = split_pane.NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1
     rows.append(
         _number_row(
             FieldId.DIAMETER,
@@ -305,6 +309,7 @@ def rows_for(
             state.diameter,
             True,
             lambda value: setattr(state, "diameter", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -315,6 +320,7 @@ def rows_for(
             state.axial_depth_of_cut,
             True,
             lambda value: setattr(state, "axial_depth_of_cut", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -325,6 +331,7 @@ def rows_for(
             state.radial_engagement,
             True,
             lambda value: setattr(state, "radial_engagement", value),
+            step=geometry_step,
         )
     )
     # 024-feed-per-tooth-nudge-step/research.md #1: 0.1 mm/tooth under
@@ -362,6 +369,7 @@ def rows_for(
             state.length_of_cut,
             True,
             lambda value: setattr(state, "length_of_cut", value),
+            step=geometry_step,
         )
     )
 

@@ -58,18 +58,18 @@ Scenarios 1-4, 6).
 
 > **NOTE**: Write these tests FIRST, ensure they FAIL before implementation.
 
-- [ ] T001 [P] [US1] Integration test: milling's cutter diameter, axial
+- [X] T001 [P] [US1] Integration test: milling's cutter diameter, axial
   depth of cut, radial engagement, and length of cut rows each nudge by
   `0.1` under IMPERIAL and by the unchanged `split_pane.NUDGE_STEP`
   (`1.0`) under METRIC, distinct from and without disturbing
   feed-per-tooth's own existing `0.1`/`0.001` step, in
   `tests/integration/test_tui_milling.py`.
-- [ ] T002 [P] [US1] Integration test: drilling's drill diameter and hole
+- [X] T002 [P] [US1] Integration test: drilling's drill diameter and hole
   depth rows each nudge by `0.1` under IMPERIAL and by the unchanged
   `split_pane.NUDGE_STEP` (`1.0`) under METRIC, while available
   power/other rows keep the default step, in
   `tests/integration/test_tui_drilling.py`.
-- [ ] T003 [P] [US1] Integration test: turning's workpiece diameter, depth
+- [X] T003 [P] [US1] Integration test: turning's workpiece diameter, depth
   of cut, and length of cut rows each nudge by `0.1` under IMPERIAL and by
   the unchanged `split_pane.NUDGE_STEP` (`1.0`) under METRIC, distinct
   from and without disturbing the feed-rate-per-rotation field's own
@@ -77,7 +77,7 @@ Scenarios 1-4, 6).
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Compute `geometry_step = split_pane.NUDGE_STEP if
+- [X] T004 [US1] Compute `geometry_step = split_pane.NUDGE_STEP if
   state.unit_system is UnitSystem.METRIC else 0.1` and pass it as `step=`
   to the cutter diameter, axial depth of cut, radial engagement, and
   length of cut rows' `_number_row(...)` calls in `rows_for()`,
@@ -85,26 +85,26 @@ Scenarios 1-4, 6).
   already accepts `step`, added by `024-feed-per-tooth-nudge-step`;
   research.md #1; contracts/cli-repl-imperial-geometry-nudge-step-delta.md;
   depends on T001 existing and failing).
-- [ ] T005 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
+- [X] T005 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
   parameter to `_number_row()` in
   `src/mfgparams/console/tui/screens/drilling.py`, passed through to the
   underlying `split_pane.NumberRow(..., step=step)` construction, mirroring
   milling's existing shape
   (contracts/cli-repl-imperial-geometry-nudge-step-delta.md; depends on
   T002 existing and failing).
-- [ ] T006 [US1] Compute `geometry_step = split_pane.NUDGE_STEP if
+- [X] T006 [US1] Compute `geometry_step = split_pane.NUDGE_STEP if
   state.unit_system is UnitSystem.METRIC else 0.1` and pass it as `step=`
   to the drill diameter and hole depth rows' `_number_row(...)` calls in
   `rows_for()`, `src/mfgparams/console/tui/screens/drilling.py`
   (research.md #1; depends on T005).
-- [ ] T007 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
+- [X] T007 [US1] Add an optional `step: float = split_pane.NUDGE_STEP`
   parameter to `_number_row()` in
   `src/mfgparams/console/tui/screens/turning.py`, passed through to the
   underlying `split_pane.NumberRow(..., step=step)` construction, mirroring
   milling's existing shape
   (contracts/cli-repl-imperial-geometry-nudge-step-delta.md; depends on
   T003 existing and failing).
-- [ ] T008 [US1] Compute `geometry_step = split_pane.NUDGE_STEP if
+- [X] T008 [US1] Compute `geometry_step = split_pane.NUDGE_STEP if
   state.unit_system is UnitSystem.METRIC else 0.1` and pass it as `step=`
   to the workpiece diameter, depth of cut, and length of cut rows'
   `_number_row(...)` calls in `rows_for()`,
@@ -136,15 +136,15 @@ step used matches the unit system now active (quickstart.md Scenario 5).
 > are expected to pass as soon as Phase 3 is done; they exist to make that
 > property explicit and regression-proof rather than to drive new code.
 
-- [ ] T009 [P] [US2] Integration test: after switching milling's unit
+- [X] T009 [P] [US2] Integration test: after switching milling's unit
   system Metric→Imperial then Imperial→Metric mid-session, the very next
   nudge on cutter diameter (or any of the four geometry fields) uses the
   newly-active unit system's step (`0.1` / `1.0` respectively), repeated
   across two switches, in `tests/integration/test_tui_milling.py`.
-- [ ] T010 [P] [US2] Integration test: same switch-then-nudge check for
+- [X] T010 [P] [US2] Integration test: same switch-then-nudge check for
   drilling's drill diameter/hole depth, in
   `tests/integration/test_tui_drilling.py`.
-- [ ] T011 [P] [US2] Integration test: same switch-then-nudge check for
+- [X] T011 [P] [US2] Integration test: same switch-then-nudge check for
   turning's workpiece diameter/depth of cut/length of cut, in
   `tests/integration/test_tui_turning.py`.
 
@@ -164,16 +164,17 @@ needed; T009-T011 confirm it holds.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T012 [P] Check `docs/source/milling.rst`, `docs/source/drilling.rst`,
+- [X] T012 [P] Check `docs/source/milling.rst`, `docs/source/drilling.rst`,
   and `docs/source/turning.rst` for prose describing the default nudge
   step ("1 display unit for most fields" / "small step" / "1
   display-unit step every other numeric field uses") and update each so it
   no longer implies the nine geometry fields nudge by 1 display unit under
   Imperial.
-- [ ] T013 Run `specs/025-imperial-geometry-nudge-step/quickstart.md`'s
+- [X] T013 Run `specs/025-imperial-geometry-nudge-step/quickstart.md`'s
   Regression check (`pytest tests/unit/console/tui/ tests/integration/ -k
   "milling or drilling or turning" -q`) and confirm all pre-existing
-  milling/drilling/turning TUI tests still pass.
+  milling/drilling/turning TUI tests still pass. 92 passed. Full suite
+  also run: 1615 passed, 12 skipped, 95.96% coverage.
 - [ ] T014 **REQUIRED (Constitution Principle XIII)** Manually verify, on a
   real terminal, `quickstart.md` Scenarios 1-6 (all nine fields nudge by
   exactly 0.1 in under Imperial; unchanged 1.0 mm under Metric; the step

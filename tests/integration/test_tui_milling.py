@@ -408,3 +408,64 @@ def test_feed_per_tooth_step_applies_to_face_milling_too():
     row = _row(_rows(ui, screen), FieldId.FEED_PER_TOOTH)
     assert isinstance(row, split_pane.NumberRow)
     assert row.step == 0.1
+
+
+_GEOMETRY_FIELD_IDS = (
+    FieldId.DIAMETER,
+    FieldId.AXIAL_DEPTH_OF_CUT,
+    FieldId.RADIAL_ENGAGEMENT,
+    FieldId.LENGTH_OF_CUT,
+)
+
+
+def test_geometry_fields_nudge_by_the_default_step_under_metric():
+    """specs/025-imperial-geometry-nudge-step FR-004: cutter diameter,
+    axial depth of cut, radial engagement, and length of cut keep today's
+    default step under METRIC, unchanged by this feature."""
+
+    ui = _ui()
+    screen = _screen(ui)
+    for field_id in _GEOMETRY_FIELD_IDS:
+        row = _row(_rows(ui, screen), field_id)
+        assert isinstance(row, split_pane.NumberRow)
+        assert row.step == split_pane.NUDGE_STEP
+
+
+def test_geometry_fields_nudge_by_a_finer_step_under_imperial():
+    """specs/025-imperial-geometry-nudge-step FR-001: cutter diameter,
+    axial depth of cut, radial engagement, and length of cut each nudge by
+    0.1 in under IMPERIAL, distinct from feed-per-tooth's own 0.001 in
+    step and from the metric 1.0 default."""
+
+    ui = _ui()
+    screen = _screen(ui)
+    _row(_rows(ui, screen), FieldId.UNIT_SYSTEM).on_select("imperial")
+
+    for field_id in _GEOMETRY_FIELD_IDS:
+        row = _row(_rows(ui, screen), field_id)
+        assert isinstance(row, split_pane.NumberRow)
+        assert row.step == 0.1
+
+    feed_per_tooth_row = _row(_rows(ui, screen), FieldId.FEED_PER_TOOTH)
+    assert isinstance(feed_per_tooth_row, split_pane.NumberRow)
+    assert feed_per_tooth_row.step == 0.001
+
+
+def test_geometry_step_follows_the_unit_system_immediately_after_switching():
+    """specs/025-imperial-geometry-nudge-step FR-005/User Story 2: the
+    step used is recomputed fresh from the currently active unit system on
+    every render, so it never lags behind a mid-session switch, including
+    across repeated switches."""
+
+    ui = _ui()
+    screen = _screen(ui)
+    unit_system_row = _row(_rows(ui, screen), FieldId.UNIT_SYSTEM)
+
+    unit_system_row.on_select("imperial")
+    assert _row(_rows(ui, screen), FieldId.DIAMETER).step == 0.1
+
+    unit_system_row.on_select("metric")
+    assert _row(_rows(ui, screen), FieldId.DIAMETER).step == split_pane.NUDGE_STEP
+
+    unit_system_row.on_select("imperial")
+    assert _row(_rows(ui, screen), FieldId.DIAMETER).step == 0.1

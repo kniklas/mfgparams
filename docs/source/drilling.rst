@@ -39,7 +39,11 @@ fields (drill diameter, hole depth, available
 power) become editable the instant you select them — start typing a digit
 (or ``.``/``-``) and it edits the field's buffer immediately, no separate
 "start editing" step; Left/Right nudges the buffer up or down by a small
-step; Backspace removes the last character. That text is only written to
+step: **drill diameter** and **hole depth** nudge by 1 mm under the metric
+unit system, or 0.1 in under the imperial unit system — a whole-inch step
+is too coarse for these dimensions — while **available power** nudges by
+the shared 1 display-unit step under either unit system; Backspace
+removes the last character. That text is only written to
 the field once you navigate away from it (Up/Down) — text that still
 doesn't parse as a number at that point is discarded (the field keeps its
 last valid value) and a message appears in the status bar beneath both

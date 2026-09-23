@@ -78,12 +78,20 @@ def _convert_on_unit_change(state: DrillingSessionState, unit_system: UnitSystem
 
 
 def _number_row(
-    field_id: FieldId, label: str, unit: str, value: float | None, required: bool, setter
+    field_id: FieldId,
+    label: str,
+    unit: str,
+    value: float | None,
+    required: bool,
+    setter,
+    step: float = split_pane.NUDGE_STEP,
 ) -> split_pane.NumberRow:
     """`on_commit` is called only when the user navigates away from this
     field (`split_pane.move_selection`), with the already-parsed value --
     matching the prototype's `commit_current`; typing/nudging only ever
-    touch `OperationScreen.field_buffer`, never call this directly."""
+    touch `OperationScreen.field_buffer`, never call this directly. `step`
+    (025-imperial-geometry-nudge-step) defaults to the shared NUDGE_STEP,
+    matching every row that doesn't pass one explicitly."""
 
     return split_pane.NumberRow(
         field_id=field_id,
@@ -92,6 +100,7 @@ def _number_row(
         value=value,
         required=required,
         on_commit=setter,
+        step=step,
     )
 
 
@@ -207,6 +216,10 @@ def rows_for(
         )
     )
 
+    # 025-imperial-geometry-nudge-step/research.md #1: 0.1 in under
+    # IMPERIAL for geometry fields -- the shared NUDGE_STEP (1.0) is left
+    # unchanged under METRIC.
+    geometry_step = split_pane.NUDGE_STEP if state.unit_system is UnitSystem.METRIC else 0.1
     rows.append(
         _number_row(
             FieldId.DIAMETER,
@@ -215,6 +228,7 @@ def rows_for(
             state.diameter,
             True,
             lambda value: setattr(state, "diameter", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -225,6 +239,7 @@ def rows_for(
             state.depth,
             True,
             lambda value: setattr(state, "depth", value),
+            step=geometry_step,
         )
     )
 
