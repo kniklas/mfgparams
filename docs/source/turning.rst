@@ -33,7 +33,12 @@ dedicated selection window on **Enter**, on top of that ordinary cycling —
 see `Selecting a metal material`_ below. Numeric fields become editable
 the instant you select them; that text is only written to the field once
 you navigate away from it, exactly as described for drilling in
-:doc:`drilling`.
+:doc:`drilling`. Left/Right nudges the buffer up or down by a small step:
+**workpiece diameter**, **depth of cut**, and **length of cut** nudge by
+1 mm under the metric unit system, or 0.1 in under the imperial unit
+system — a whole-inch step is too coarse for these dimensions — while
+**available power** nudges by the shared 1 display-unit step under either
+unit system.
 
 Selecting a metal material
 ---------------------------
@@ -100,8 +105,9 @@ time, cutting force, torque, and power are all recomputed from your
 supplied feed rate instead of the material/tool's reference value. In the
 text GUI, the **Feed rate per rotation** field nudges by a finer step than
 every other field when you press **Left/Right**: 0.1 mm/rev under the
-metric unit system, or 0.005 in/rev under imperial (rather than the 1
-display-unit step every other numeric field uses).
+metric unit system, or 0.005 in/rev under imperial (finer than the
+geometry fields' 0.1 in imperial step, and the 1 display-unit step
+available power uses).
 
 **rotation-and-feed-constrained**: for when you already know both your
 exact spindle speed and your exact feed per rotation — for example, both

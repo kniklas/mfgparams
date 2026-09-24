@@ -19,7 +19,12 @@ from __future__ import annotations
 from mfgparams import CalculationMode, UnitSystem, calculate
 from mfgparams.console.tui.app import FieldId, OperationScreen
 from mfgparams.console.tui.screens import split_pane
-from mfgparams.console.tui.screens.drilling import DrillingSessionState, calculate_result, rows_for
+from mfgparams.console.tui.screens.drilling import (
+    GEOMETRY_FIELD_IDS,
+    DrillingSessionState,
+    calculate_result,
+    rows_for,
+)
 
 
 def _screen(state: DrillingSessionState | None = None) -> OperationScreen:
@@ -204,3 +209,52 @@ def test_switching_mode_clears_the_previous_modes_power_or_rpm_value():
     _row(_rows(screen), FieldId.MODE).on_select(CalculationMode.FIXED_RPM.value)
     assert state.available_power is None
     assert state.target_rpm is None
+
+
+def test_geometry_fields_nudge_by_the_default_step_under_metric():
+    """specs/025-imperial-geometry-nudge-step FR-004: drill diameter and
+    hole depth keep today's default step under METRIC, unchanged by this
+    feature."""
+
+    screen = _screen()
+    for field_id in GEOMETRY_FIELD_IDS:
+        row = _row(_rows(screen), field_id)
+        assert isinstance(row, split_pane.NumberRow)
+        assert row.step == split_pane.NUDGE_STEP
+
+
+def test_geometry_fields_nudge_by_a_finer_step_under_imperial():
+    """specs/025-imperial-geometry-nudge-step FR-002: drill diameter and
+    hole depth each nudge by 0.1 in under IMPERIAL, while available power
+    keeps the metric 1.0 default."""
+
+    screen = _screen()
+    _row(_rows(screen), FieldId.UNIT_SYSTEM).on_select("imperial")
+
+    for field_id in GEOMETRY_FIELD_IDS:
+        row = _row(_rows(screen), field_id)
+        assert isinstance(row, split_pane.NumberRow)
+        assert row.step == 0.1
+
+    power_row = _row(_rows(screen), FieldId.AVAILABLE_POWER)
+    assert isinstance(power_row, split_pane.NumberRow)
+    assert power_row.step == split_pane.NUDGE_STEP
+
+
+def test_geometry_step_follows_the_unit_system_immediately_after_switching():
+    """specs/025-imperial-geometry-nudge-step FR-005/User Story 2: the
+    step used is recomputed fresh from the currently active unit system on
+    every render, so it never lags behind a mid-session switch, including
+    across repeated switches."""
+
+    screen = _screen()
+    unit_system_row = _row(_rows(screen), FieldId.UNIT_SYSTEM)
+
+    unit_system_row.on_select("imperial")
+    assert _row(_rows(screen), FieldId.DIAMETER).step == 0.1
+
+    unit_system_row.on_select("metric")
+    assert _row(_rows(screen), FieldId.DIAMETER).step == split_pane.NUDGE_STEP
+
+    unit_system_row.on_select("imperial")
+    assert _row(_rows(screen), FieldId.DIAMETER).step == 0.1

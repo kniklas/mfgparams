@@ -49,6 +49,19 @@ _SUB_OPERATION_OPTION_KEYS = {
     MillingSubOperation.FACE_MILLING: "tui.milling_sub_operation.face_milling",
 }
 
+#: 025-imperial-geometry-nudge-step: the FieldIds whose row gets
+#: `step=geometry_step` in `rows_for()` -- single source of truth so
+#: tests assert against this list rather than a separately hand-maintained
+#: copy of it (Constitution Principle I).
+GEOMETRY_FIELD_IDS = frozenset(
+    {
+        FieldId.DIAMETER,
+        FieldId.AXIAL_DEPTH_OF_CUT,
+        FieldId.RADIAL_ENGAGEMENT,
+        FieldId.LENGTH_OF_CUT,
+    }
+)
+
 
 @dataclass
 class MillingSessionState:
@@ -297,6 +310,7 @@ def rows_for(
         )
     )
 
+    geometry_step = split_pane.geometry_nudge_step(state.unit_system)
     rows.append(
         _number_row(
             FieldId.DIAMETER,
@@ -305,6 +319,7 @@ def rows_for(
             state.diameter,
             True,
             lambda value: setattr(state, "diameter", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -315,6 +330,7 @@ def rows_for(
             state.axial_depth_of_cut,
             True,
             lambda value: setattr(state, "axial_depth_of_cut", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -325,14 +341,16 @@ def rows_for(
             state.radial_engagement,
             True,
             lambda value: setattr(state, "radial_engagement", value),
+            step=geometry_step,
         )
     )
     # 024-feed-per-tooth-nudge-step/research.md #1: 0.1 mm/tooth under
     # METRIC, 0.001 in/tooth under IMPERIAL -- both far finer than the
-    # shared NUDGE_STEP (1.0) every other row here keeps, and the
+    # geometry rows' step above (which is itself finer than NUDGE_STEP
+    # under IMPERIAL as of 025-imperial-geometry-nudge-step), and the
     # imperial value is a standard chip-load shop-practice increment, not
     # a literal conversion of the metric one.
-    feed_per_tooth_step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.001
+    feed_per_tooth_step = forms.step_for(state.unit_system, 0.1, 0.001)
     rows.append(
         _number_row(
             FieldId.FEED_PER_TOOTH,
@@ -362,6 +380,7 @@ def rows_for(
             state.length_of_cut,
             True,
             lambda value: setattr(state, "length_of_cut", value),
+            step=geometry_step,
         )
     )
 

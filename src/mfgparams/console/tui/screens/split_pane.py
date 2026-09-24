@@ -49,6 +49,7 @@ from typing import Callable, Union
 
 from prompt_toolkit.formatted_text import StyleAndTextTuples
 
+from mfgparams import UnitSystem
 from mfgparams.console.i18n import translate
 from mfgparams.console.tui import forms
 from mfgparams.console.tui.app import FieldId, OperationScreen
@@ -58,6 +59,19 @@ from mfgparams.models import CalculationResult
 #: current unit system, e.g. 1 mm or 1 in for a length field), matching the
 #: prototype's own validated step size (spec's Recommended Next Steps).
 NUDGE_STEP = 1.0
+
+
+def geometry_nudge_step(unit_system: UnitSystem) -> float:
+    """025-imperial-geometry-nudge-step/research.md #1: the arrow-key nudge
+    step for a whole geometry dimension (diameter, depth, length) -- 0.1 in
+    under IMPERIAL (the shared NUDGE_STEP of 1 in is too coarse for these
+    fields), unchanged NUDGE_STEP under METRIC. Shared by milling's,
+    drilling's, and turning's `rows_for()` so the same literal value isn't
+    duplicated per screen (Constitution Principle I). Delegates the
+    metric/imperial selection to `forms.step_for()` -- this module owns
+    only the geometry-specific default pair (NUDGE_STEP, 0.1)."""
+
+    return forms.step_for(unit_system, NUDGE_STEP, 0.1)
 
 
 @dataclass(frozen=True)

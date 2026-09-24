@@ -38,6 +38,12 @@ _MODE_OPTION_KEYS = {
     CalculationMode.POWER_AND_FEED_CONSTRAINED: "tui.mode.power_and_feed_constrained",
 }
 
+#: 025-imperial-geometry-nudge-step: the FieldIds whose row gets
+#: `step=geometry_step` in `rows_for()` -- single source of truth so
+#: tests assert against this list rather than a separately hand-maintained
+#: copy of it (Constitution Principle I).
+GEOMETRY_FIELD_IDS = frozenset({FieldId.DIAMETER, FieldId.DEPTH_OF_CUT, FieldId.LENGTH_OF_CUT})
+
 
 @dataclass
 class TurningSessionState:
@@ -90,11 +96,19 @@ def _convert_on_unit_change(state: TurningSessionState, unit_system: UnitSystem)
 
 
 def _number_row(
-    field_id: FieldId, label: str, unit: str, value: float | None, required: bool, setter
+    field_id: FieldId,
+    label: str,
+    unit: str,
+    value: float | None,
+    required: bool,
+    setter,
+    step: float = split_pane.NUDGE_STEP,
 ) -> split_pane.NumberRow:
     """`on_commit` is called only when the user navigates away from this
     field (`split_pane.move_selection`), with the already-parsed value --
-    matching drilling's `_number_row` exactly."""
+    matching drilling's `_number_row` exactly. `step`
+    (025-imperial-geometry-nudge-step) defaults to the shared NUDGE_STEP,
+    matching every row that doesn't pass one explicitly."""
 
     return split_pane.NumberRow(
         field_id=field_id,
@@ -103,6 +117,7 @@ def _number_row(
         value=value,
         required=required,
         on_commit=setter,
+        step=step,
     )
 
 
@@ -214,6 +229,7 @@ def rows_for(
         )
     )
 
+    geometry_step = split_pane.geometry_nudge_step(state.unit_system)
     rows.append(
         _number_row(
             FieldId.DIAMETER,
@@ -222,6 +238,7 @@ def rows_for(
             state.diameter,
             True,
             lambda value: setattr(state, "diameter", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -232,6 +249,7 @@ def rows_for(
             state.depth_of_cut,
             True,
             lambda value: setattr(state, "depth_of_cut", value),
+            step=geometry_step,
         )
     )
     rows.append(
@@ -242,6 +260,7 @@ def rows_for(
             state.length_of_cut,
             True,
             lambda value: setattr(state, "length_of_cut", value),
+            step=geometry_step,
         )
     )
 
@@ -270,7 +289,7 @@ def rows_for(
         # shared 1.0-display-unit default -- 0.1 mm/rev under METRIC, or
         # 0.005 in/rev (a standard imperial shop-practice feed value, not a
         # coarse literal conversion of 0.1 mm) under IMPERIAL.
-        step = 0.1 if state.unit_system is UnitSystem.METRIC else 0.005
+        step = forms.step_for(state.unit_system, 0.1, 0.005)
         return split_pane.NumberRow(
             field_id=FieldId.TARGET_FEED_RATE,
             label=translate(locale, "tui.label.target_feed_rate"),

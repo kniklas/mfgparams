@@ -39,8 +39,12 @@ window on **Enter**, on top of that ordinary cycling — see `Selecting a
 metal material`_ below. Numeric fields become editable the instant you
 select them — start typing a digit (or ``.``/``-``) and it edits the
 field's buffer immediately, no separate "start editing" step; Left/Right
-nudges the buffer up or down by a small step (1 display unit for most
-fields). **Feed per tooth** nudges by a finer step than the rest: 0.1
+nudges the buffer up or down by a small step: 1 display unit (mm or in)
+for number of teeth, available power, and target RPM. **Cutter diameter**,
+**axial depth of cut**, **radial engagement/width of cut**, and
+**length of cut** nudge by 1 mm under the metric unit system (unchanged),
+or 0.1 in under the imperial unit system — a whole-inch step is too coarse
+for these dimensions. **Feed per tooth** nudges by a finer step still: 0.1
 mm/tooth under the metric unit system, or 0.001 in/tooth under imperial —
 a standard chip-load shop-practice increment, not a literal conversion of
 the metric value — for either sub-operation. Backspace removes the last
