@@ -4,18 +4,16 @@
 [![codecov](https://codecov.io/gh/kniklas/mfgparams/branch/main/graph/badge.svg)](https://codecov.io/gh/kniklas/mfgparams)
 
 A Python library and interactive command-line tool for metal machining
-calculations. It covers **drilling** (twist drills) and **milling** (end
-milling and face milling), reporting spindle speed, feed rate, machining
-time, torque and required power — plus material removal rate for milling.
+calculations. It covers **drilling** (twist drills), **milling** (end
+milling and face milling), and **turning** (single-point), reporting
+spindle speed, feed rate, machining time, torque and required power — plus
+material removal rate for milling.
 
 📖 **[Full generated documentation (Sphinx)](https://kniklas.github.io/mfgparams/)** —
 published automatically to GitHub Pages on every merge to `main`.
 
-> **Status**: Early implementation (drilling + milling calculation engines
-> and CLI).
-> Full end-user/developer documentation and CI/CD automation are tracked in
-> [`specs/001-metal-drilling-calc/tasks.md`](specs/001-metal-drilling-calc/tasks.md)
-> (Polish phase) and will replace this placeholder README.
+Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the dev workflow,
+CI gates, and this repo's spec-kit conventions.
 
 ## License
 
@@ -66,6 +64,7 @@ mfgparams                                          public API — import from he
 mfgparams.processes.machining.drilling
 mfgparams.processes.machining.milling.end_milling
 mfgparams.processes.machining.milling.face_milling
+mfgparams.processes.machining.turning
 mfgparams.console                                  interactive console
 ```
 
@@ -76,26 +75,23 @@ domain. `mfgparams.console` is *not* part of that surface — the console is
 reached through the `mfgparams` command, `python -m mfgparams`, or
 `python -m mfgparams.console`. All three behave identically.
 
-A future process (turning, welding, joining, forming) attaches beside
-`machining` rather than reorganising it.
+A future process (welding, joining, forming) attaches beside `machining`
+rather than reorganising it.
 
 ## Install (development)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip   # needed on Python 3.9's bundled pip (<21.3),
-                                      # which predates PEP 660 editable-install support;
-                                      # also below 21.2, which predates the self-referential
-                                      # extra that `mfgparams[all]` is built from
+python -m pip install --upgrade pip   # see DEVELOPMENT.md if this doesn't fix an old-pip issue
 pip install -e ".[dev]"
 ```
 
-> **Note:** `source .venv/bin/activate` only applies to your *current* shell — a new
-> terminal session needs to re-run it. If a bare `pytest` reports collection errors like
-> `ModuleNotFoundError: No module named 'mfgparams'`, your shell is picking up a different
-> `pytest` from `PATH` instead of `.venv/bin/pytest` — re-activate the venv (or run
-> `.venv/bin/pytest` directly) and try again.
+See [`DEVELOPMENT.md`](DEVELOPMENT.md) for the required toolset (including
+running the full multi-version `tox` matrix locally), verifying the install
+landed correctly, and troubleshooting the issues contributors actually hit
+here — a stale `pytest` on `PATH`, pip too old for `mfgparams[all]`/editable
+installs, and getting `tox` to see every Python version.
 
 ## Use as a library
 
@@ -158,6 +154,34 @@ target_rpm=3000)`.
 See `specs/009-milling-calculations/quickstart.md` and
 `specs/010-milling-calculation-modes/quickstart.md` for full scenarios.
 
+### Turning
+
+Single-point turning has its own entry point, taking depth of cut and length
+of cut along the workpiece rather than milling's axial/radial geometry:
+
+```python
+from mfgparams import calculate_turning
+
+result = calculate_turning(
+    diameter=40,               # workpiece diameter, mm (METRIC) or in (IMPERIAL)
+    depth_of_cut=1.5,
+    length_of_cut=80,
+    material="Mild Steel",
+    tool="Carbide",
+)
+print(result)
+```
+
+Turning has its own tool catalog, listed with `list_turning_tools()`, and
+accepts the same `mode`/`target_rpm`/`available_power` arguments as
+drilling's and milling's `calculate()` (see "Constrained calculation modes"
+below) — plus a turning-only `target_feed_rate` argument for its three
+additional feed-rate-constrained modes (see below).
+
+See `specs/019-turning-calculations/quickstart.md`,
+`specs/020-turning-feed-per-rotation/quickstart.md`, and
+`specs/021-turning-combined-constraints/quickstart.md` for full scenarios.
+
 ### Constrained calculation modes
 
 Two opt-in modes are available alongside the default `STANDARD` mode:
@@ -199,23 +223,24 @@ keyboard shortcut. Choosing **Machining**, **Configuration**, **About**,
 or **Help** opens a floating dropdown, its top edge directly under the bar
 and its background matching the bar's own shade, with a Midnight
 Commander-style drop shadow — not inline content replacing the desktop.
-Machining's dropdown shows **Milling** and **Drilling** as flat leaves;
-selecting either opens its operation screen directly, with no further
-tree-level expansion. Escape closes whichever dropdown/panel is open and
-returns focus to the bar; Up does the same the instant you're at the top
-of a navigable list (Machining's tree) or in a single-block panel with
-nothing to navigate (Configuration/About/Help) — the dropdown is erased,
-not left open-but-unfocused underneath. Selecting **Exit** opens a "Are
-you sure you want to exit?" confirmation dropdown (defaulting to **No**)
-rather than exiting immediately — Left/Right toggle Yes/No, Enter/Space
-confirms the highlighted choice, and **y**/**n** answer directly.
+Machining's dropdown shows **Milling**, **Drilling**, and **Turning** as
+flat leaves; selecting any of them opens its operation screen directly,
+with no further tree-level expansion. Escape closes whichever
+dropdown/panel is open and returns focus to the bar; Up does the same the
+instant you're at the top of a navigable list (Machining's tree) or in a
+single-block panel with nothing to navigate (Configuration/About/Help) —
+the dropdown is erased, not left open-but-unfocused underneath. Selecting
+**Exit** opens a "Are you sure you want to exit?" confirmation dropdown
+(defaulting to **No**) rather than exiting immediately — Left/Right toggle
+Yes/No, Enter/Space confirms the highlighted choice, and **y**/**n** answer
+directly.
 
-Opening Drilling or Milling shows a centered, bordered floating window,
-shaded and colored the same cyan-on-black as every other floating window,
-over the menu bar and tree (which stay visible underneath, untouched): the
-left pane lists every input for that operation at once — unit system,
-calculation mode, material type/material, tool, and the operation's
-geometry fields (plus, for Milling, the end-milling/face-milling choice) —
+Opening Drilling, Milling, or Turning shows a centered, bordered floating
+window, shaded and colored the same cyan-on-black as every other floating
+window, over the menu bar and tree (which stay visible underneath,
+untouched): the left pane lists every input for that operation at once —
+unit system, calculation mode, material type/material, tool, and the
+operation's geometry fields (plus, for Milling, the end-milling/face-milling choice) —
 all simultaneously visible and editable, with no separate screen per field.
 The right pane shows the live result, refreshing automatically once every
 required field has a value. **Up/Down** (or **j/k**) always moves to the
@@ -244,7 +269,7 @@ The whole application follows one consistent, Turbo-Vision-style color
 scheme — a cyan bar, a distinct blue desktop behind it, and the bar's own
 cyan-on-black for every floating window (the Machining/Configuration/
 About/Help dropdowns, the Exit confirmation dialog, and the Drilling/
-Milling operation window alike), each with a Midnight Commander-style
+Milling/Turning operation window alike), each with a Midnight Commander-style
 black drop shadow — rather than the terminal's own default background.
 
 For drilling, the calculation-mode field (`standard`, `power-constrained`,
@@ -252,7 +277,11 @@ For drilling, the calculation-mode field (`standard`, `power-constrained`,
 `power-constrained` then makes available power a required field, and
 `fixed-rpm` adds a required target spindle speed (with an optional advisory
 available power). Milling (both end milling and face milling) presents the
-same calculation-mode field in the same position.
+same calculation-mode field in the same position. Turning presents a
+calculation-mode field in the same position too, with three additional
+feed-rate-constrained modes beyond drilling's set — see
+`specs/020-turning-feed-per-rotation/quickstart.md` and
+`specs/021-turning-combined-constraints/quickstart.md`.
 
 ### Material selection is two-step
 
