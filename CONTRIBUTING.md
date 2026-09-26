@@ -82,7 +82,7 @@ and is symlinked elsewhere, never copied.
   path-based.
 - At least one other contributor reviews the PR before merge (solo work is
   self-reviewed against the constitution checklist in
-  [Development Workflow (Review Process)](.specify/memory/constitution.md)).
+  [Development Workflow (Review Process)](.specify/memory/constitution.md#development-workflow-review-process)).
 - Once merged, delete the branch — including any now-obsolete sub-branches of
   a completed integration branch.
 

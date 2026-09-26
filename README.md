@@ -173,9 +173,10 @@ print(result)
 ```
 
 Turning has its own tool catalog, listed with `list_turning_tools()`, and
-accepts the same `mode`/`target_rpm`/`available_power`/`target_feed_rate`
-arguments as drilling's and milling's `calculate()` (see "Constrained
-calculation modes" below).
+accepts the same `mode`/`target_rpm`/`available_power` arguments as
+drilling's and milling's `calculate()` (see "Constrained calculation modes"
+below) — plus a turning-only `target_feed_rate` argument for its three
+additional feed-rate-constrained modes (see below).
 
 See `specs/019-turning-calculations/quickstart.md`,
 `specs/020-turning-feed-per-rotation/quickstart.md`, and
