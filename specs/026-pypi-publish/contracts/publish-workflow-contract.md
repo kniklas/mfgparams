@@ -20,11 +20,16 @@ this is what makes it structurally impossible for this workflow to ever become a
 pull-request status check (Constitution Principle IX gates only apply to checks that *can* run
 on a pull request).
 
-The `workflow_run`-triggered path MUST assert both:
+The `workflow_run`-triggered path MUST assert all three:
 - `github.event.workflow_run.conclusion == 'success'` — a failed or cancelled `ci.yml` run MUST
   NOT be published from.
 - `github.event.workflow_run.head_branch == 'main'` — a `ci.yml` run for any other branch
   (e.g. a future long-lived Principle XII integration branch) MUST NOT trigger a publish.
+- `github.event.workflow_run.head_repository.full_name == github.repository` — `head_branch` is
+  just a string name a forked `pull_request` run fully controls (a fork can name its own branch
+  `main`), so it MUST NOT be trusted alone; without this check a forked PR could spoof the
+  trigger and get its own code published to the real PyPI index via this repository's Trusted
+  Publisher binding (found in local review before this feature's first remote Copilot round).
 
 ## Artifact contract
 

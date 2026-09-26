@@ -84,6 +84,14 @@ def test_publish_job_if_asserts_success_and_main_or_manual_dispatch() -> None:
     assert "workflow_run.head_branch == 'main'" in condition
 
 
+def test_publish_job_if_rejects_a_forked_head_repository() -> None:
+    # `head_branch` alone is a fork-controlled string (a fork can name its own branch `main`);
+    # without also pinning `head_repository` to this repo, a forked pull_request run of ci.yml
+    # could spoof the automatic trigger and get its own code published to real PyPI.
+    condition = _PUBLISH_JOB["if"]
+    assert "workflow_run.head_repository.full_name == github.repository" in condition
+
+
 # ---------------------------------------------------------------------------
 # Credential contract
 # ---------------------------------------------------------------------------
@@ -199,6 +207,12 @@ def test_testpypi_target_uses_test_pypi_repository_url() -> None:
     publish_steps = [s for s in _STEPS if _uses(s, "pypa/gh-action-pypi-publish")]
     dispatch_publish = [s for s in publish_steps if "workflow_dispatch" in str(s.get("if", ""))]
     assert dispatch_publish, "expected a workflow_dispatch-gated publish step"
-    repository_url = str(dispatch_publish[0]["with"].get("repository-url", ""))
-    assert "test.pypi.org" in repository_url
-    assert "testpypi" in repository_url
+    repository_url_expr = str(dispatch_publish[0]["with"].get("repository-url", ""))
+    # An exact-match assertion on the whole expression, rather than a substring containment
+    # check against a URL-shaped value, sidesteps CodeQL's incomplete-url-substring-sanitization
+    # pattern (`"test.pypi.org" in url`) entirely - this is a fixed literal in our own workflow
+    # source, not attacker-influenced input, but the exact form of the assertion is what CodeQL
+    # actually pattern-matches on.
+    assert repository_url_expr == (
+        "${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}"
+    )

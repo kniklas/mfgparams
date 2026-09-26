@@ -43,11 +43,17 @@ jobs:
     # `workflow_run.conclusion`/`head_branch` are both asserted explicitly (contract Trigger
     # contract) rather than relying solely on the trigger-level `branches: [main]` filter above:
     # a failed or cancelled `ci.yml` run on `main` MUST NOT be published from, and this is the
-    # one place that guarantee is enforced.
+    # one place that guarantee is enforced. `head_repository` is asserted too, and is load-
+    # bearing, not redundant: `head_branch` is just a string name a fork PR fully controls (a
+    # fork can name its own branch `main`), so checking it alone would let a forked pull_request
+    # run of `ci.yml` spoof this trigger and get attacker-controlled code published to the real
+    # PyPI index via this repo's Trusted Publisher binding (found in local review before the
+    # first remote round, specs/026-pypi-publish).
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     permissions:
       contents: read
       id-token: write
@@ -57,6 +63,22 @@ jobs:
     environment:
       name: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
     steps:
+      # `workflow_dispatch`-only, and deliberately placed before "Install build/publish
+      # tooling" below: `actions/setup-python` can change which interpreter/pip `python`/`pip`
+      # resolve to, so installing `twine`/`build` beforehand risks them landing somewhere no
+      # longer on PATH once the interpreter switches (found in local review before the first
+      # remote round). The `workflow_run` path never runs these two steps, so it always uses
+      # whichever Python ships by default on the runner, unaffected by this ordering.
+      - name: Checkout
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       # Available to both paths: `twine` for the pre-upload metadata check below (both paths),
       # `build` for the `workflow_dispatch` path's fresh build (research.md #6/#7).
       - name: Install build/publish tooling
@@ -93,16 +115,7 @@ jobs:
           skip-existing: true
 
       # --- workflow_dispatch path: manual dry run, builds fresh (research.md #6) ---
-      - name: Checkout
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
+      # (checkout + setup-python for this path already ran above, before tool installation)
       - name: Build distribution (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
         run: |

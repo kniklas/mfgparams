@@ -85,8 +85,10 @@ production-publish half (Scenario 3) is deliberately deferred to T016 (see Depen
 
 - [X] T006 [US1] Add the `workflow_run` trigger to `.github/workflows/publish.yml`
   (`workflows: ["CI"]`, `types: [completed]`), gating the `publish` job on
-  `if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'`
-  (contract Trigger contract) — `.github/workflows/publish.yml`
+  `github.event.workflow_run.conclusion == 'success' && ...head_branch == 'main' &&
+  ...head_repository.full_name == github.repository` — the third clause, added after local
+  review found `head_branch` alone spoofable by a forked pull_request run, is load-bearing, not
+  optional (contract Trigger contract) — `.github/workflows/publish.yml`
 - [X] T007 [US1] Add the artifact-download step for the `workflow_run` path
   (`actions/download-artifact@v4`, `run-id: ${{ github.event.workflow_run.id }}`,
   `name: dist`, `continue-on-error: true`), and gate every subsequent step in that path on
@@ -101,9 +103,10 @@ production-publish half (Scenario 3) is deliberately deferred to T016 (see Depen
   validation contracts) — `.github/workflows/publish.yml`
 - [X] T009 [US1] Extend `tests/static/test_publish_workflow.py` with assertions for the
   `workflow_run` path: the trigger is present and targets `ci.yml`'s `CI` workflow, the `if:`
-  checks both `conclusion == 'success'` and `head_branch == 'main'`, `skip-existing: true` is
-  set on the production upload step, and that step runs under the `pypi` environment (contract
-  Trigger/Idempotency/Environment contracts) — `tests/static/test_publish_workflow.py`
+  checks `conclusion == 'success'`, `head_branch == 'main'`, and `head_repository.full_name ==
+  github.repository`, `skip-existing: true` is set on the production upload step, and that step
+  runs under the `pypi` environment (contract Trigger/Idempotency/Environment contracts) —
+  `tests/static/test_publish_workflow.py`
 - [ ] T010 [US1] Manually perform quickstart.md Scenario 4 (merge a change that does not bump
   `__version__`; confirm `publish.yml` completes as a clean, non-failing no-op) —
   `specs/026-pypi-publish/quickstart.md` Scenario 4
