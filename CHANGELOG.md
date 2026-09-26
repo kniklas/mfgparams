@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Automated PyPI publishing: a new `.github/workflows/publish.yml` now builds and publishes a
+  release to PyPI automatically whenever a version-bump merge lands on `main`, using PyPI's
+  Trusted Publishing (OIDC) — no manual `twine upload` step, and no long-lived API token stored
+  in this repository. A merge that doesn't change `__version__` is a safe no-op. A manual
+  `workflow_dispatch` path can also dry-run the pipeline against TestPyPI before trusting it
+  with a real release (specs/026-pypi-publish, issue #40).
+
 ## [2.5.0] - 2026-09-23
 
 ### Added

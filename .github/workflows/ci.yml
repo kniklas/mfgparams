@@ -672,6 +672,16 @@ jobs:
       # `--cov-fail-under=90`, which four packaging tests will never meet on
       # their own; coverage is measured by the `test` job.
       - run: pytest -m packaging --no-cov
+      # Uploaded unconditionally (cheap); `publish.yml` downloads this by
+      # `run-id` after a successful push to `main` so the artifact it
+      # publishes is byte-for-byte what the assertions above already
+      # validated, never an independently rebuilt one (specs/026-pypi-publish
+      # FR-006, research.md #3). Mirrors how `docs` uploads its own artifact
+      # for `deploy-docs` to consume, below.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
   docs:
     name: docs

@@ -104,6 +104,11 @@ dev = [
     "radon>=6.0",
     "bandit>=1.7",
     "pip-audit>=2.7",
+    # Local `twine check dist/*` metadata validation
+    # (.github/skills/pypi-package-builder/SKILL.md §5), matching the check
+    # `.github/workflows/publish.yml` runs before every PyPI/TestPyPI upload
+    # (specs/026-pypi-publish).
+    "twine>=5.0",
 ]
 
 [project.scripts]
