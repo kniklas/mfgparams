@@ -56,6 +56,30 @@ table for what each CI job enforces, and the README's
 ["Checking every supported Python version locally"](README.md#checking-every-supported-python-version-locally)
 section for the packaging-env/parallelism details.
 
+## Releasing to PyPI
+
+Publishing is automatic — there is no manual `twine upload` step. To cut a release:
+
+1. Bump `__version__` in `src/mfgparams/__init__.py` (the single source of truth, per
+   Constitution Principle IV).
+2. Add a dated section to `CHANGELOG.md` for that version, moving the relevant entries out of
+   `## [Unreleased]`.
+3. Merge to `main` as usual.
+
+Once `ci.yml` finishes successfully on `main`, `.github/workflows/publish.yml` fires
+automatically (`workflow_run`), publishes the exact `dist/` artifact `ci.yml`'s own `build` job
+already validated to PyPI via Trusted Publishing (OIDC — no stored API token), and the new
+version is installable within minutes. A merge that doesn't change `__version__` is a safe
+no-op; a failed publish can be retried from the Actions tab ("Re-run failed jobs") without a new
+commit.
+
+Before trusting a build-backend or packaging change with a real release, dry-run the pipeline
+against TestPyPI first: from the Actions tab, run `publish.yml` via "Run workflow"
+(`workflow_dispatch`) with `target: testpypi`, then install from
+`https://test.pypi.org/simple/mfgparams` in a clean environment to confirm it works before the
+next real merge publishes for real. See `specs/026-pypi-publish/quickstart.md` for the full
+validation scenarios.
+
 ## Troubleshooting
 
 ### `pytest` fails with `ModuleNotFoundError: No module named 'mfgparams'`, or seems to run against old code

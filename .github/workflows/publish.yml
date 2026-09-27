@@ -1,0 +1,199 @@
+name: Publish
+
+# Automated PyPI publishing (specs/026-pypi-publish; issue #40), satisfying the constitution's
+# Additional Constraints requirement that every merge to `main` trigger a workflow that
+# publishes a new release. Kept in its own file rather than as a job inside `ci.yml` so PyPI's
+# OIDC Trusted Publisher binding (keyed to this exact workflow filename) stays isolated from
+# `ci.yml`'s much larger, far more frequently changed surface area (research.md #1).
+#
+# Two independent trigger paths, both handled by the single `publish` job below via per-step
+# `if:` conditions:
+#   - `workflow_run`: fires automatically once `ci.yml` finishes on `main`. Always targets the
+#     real `pypi` index. Reuses the exact `dist` artifact `ci.yml`'s own `build` job already
+#     validated (FR-006) rather than rebuilding independently.
+#   - `workflow_dispatch`: a manual dry run, selectable against `pypi` or `testpypi`. Builds
+#     fresh, since there is no preceding `ci.yml` run to attach to (research.md #6). This is
+#     what specs/026-pypi-publish's quickstart.md Scenario 1/2 exercise before the automatic
+#     path is ever trusted with the real index.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Package index to publish to"
+        type: choice
+        options:
+          - pypi
+          - testpypi
+        # Defaults to the safe dry-run target, not the real index: this trigger exists
+        # specifically as a dry run (research.md #6), and GitHub's manual-dispatch UI
+        # pre-selects whatever `default` is here, so defaulting to `pypi` would mean a
+        # maintainer who runs it without touching the dropdown publishes straight to the real,
+        # public index with none of ci.yml's tests/lint/security checks having run (found in
+        # local review, round 2).
+        default: testpypi
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    # `workflow_run.conclusion`/`head_branch` are both asserted explicitly (contract Trigger
+    # contract) rather than relying solely on the trigger-level `branches: [main]` filter above:
+    # a failed or cancelled `ci.yml` run on `main` MUST NOT be published from, and this is the
+    # one place that guarantee is enforced. `head_repository` is asserted too, and is load-
+    # bearing, not redundant: `head_branch` is just a string name a fork PR fully controls (a
+    # fork can name its own branch `main`), so checking it alone would let a forked pull_request
+    # run of `ci.yml` spoof this trigger and get attacker-controlled code published to the real
+    # PyPI index via this repo's Trusted Publisher binding (found in local review before the
+    # first remote round, specs/026-pypi-publish). `event == 'push'` narrows this to an actual
+    # merge, per FR-001's literal "every merge to main" — without it, any other way `ci.yml` can
+    # complete on `main` (e.g. a maintainer's manual `workflow_dispatch` re-run of `ci.yml`
+    # itself) would also satisfy this condition (found in local review, round 3).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    permissions:
+      contents: read
+      id-token: write
+      # actions/download-artifact@v4 requires this when fetching an artifact from a *different*
+      # workflow run via `run-id` (the workflow_run path below) — without it the download step
+      # gets a 403, which `continue-on-error: true` swallows and makes indistinguishable from
+      # the intentional "build was path-filtered out" no-op, silently making the entire
+      # automated-publish feature inert with no visible error anywhere (found in local review,
+      # round 2; verified against actions/download-artifact's own documented permission
+      # requirements for cross-run downloads).
+      actions: read
+    # Each target gets its own named Environment (never shared/unnamed), scoping its Trusted
+    # Publisher binding and any protection rules independently (data-model.md GitHub
+    # Environment; contract Environment contract). `workflow_run` always resolves to `pypi`.
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
+    steps:
+      # `workflow_dispatch`-only: no repo source is needed to run `twine check` against an
+      # already-built/downloaded `dist/`, only to build fresh on the dry-run path.
+      - name: Checkout
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+
+      # Unconditional (not `workflow_dispatch`-only): the `workflow_run` path — the one that
+      # actually publishes real releases to PyPI — previously relied on whichever Python
+      # ships by default on the `ubuntu-latest` image, unlike the explicit `PYTHON_VERSION` pin
+      # used everywhere else in this file and in `ci.yml`; a future runner-image bump could
+      # silently change which Python resolves `twine` on the one path with no CI gate
+      # re-validating it (found in local review, round 4). Pinning both paths also keeps the
+      # round-1 PATH-ordering fix below correct for both: `setup-python` still runs before tool
+      # installation.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # `twine` (for the pre-upload metadata check below, both paths) and `build` (only the
+      # `workflow_dispatch` path ever runs `python -m build` — installing it unconditionally
+      # was wasted work on every automatic per-merge run, found in local review, round 4).
+      - name: Install twine
+        run: pip install --upgrade twine
+
+      - name: Install build
+        if: github.event_name == 'workflow_dispatch'
+        run: pip install --upgrade build
+
+      # --- workflow_run path: publish the artifact ci.yml's `build` job already validated ---
+      # `continue-on-error` below deliberately tolerates a *missing* artifact (the legitimate
+      # no-op when `build` was path-filtered out), but on its own it can't tell that apart from
+      # a real, transient download failure on a commit that genuinely needs publishing (found in
+      # local review, round 3) - the step below closes that gap by checking what `build` itself
+      # actually reported for this run, independent of whether the download succeeded.
+      #
+      # This step also needs `continue-on-error: true`: a transient GitHub API hiccup on the
+      # `gh api` call below must not fail the whole job on an ordinary merge where no artifact
+      # was ever expected - only the download-failure-after-build-success check downstream
+      # should ever turn this into a real failure, and it correctly stays quiet when this step's
+      # own output was never written (found in local review, round 4).
+      - name: Determine ci.yml's build job outcome
+        id: build_outcome
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" --jq '.jobs[] | select(.name == "build") | .conclusion')
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+
+      - name: Download dist artifact from the triggering CI run
+        id: download
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # `continue-on-error` above means a commit with no `dist` artifact (`build` was
+      # path-filtered out for that push, e.g. a docs-only merge) leaves `download.outcome`
+      # as `failure` rather than failing the job — every step below stays gated on `success`
+      # so this run still completes as a clean no-op (research.md #3/#4; contract Artifact
+      # contract; spec Edge Cases), never a false failure.
+      #
+      # But `build` having actually *succeeded* means an artifact should exist - a download
+      # failure in that case is a real problem (transient API hiccup, a future permissions
+      # regression), not the legitimate skip, and MUST fail loudly rather than silently no-op
+      # (FR-007; found in local review, round 3).
+      - name: Fail if build succeeded but its dist artifact could not be downloaded
+        if: >-
+          github.event_name == 'workflow_run' &&
+          steps.download.outcome != 'success' &&
+          steps.build_outcome.outputs.conclusion == 'success'
+        run: |
+          echo "::error::ci.yml's build job succeeded but downloading its dist artifact failed - this is not the expected no-artifact no-op (build was skipped), treating as a real failure."
+          exit 1
+
+      - name: Validate package metadata (workflow_run)
+        if: github.event_name == 'workflow_run' && steps.download.outcome == 'success'
+        run: twine check dist/*
+
+      - name: Publish to PyPI (workflow_run)
+        if: github.event_name == 'workflow_run' && steps.download.outcome == 'success'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A version already on the index is a legitimate no-op, not a failure — this is the
+          # entire idempotency mechanism (research.md #2; contract Idempotency contract), no
+          # custom version-comparison logic needed.
+          skip-existing: true
+
+      # --- workflow_dispatch path: manual dry run, builds fresh (research.md #6) ---
+      # (checkout + setup-python for this path already ran above, before tool installation)
+      - name: Build distribution (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        # `python -m build` builds in its own PEP 517 isolated environment - it does not need
+        # the package installed first (unlike ci.yml's `build` job, which also needs it
+        # installed for the `pytest -m packaging` step that follows; this path runs no tests,
+        # so that install was dead weight, found in local review, round 3).
+        run: python -m build
+
+      - name: Validate package metadata (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: twine check dist/*
+
+      - name: Publish (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          # Empty string (the `pypi` target) means "use the action's default", i.e. the real
+          # index — only `testpypi` overrides it.
+          repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}

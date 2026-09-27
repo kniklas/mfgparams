@@ -672,6 +672,22 @@ jobs:
       # `--cov-fail-under=90`, which four packaging tests will never meet on
       # their own; coverage is measured by the `test` job.
       - run: pytest -m packaging --no-cov
+      # Uploaded unconditionally (cheap); `publish.yml` downloads this by
+      # `run-id` after a successful push to `main` so the artifact it
+      # publishes is byte-for-byte what the assertions above already
+      # validated, never an independently rebuilt one (specs/026-pypi-publish
+      # FR-006, research.md #3). Mirrors how `docs` uploads its own artifact
+      # for `deploy-docs` to consume, below.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          # Same reason `coverage-pct` above needs this: artifacts persist across run
+          # *attempts*, and upload-artifact@v4 rejects a second upload of an existing name
+          # within one workflow run with `409 Conflict` — without it, "Re-run failed jobs" on
+          # `build` would fail this step and turn the required `build` check red for a reason
+          # unrelated to the change (found in local review, round 3).
+          overwrite: true
 
   docs:
     name: docs
