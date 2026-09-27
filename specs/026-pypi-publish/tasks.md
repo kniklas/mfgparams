@@ -172,14 +172,18 @@ Story 1's `workflow_run` path — no merge to `main` is required.
   and the `testpypi` branch resolves to the `testpypi` environment and
   `test.pypi.org`/`https://test.pypi.org/legacy/` (contract Environment contract) —
   `tests/static/test_publish_workflow.py`
-- [ ] T014 [US2] Register a Trusted Publisher for this repository on TestPyPI (workflow
+- [X] T014 [US2] Register a Trusted Publisher for this repository on TestPyPI (workflow
   filename `publish.yml`, environment `testpypi`) and create the `testpypi` GitHub Environment
   — manual, one-time, outside this repository (quickstart.md Scenario 1, steps 1-2) —
-  `specs/026-pypi-publish/quickstart.md` Scenario 1
-- [ ] T015 [US2] Manually perform quickstart.md Scenario 1 (TestPyPI dry run: dispatch with
+  `specs/026-pypi-publish/quickstart.md` Scenario 1. Done 2026-09-27.
+- [X] T015 [US2] Manually perform quickstart.md Scenario 1 (TestPyPI dry run: dispatch with
   `target: testpypi`, confirm install from TestPyPI in a clean environment) and Scenario 2
   (re-dispatch without a version change, confirm idempotent no-op), confirming both expected
-  outcomes — `specs/026-pypi-publish/quickstart.md` Scenarios 1-2
+  outcomes — `specs/026-pypi-publish/quickstart.md` Scenarios 1-2. Done 2026-09-27: run
+  36311662926 uploaded `mfgparams-2.5.0` to `https://test.pypi.org/project/mfgparams/2.5.0/`
+  and it installed and ran cleanly (`pip install --index-url https://test.pypi.org/simple/
+  ... mfgparams`, imported, `mfgparams --help` worked); run 36311780603 re-dispatched the same
+  version and correctly reported "File already exists" / skip, job still succeeded overall.
 
 **Checkpoint**: The shared plumbing (artifact/build handling, `twine check`, OIDC auth,
 `skip-existing` behavior) is now proven against TestPyPI. User Story 1's automatic path is safe
@@ -192,12 +196,18 @@ to trust with the real index.
 **Depends on**: T015 (User Story 2's TestPyPI validation) passing — this is the intentional,
 spec-documented ordering exception noted at the top of this file, not a phase-numbering error.
 
-- [ ] T016 [US1] Correct the production PyPI Trusted Publisher's workflow filename from
+- [X] T016 [US1] Correct the production PyPI Trusted Publisher's workflow filename from
   `ci.yml` to `publish.yml` (FR-009), create the `pypi` GitHub Environment if not already
   present, then merge a real version-bump PR to `main` and manually perform quickstart.md
   Scenario 3 end-to-end, confirming `pip install mfgparams==<version>` succeeds against the
   real, public PyPI index within 10 minutes (SC-001) — `specs/026-pypi-publish/quickstart.md`
-  Prerequisites and Scenario 3
+  Prerequisites and Scenario 3. Done 2026-09-27: the Trusted Publisher correction had already
+  been made by the time PR #116 (this feature itself) merged, so its own merge became the
+  first real trigger — `workflow_run` run 36309024032 fired automatically at 09:19:56Z (5m49s
+  after the 09:14:07Z merge, well under the 10-minute SC-001 target) and published
+  `mfgparams-2.5.0` to `https://pypi.org/project/mfgparams/2.5.0/` (this repo's first-ever real
+  PyPI release, since #116 itself carried no version bump — `pip install mfgparams==2.5.0`
+  confirmed working from a clean virtualenv afterward).
 
 ---
 
@@ -214,9 +224,11 @@ implementation.
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Manually perform quickstart.md Scenario 6: inspect the repository's and the
+- [X] T017 [US3] Manually perform quickstart.md Scenario 6: inspect the repository's and the
   `pypi`/`testpypi` Environments' configured secrets and confirm no PyPI/TestPyPI API token
-  exists anywhere — `specs/026-pypi-publish/quickstart.md` Scenario 6
+  exists anywhere — `specs/026-pypi-publish/quickstart.md` Scenario 6. Done 2026-09-27: repo
+  secrets are `CODECOV_TOKEN`/`SYNC_PR_TOKEN` (unrelated); both `pypi` and `testpypi`
+  Environments have zero configured secrets — authentication is OIDC-only, confirmed.
 
 **Checkpoint**: All three user stories are independently verified. The feature is complete.
 
