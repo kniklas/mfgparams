@@ -20,7 +20,11 @@ this is what makes it structurally impossible for this workflow to ever become a
 pull-request status check (Constitution Principle IX gates only apply to checks that *can* run
 on a pull request).
 
-The `workflow_run`-triggered path MUST assert all three:
+The `workflow_run`-triggered path MUST assert all four:
+- `github.event.workflow_run.event == 'push'` — `ci.yml` can complete on `main` for reasons
+  other than an actual merge (e.g. a maintainer's manual `workflow_dispatch` re-run of `ci.yml`
+  itself); only a `push`-triggered completion is the "merge to main" FR-001 means (found in
+  local review, round 3).
 - `github.event.workflow_run.conclusion == 'success'` — a failed or cancelled `ci.yml` run MUST
   NOT be published from.
 - `github.event.workflow_run.head_branch == 'main'` — a `ci.yml` run for any other branch
@@ -39,6 +43,21 @@ that artifact does not exist (the `build` job was path-filtered out for that com
 download step MUST be allowed to fail (`continue-on-error: true`) and every subsequent step
 MUST be skipped via `if: steps.download.outcome == 'success'` — this run's overall job status
 MUST still report success, not failure, per the spec's no-version-change edge case.
+
+A download failure MUST NOT be treated as that same legitimate no-op when `ci.yml`'s `build`
+job actually succeeded for that run — that combination means the artifact should exist and the
+download failed for some other reason (a transient API hiccup, a future permissions
+regression), and MUST fail the job loudly instead (FR-007; found in local review, round 3). The
+workflow MUST query the triggering run's `build` job conclusion independently (e.g. via `gh api
+.../actions/runs/<id>/jobs`) rather than inferring it from the download's own outcome, since
+those two signals are exactly what must be told apart.
+
+`ci.yml`'s `build` job's artifact-upload step MUST set `overwrite: true` — `actions/upload-
+artifact@v4` rejects a second upload of an existing name within one workflow run with `409
+Conflict`, so without it, "Re-run failed jobs" on `build` (e.g. after a flaky, unrelated
+failure) would fail this step and turn the required `build` check red for a reason unrelated to
+the change (mirroring this same file's pre-existing `coverage-pct` artifact, which already
+carries this fix and its rationale; found in local review, round 3).
 
 The `workflow_dispatch` path builds `dist/` fresh in-job (research.md #6) and is exempt from
 this reuse requirement — it is an explicit, human-initiated dry run, not the automatic

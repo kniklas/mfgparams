@@ -682,6 +682,12 @@ jobs:
         with:
           name: dist
           path: dist/
+          # Same reason `coverage-pct` above needs this: artifacts persist across run
+          # *attempts*, and upload-artifact@v4 rejects a second upload of an existing name
+          # within one workflow run with `409 Conflict` — without it, "Re-run failed jobs" on
+          # `build` would fail this step and turn the required `build` check red for a reason
+          # unrelated to the change (found in local review, round 3).
+          overwrite: true
 
   docs:
     name: docs

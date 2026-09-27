@@ -30,6 +30,14 @@ SKILL.md` §6.
   job assert `github.event.workflow_run.conclusion == 'success'` first, which a same-commit
   independent `push` trigger cannot do (it has no way to know `ci.yml`'s outcome on that commit).
 
+**Correction (found in local review, round 3):** `workflow_run` fires whenever the named
+workflow completes on `main`, regardless of *what triggered that completion* — the initial `if:`
+checked `conclusion`/`head_branch`/`head_repository` but not `github.event.workflow_run.event`,
+so a maintainer's manual `workflow_dispatch` re-run of `ci.yml` itself (already a supported,
+pre-existing trigger on `ci.yml`) would also satisfy the condition, even though it is not a
+merge. Added `github.event.workflow_run.event == 'push'` to pin this to FR-001's literal "every
+merge to main," not "every way `ci.yml` can complete on main."
+
 ## 2. Idempotency: how a merge that doesn't bump the version avoids a duplicate-publish error
 
 **Decision**: Always attempt the upload; rely on `pypa/gh-action-pypi-publish`'s built-in
@@ -91,6 +99,15 @@ only occur on merges that could not possibly be a real release anyway.
 turn every docs-only merge into a red check on `publish.yml`, a regression `ci-ok` itself
 already avoids for the equivalent `build`/`test`/etc. cases.
 
+**Correction (found in local review, round 3):** `continue-on-error: true` alone cannot
+distinguish this legitimate no-op from a real, transient download failure on a commit where
+`build` actually succeeded (a network blip, a future permissions regression) — both looked
+identical, so a real release could silently never publish with no visible error (FR-007). Added
+a step that queries the triggering run's `build` job conclusion directly (`gh api
+.../actions/runs/<id>/jobs`, requiring the `actions: read` permission decision #3's correction
+already added) and a second step that fails the job loudly specifically when `build` succeeded
+but the download still failed — the no-op path (build's conclusion is `skipped`) is unaffected.
+
 ## 5. Credentials: OIDC Trusted Publishing vs. API token
 
 **Decision**: `pypa/gh-action-pypi-publish@release/v1`, using its native OIDC support
@@ -125,6 +142,12 @@ change (e.g. switching build backends) can be dry-run the same way again.
 **Alternatives considered**: A one-off, undocumented local `twine upload` never captured in the
 workflow — rejected as not reusable and not reviewable (no PR diff records that the validation
 happened or how).
+
+**Correction (found in local review, round 3):** the initial `workflow_dispatch` build step ran
+`pip install -e ".[test]"` before `python -m build`, copied from `ci.yml`'s own `build` job —
+but that install exists there only for the `pytest -m packaging` step that follows it, which
+this dry-run path doesn't have. `python -m build` builds in its own PEP 517 isolated
+environment and never needed the package installed first. Removed the now-pointless install.
 
 ## 7. Metadata validation before upload
 

@@ -54,10 +54,14 @@ jobs:
     # fork can name its own branch `main`), so checking it alone would let a forked pull_request
     # run of `ci.yml` spoof this trigger and get attacker-controlled code published to the real
     # PyPI index via this repo's Trusted Publisher binding (found in local review before the
-    # first remote round, specs/026-pypi-publish).
+    # first remote round, specs/026-pypi-publish). `event == 'push'` narrows this to an actual
+    # merge, per FR-001's literal "every merge to main" — without it, any other way `ci.yml` can
+    # complete on `main` (e.g. a maintainer's manual `workflow_dispatch` re-run of `ci.yml`
+    # itself) would also satisfy this condition (found in local review, round 3).
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     permissions:
@@ -99,6 +103,20 @@ jobs:
         run: pip install --upgrade build twine
 
       # --- workflow_run path: publish the artifact ci.yml's `build` job already validated ---
+      # `continue-on-error` below deliberately tolerates a *missing* artifact (the legitimate
+      # no-op when `build` was path-filtered out), but on its own it can't tell that apart from
+      # a real, transient download failure on a commit that genuinely needs publishing (found in
+      # local review, round 3) - the step below closes that gap by checking what `build` itself
+      # actually reported for this run, independent of whether the download succeeded.
+      - name: Determine ci.yml's build job outcome
+        id: build_outcome
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" --jq '.jobs[] | select(.name == "build") | .conclusion')
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+
       - name: Download dist artifact from the triggering CI run
         id: download
         if: github.event_name == 'workflow_run'
@@ -115,6 +133,20 @@ jobs:
       # as `failure` rather than failing the job — every step below stays gated on `success`
       # so this run still completes as a clean no-op (research.md #3/#4; contract Artifact
       # contract; spec Edge Cases), never a false failure.
+      #
+      # But `build` having actually *succeeded* means an artifact should exist - a download
+      # failure in that case is a real problem (transient API hiccup, a future permissions
+      # regression), not the legitimate skip, and MUST fail loudly rather than silently no-op
+      # (FR-007; found in local review, round 3).
+      - name: Fail if build succeeded but its dist artifact could not be downloaded
+        if: >-
+          github.event_name == 'workflow_run' &&
+          steps.download.outcome != 'success' &&
+          steps.build_outcome.outputs.conclusion == 'success'
+        run: |
+          echo "::error::ci.yml's build job succeeded but downloading its dist artifact failed - this is not the expected no-artifact no-op (build was skipped), treating as a real failure."
+          exit 1
+
       - name: Validate package metadata (workflow_run)
         if: github.event_name == 'workflow_run' && steps.download.outcome == 'success'
         run: twine check dist/*
@@ -132,9 +164,11 @@ jobs:
       # (checkout + setup-python for this path already ran above, before tool installation)
       - name: Build distribution (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
-        run: |
-          pip install -e ".[test]"
-          python -m build
+        # `python -m build` builds in its own PEP 517 isolated environment - it does not need
+        # the package installed first (unlike ci.yml's `build` job, which also needs it
+        # installed for the `pytest -m packaging` step that follows; this path runs no tests,
+        # so that install was dead weight, found in local review, round 3).
+        run: python -m build
 
       - name: Validate package metadata (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'

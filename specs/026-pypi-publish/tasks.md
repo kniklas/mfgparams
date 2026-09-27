@@ -43,8 +43,11 @@ trigger paths depend on. No user story's trigger-specific work can start until t
 
 - [X] T002 Add an `actions/upload-artifact@v4` step to the `build` job in
   `.github/workflows/ci.yml`, uploading `dist/*.whl` and `dist/*.tar.gz` under artifact name
-  `dist`, without changing `build`'s existing pass/fail logic or `if:` condition (research.md
-  #3; data-model.md Dist Artifact) — `.github/workflows/ci.yml`
+  `dist` with `overwrite: true` (mirroring this same file's `coverage-pct` artifact, so
+  "Re-run failed jobs" on `build` doesn't 409 on the second upload attempt — added after local
+  review round 3), without changing `build`'s existing pass/fail logic or `if:` condition
+  (research.md #3; data-model.md Dist Artifact; contract Artifact contract) —
+  `.github/workflows/ci.yml`
 - [X] T003 Create `.github/workflows/publish.yml`: workflow `name: Publish`, top-level
   `permissions: contents: read`, and a single `publish` job on `ubuntu-latest` with job-level
   `permissions: id-token: write` and `actions: read` (the latter added after local review round
@@ -89,16 +92,23 @@ production-publish half (Scenario 3) is deliberately deferred to T016 (see Depen
 
 - [X] T006 [US1] Add the `workflow_run` trigger to `.github/workflows/publish.yml`
   (`workflows: ["CI"]`, `types: [completed]`), gating the `publish` job on
-  `github.event.workflow_run.conclusion == 'success' && ...head_branch == 'main' &&
-  ...head_repository.full_name == github.repository` — the third clause, added after local
-  review found `head_branch` alone spoofable by a forked pull_request run, is load-bearing, not
-  optional (contract Trigger contract) — `.github/workflows/publish.yml`
+  `github.event.workflow_run.event == 'push' && ...conclusion == 'success' &&
+  ...head_branch == 'main' && ...head_repository.full_name == github.repository` — the
+  `head_repository` clause (spoofable `head_branch` from a forked pull_request run) and the
+  `event == 'push'` clause (a manual `workflow_dispatch` re-run of `ci.yml` itself otherwise
+  also satisfies the condition) were both added after local review; neither is optional
+  (contract Trigger contract) — `.github/workflows/publish.yml`
 - [X] T007 [US1] Add the artifact-download step for the `workflow_run` path
   (`actions/download-artifact@v4`, `run-id: ${{ github.event.workflow_run.id }}`,
   `name: dist`, `continue-on-error: true`), and gate every subsequent step in that path on
   `if: steps.download.outcome == 'success'`, so a commit with no `dist` artifact (i.e. `build`
   was path-filtered out) completes as a clean no-op rather than a failure (research.md #3/#4;
-  contract Artifact contract; spec Edge Cases) — `.github/workflows/publish.yml`
+  contract Artifact contract; spec Edge Cases) — `.github/workflows/publish.yml`. Also add a
+  preceding step (id `build_outcome`) that queries the triggering run's `build` job conclusion
+  via `gh api .../actions/runs/<id>/jobs`, and a following step that fails the job when
+  `build` succeeded but the download still failed — a real download failure MUST NOT be
+  silently treated the same as the legitimate no-artifact no-op (FR-007; added after local
+  review round 3) — `.github/workflows/publish.yml`
 - [X] T008 [US1] Add a `twine check dist/*` step gated
   `if: github.event_name == 'workflow_run' && steps.download.outcome == 'success'`, followed by
   the production upload step for the `workflow_run` path using
@@ -107,10 +117,12 @@ production-publish half (Scenario 3) is deliberately deferred to T016 (see Depen
   validation contracts) — `.github/workflows/publish.yml`
 - [X] T009 [US1] Extend `tests/static/test_publish_workflow.py` with assertions for the
   `workflow_run` path: the trigger is present and targets `ci.yml`'s `CI` workflow, the `if:`
-  checks `conclusion == 'success'`, `head_branch == 'main'`, and `head_repository.full_name ==
-  github.repository`, `skip-existing: true` is set on the production upload step, and that step
-  runs under the `pypi` environment (contract Trigger/Idempotency/Environment contracts) —
-  `tests/static/test_publish_workflow.py`
+  checks `event == 'push'`, `conclusion == 'success'`, `head_branch == 'main'`, and
+  `head_repository.full_name == github.repository`, `skip-existing: true` is set on the
+  production upload step, that step runs under the `pypi` environment, the `build_outcome`
+  step queries the triggering run's `build` job conclusion, and the download-failure-after-
+  build-success case fails the job (contract Trigger/Idempotency/Environment/Artifact
+  contracts) — `tests/static/test_publish_workflow.py`
 - [ ] T010 [US1] Manually perform quickstart.md Scenario 4 (merge a change that does not bump
   `__version__`; confirm `publish.yml` completes as a clean, non-failing no-op) —
   `specs/026-pypi-publish/quickstart.md` Scenario 4
@@ -137,9 +149,11 @@ Story 1's `workflow_run` path — no merge to `main` is required.
 - [X] T011 [US2] Add a `workflow_dispatch` trigger to `.github/workflows/publish.yml` with a
   `target` choice input (`testpypi` default, `pypi` alternative — defaulting to the safe
   dry-run target after local review round 2 found the reverse default let an unchanged
-  dropdown publish straight to the real index), plus a checkout + `python -m build` step used
-  only on this path, since there is no preceding `ci.yml` run to reuse a `dist` artifact from
-  (research.md #6) — `.github/workflows/publish.yml`
+  dropdown publish straight to the real index), plus a checkout + `python -m build` step (no
+  preceding `pip install -e ".[test]"` — `build` needs no such install and this path runs no
+  tests, unlike `ci.yml`'s own `build` job; the copy-pasted install was removed after local
+  review round 3) used only on this path, since there is no preceding `ci.yml` run to reuse a
+  `dist` artifact from (research.md #6) — `.github/workflows/publish.yml`
 - [X] T012 [US2] Add a `twine check dist/*` step gated `if: github.event_name ==
   'workflow_dispatch'` immediately after T011's build step, then parameterize the upload step's
   destination on the `target` input: `target: pypi` uses the `pypi` environment and PyPI's

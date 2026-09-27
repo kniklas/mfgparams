@@ -95,6 +95,14 @@ def test_publish_job_if_rejects_a_forked_head_repository() -> None:
     assert "workflow_run.head_repository.full_name == github.repository" in condition
 
 
+def test_publish_job_if_requires_the_upstream_run_was_a_push() -> None:
+    # Without this, any other way ci.yml can complete on main (e.g. a maintainer's manual
+    # workflow_dispatch re-run of ci.yml itself) would also satisfy the condition, even though
+    # FR-001 means an actual merge (found in local review, round 3).
+    condition = _PUBLISH_JOB["if"]
+    assert "workflow_run.event == 'push'" in condition
+
+
 # ---------------------------------------------------------------------------
 # Credential contract
 # ---------------------------------------------------------------------------
@@ -179,6 +187,45 @@ def test_workflow_dispatch_path_builds_fresh() -> None:
     dispatch_steps = [s for s in _STEPS if "workflow_dispatch" in str(s.get("if", ""))]
     assert any(_uses(s, "actions/checkout") for s in dispatch_steps)
     assert any("python -m build" in str(s.get("run", "")) for s in dispatch_steps)
+
+
+def test_workflow_dispatch_build_step_skips_the_unnecessary_editable_install() -> None:
+    # `python -m build` builds in its own PEP 517 isolated environment; this path runs no
+    # tests, so installing the package first (as ci.yml's own `build` job does, for its later
+    # `pytest -m packaging` step) is dead weight here (found in local review, round 3).
+    build_step = next(s for s in _STEPS if "python -m build" in str(s.get("run", "")))
+    assert "pip install -e" not in str(build_step.get("run", ""))
+
+
+def test_build_outcome_step_queries_the_triggering_runs_build_job() -> None:
+    # Distinguishing "build was legitimately skipped" from "build succeeded but the artifact
+    # couldn't be downloaded" requires knowing what ci.yml's own build job actually reported for
+    # that specific run - independent of whether the download step itself succeeded.
+    step = next(
+        (s for s in _STEPS if s.get("id") == "build_outcome"),
+        None,
+    )
+    assert step is not None, "expected a step (id: build_outcome) querying ci.yml's build job"
+    run = str(step.get("run", ""))
+    assert "workflow_run.id" in run
+    assert 'select(.name == "build")' in run
+    assert "GITHUB_OUTPUT" in run
+
+
+def test_download_failure_after_build_success_fails_the_job() -> None:
+    # A real download failure on a commit where build actually succeeded MUST NOT be silently
+    # treated the same as the legitimate no-artifact no-op (FR-007; found in local review,
+    # round 3).
+    step = next(
+        (s for s in _STEPS if "could not be downloaded" in str(s.get("name", ""))),
+        None,
+    )
+    assert step is not None, "expected a step that fails the job on an unexpected download failure"
+    condition = str(step.get("if", ""))
+    assert "steps.download.outcome != 'success'" in condition
+    assert "steps.build_outcome.outputs.conclusion == 'success'" in condition
+    assert "exit 1" in str(step.get("run", ""))
+    assert step.get("continue-on-error") is not True
 
 
 # ---------------------------------------------------------------------------
