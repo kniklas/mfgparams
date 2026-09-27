@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/kniklas/mfgparams/actions/workflows/ci.yml/badge.svg)](https://github.com/kniklas/mfgparams/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/kniklas/mfgparams/branch/main/graph/badge.svg)](https://codecov.io/gh/kniklas/mfgparams)
+[![PyPI](https://img.shields.io/pypi/v/mfgparams.svg)](https://pypi.org/project/mfgparams/)
 
 A Python library and interactive command-line tool for metal machining
 calculations. It covers **drilling** (twist drills), **milling** (end
