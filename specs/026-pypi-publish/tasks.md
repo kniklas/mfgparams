@@ -250,9 +250,20 @@ implementation.
   `__version__`, add a changelog entry, merge to `main` — publishing to PyPI is now automatic;
   cross-reference the one-time TestPyPI dry-run path for future build-backend changes) —
   `DEVELOPMENT.md`
-- [ ] T020 Manually perform quickstart.md Scenario 5 (simulate a transient publish failure on a
+- [X] T020 Manually perform quickstart.md Scenario 5 (simulate a transient publish failure on a
   `workflow_run`-triggered run, then use GitHub's "Re-run failed jobs" and confirm it publishes
-  successfully with no new commit required) — `specs/026-pypi-publish/quickstart.md` Scenario 5
+  successfully with no new commit required) — `specs/026-pypi-publish/quickstart.md` Scenario 5.
+  Done 2026-09-27: a code-based failure (e.g. an invalid `repository-url`) can't demonstrate
+  this — retrying replays the same workflow file, so it would fail identically without a new
+  commit. Simulated a genuinely external, self-resolving failure instead: temporarily set the
+  `pypi` Environment's deployment branch policy to exclude `main` (external config, not code)
+  around the real `2.6.1` release merge. Run 36320199752 failed with zero steps executed
+  (blocked entirely at the environment gate, confirmed via the Actions API). Restored the
+  Environment to its original `deployment_branch_policy: null` (recorded before changing
+  anything), then `gh run rerun 36320199752 --failed` — no new commit — succeeded, re-fetched
+  `dist` by the same `run-id`, and published `mfgparams-2.6.1` to
+  `https://pypi.org/project/mfgparams/2.6.1/`; confirmed installable afterward. All 20
+  `tasks.md` items are now complete.
 
 **Note on Constitution Principle XIII**: Not applicable to this feature (confirmed in
 `plan.md`'s Constitution Check) — no interactive console/TUI/GUI surface and no external
