@@ -189,6 +189,32 @@ def test_workflow_dispatch_path_builds_fresh() -> None:
     assert any("python -m build" in str(s.get("run", "")) for s in dispatch_steps)
 
 
+def test_setup_python_runs_unconditionally_for_both_paths() -> None:
+    # The workflow_run path - the one that actually publishes real releases - previously relied
+    # on whichever Python ships by default on the runner instead of this repo's PYTHON_VERSION
+    # pin used everywhere else; a future runner-image bump could silently change which Python
+    # resolves `twine` there, with no CI gate re-validating it (found in local review, round 4).
+    step = next((s for s in _STEPS if _uses(s, "actions/setup-python")), None)
+    assert step is not None
+    assert "if" not in step, "setup-python must run for both workflow_run and workflow_dispatch"
+    assert "env.PYTHON_VERSION" in str(step["with"]["python-version"])
+
+
+def test_twine_install_is_unconditional_build_install_is_dispatch_only() -> None:
+    # `build` is only ever invoked on the workflow_dispatch path (the workflow_run path only
+    # runs `twine check` against an already-built artifact) - installing it unconditionally was
+    # wasted work on every automatic per-merge run (found in local review, round 4).
+    twine_install = next(
+        s for s in _STEPS if "pip install --upgrade twine" in str(s.get("run", ""))
+    )
+    assert "if" not in twine_install
+
+    build_install = next(
+        s for s in _STEPS if "pip install --upgrade build" in str(s.get("run", ""))
+    )
+    assert "workflow_dispatch" in str(build_install.get("if", ""))
+
+
 def test_workflow_dispatch_build_step_skips_the_unnecessary_editable_install() -> None:
     # `python -m build` builds in its own PEP 517 isolated environment; this path runs no
     # tests, so installing the package first (as ci.yml's own `build` job does, for its later
@@ -210,6 +236,11 @@ def test_build_outcome_step_queries_the_triggering_runs_build_job() -> None:
     assert "workflow_run.id" in run
     assert 'select(.name == "build")' in run
     assert "GITHUB_OUTPUT" in run
+    # A transient API hiccup on this call must not fail the whole job on an ordinary merge
+    # where no artifact was ever expected (found in local review, round 4) - only the
+    # download-failure-after-build-success step downstream should ever turn this into a real
+    # failure, and it correctly stays quiet when this step's own output was never written.
+    assert step.get("continue-on-error") is True
 
 
 def test_download_failure_after_build_success_fails_the_job() -> None:

@@ -131,15 +131,28 @@ Do not proceed to publish if any of these fail.
 
 Prefer **Trusted Publishing (OIDC)** over long-lived API tokens:
 
-1. On PyPI, configure a Trusted Publisher for this GitHub repo/workflow.
-2. Add a GitHub Actions workflow (e.g. `.github/workflows/publish.yml`) that
-   builds the package and publishes on tagged releases using
-   `pypa/gh-action-pypi-publish` with `id-token: write` permission — no
-   secrets required.
-3. Test against **TestPyPI** first for any new package or backend change.
+1. On PyPI, configure a Trusted Publisher for this GitHub repo/workflow
+   filename/environment.
+2. Add a GitHub Actions workflow (e.g. `.github/workflows/publish.yml`)
+   that builds the package and publishes using `pypa/gh-action-pypi-publish`
+   with `id-token: write` permission — no secrets required.
+3. Test against **TestPyPI** first for any new package or backend change,
+   and keep that path available as a recurring `workflow_dispatch` option
+   rather than a one-off manual upload, so it can be reused for the next
+   backend change too.
 
-Example release workflow trigger: push a tag matching `v*.*.*`, build with
-`python -m build`, then publish via the trusted-publishing action.
+This repository's release model is **continuous, not tag-based**: the
+constitution's Additional Constraints require every merge to `main` to
+trigger the publish workflow, so `publish.yml` is triggered by
+`workflow_run` off `ci.yml`'s completion on `main` (not a `v*.*.*` tag
+push), reusing the exact `dist` artifact `ci.yml`'s own `build` job already
+validated rather than rebuilding independently, and is idempotent
+(`skip-existing: true`) so a merge that doesn't bump the version is a safe
+no-op. A tag-push trigger would conflict with this model — don't reintroduce
+one without first reconciling it against the constitution's requirement.
+See `specs/026-pypi-publish/` (research.md, contracts/publish-workflow-
+contract.md) for the full design and its rationale, including why the
+publish workflow lives in its own file rather than as a job inside `ci.yml`.
 
 ## 7. Anti-patterns to avoid
 

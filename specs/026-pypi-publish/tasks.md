@@ -56,17 +56,23 @@ trigger paths depend on. No user story's trigger-specific work can start until t
   no-artifact case, making the whole automatic-publish feature inert) (research.md #3/#5;
   contract Credential/Artifact contracts) — no trigger and no upload step yet, both added by
   later phases — `.github/workflows/publish.yml`
-- [X] T004 Add a `pip install --upgrade build twine` step to the `publish` job in
-  `.github/workflows/publish.yml`, run unconditionally (both the `workflow_run` path's `twine
-  check` and the `workflow_dispatch` path's `python -m build`/`twine check` need these tools
-  available) (research.md #6/#7) — `.github/workflows/publish.yml`
+- [X] T004 Add `actions/setup-python` (pinned to `PYTHON_VERSION`, running unconditionally for
+  both trigger paths — not `workflow_dispatch`-only, after local review round 4 found the
+  `workflow_run` path relying on the runner's unpinned default Python), then an unconditional
+  `pip install --upgrade twine` step, then a `workflow_dispatch`-only `pip install --upgrade
+  build` step (round 4 also found `build` being installed even on the `workflow_run` path,
+  which never runs it) to the `publish` job in `.github/workflows/publish.yml` (research.md
+  #6/#7/#9) — `.github/workflows/publish.yml`
 - [X] T005 [P] Scaffold `tests/static/test_publish_workflow.py`, parsing
   `.github/workflows/publish.yml` with `pyyaml` (mirroring `tests/static/
   test_ci_path_selection.py`'s pattern), asserting: the `publish` job's `permissions.id-token`
   equals `write`, no substring matching a PyPI API-token secret name (e.g. a case-insensitive
   `PYPI` + `TOKEN` pair) appears anywhere in the raw file text, and a `twine check` step exists
   before any `pypa/gh-action-pypi-publish` step (contract Credential/Pre-upload-validation
-  contracts) — `tests/static/test_publish_workflow.py`
+  contracts) — `tests/static/test_publish_workflow.py`. Also assert T004's tooling setup
+  (`setup-python` runs unconditionally, pinned to `PYTHON_VERSION`, for both trigger paths;
+  `twine` installs unconditionally; `build` installs only for `workflow_dispatch`) — added
+  after local review round 4 (research.md #9) — `tests/static/test_publish_workflow.py`
 
 **Checkpoint**: `publish.yml` exists with OIDC permissions and the `build`/`twine` CLI tools
 installed; `build` (the `ci.yml` job) produces a reusable `dist` artifact; a static test locks
@@ -104,11 +110,12 @@ production-publish half (Scenario 3) is deliberately deferred to T016 (see Depen
   `if: steps.download.outcome == 'success'`, so a commit with no `dist` artifact (i.e. `build`
   was path-filtered out) completes as a clean no-op rather than a failure (research.md #3/#4;
   contract Artifact contract; spec Edge Cases) — `.github/workflows/publish.yml`. Also add a
-  preceding step (id `build_outcome`) that queries the triggering run's `build` job conclusion
-  via `gh api .../actions/runs/<id>/jobs`, and a following step that fails the job when
-  `build` succeeded but the download still failed — a real download failure MUST NOT be
-  silently treated the same as the legitimate no-artifact no-op (FR-007; added after local
-  review round 3) — `.github/workflows/publish.yml`
+  preceding step (id `build_outcome`, itself `continue-on-error: true` so a transient query
+  failure never fails an ordinary no-artifact merge — round 4 correction) that queries the
+  triggering run's `build` job conclusion via `gh api .../actions/runs/<id>/jobs`, and a
+  following step that fails the job when `build` succeeded but the download still failed — a
+  real download failure MUST NOT be silently treated the same as the legitimate no-artifact
+  no-op (FR-007; added after local review round 3) — `.github/workflows/publish.yml`
 - [X] T008 [US1] Add a `twine check dist/*` step gated
   `if: github.event_name == 'workflow_run' && steps.download.outcome == 'success'`, followed by
   the production upload step for the `workflow_run` path using

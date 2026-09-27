@@ -81,26 +81,34 @@ jobs:
     environment:
       name: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
     steps:
-      # `workflow_dispatch`-only, and deliberately placed before "Install build/publish
-      # tooling" below: `actions/setup-python` can change which interpreter/pip `python`/`pip`
-      # resolve to, so installing `twine`/`build` beforehand risks them landing somewhere no
-      # longer on PATH once the interpreter switches (found in local review before the first
-      # remote round). The `workflow_run` path never runs these two steps, so it always uses
-      # whichever Python ships by default on the runner, unaffected by this ordering.
+      # `workflow_dispatch`-only: no repo source is needed to run `twine check` against an
+      # already-built/downloaded `dist/`, only to build fresh on the dry-run path.
       - name: Checkout
         if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
 
+      # Unconditional (not `workflow_dispatch`-only): the `workflow_run` path — the one that
+      # actually publishes real releases to PyPI — previously relied on whichever Python
+      # ships by default on the `ubuntu-latest` image, unlike the explicit `PYTHON_VERSION` pin
+      # used everywhere else in this file and in `ci.yml`; a future runner-image bump could
+      # silently change which Python resolves `twine` on the one path with no CI gate
+      # re-validating it (found in local review, round 4). Pinning both paths also keeps the
+      # round-1 PATH-ordering fix below correct for both: `setup-python` still runs before tool
+      # installation.
       - name: Set up Python
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # Available to both paths: `twine` for the pre-upload metadata check below (both paths),
-      # `build` for the `workflow_dispatch` path's fresh build (research.md #6/#7).
-      - name: Install build/publish tooling
-        run: pip install --upgrade build twine
+      # `twine` (for the pre-upload metadata check below, both paths) and `build` (only the
+      # `workflow_dispatch` path ever runs `python -m build` — installing it unconditionally
+      # was wasted work on every automatic per-merge run, found in local review, round 4).
+      - name: Install twine
+        run: pip install --upgrade twine
+
+      - name: Install build
+        if: github.event_name == 'workflow_dispatch'
+        run: pip install --upgrade build
 
       # --- workflow_run path: publish the artifact ci.yml's `build` job already validated ---
       # `continue-on-error` below deliberately tolerates a *missing* artifact (the legitimate
@@ -108,9 +116,16 @@ jobs:
       # a real, transient download failure on a commit that genuinely needs publishing (found in
       # local review, round 3) - the step below closes that gap by checking what `build` itself
       # actually reported for this run, independent of whether the download succeeded.
+      #
+      # This step also needs `continue-on-error: true`: a transient GitHub API hiccup on the
+      # `gh api` call below must not fail the whole job on an ordinary merge where no artifact
+      # was ever expected - only the download-failure-after-build-success check downstream
+      # should ever turn this into a real failure, and it correctly stays quiet when this step's
+      # own output was never written (found in local review, round 4).
       - name: Determine ci.yml's build job outcome
         id: build_outcome
         if: github.event_name == 'workflow_run'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

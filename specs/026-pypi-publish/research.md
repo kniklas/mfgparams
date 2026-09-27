@@ -108,6 +108,14 @@ a step that queries the triggering run's `build` job conclusion directly (`gh ap
 already added) and a second step that fails the job loudly specifically when `build` succeeded
 but the download still failed — the no-op path (build's conclusion is `skipped`) is unaffected.
 
+**Correction (found in local review, round 4):** the `build`-job-conclusion query step added by
+the correction above had no `continue-on-error` of its own — a transient `gh api` hiccup would
+have failed the whole `publish` job even on an ordinary merge where no artifact was ever
+expected, exactly the false-positive class this same decision exists to avoid on the download
+step. Added `continue-on-error: true` there too; the downstream fail-loud check already stays
+quiet whenever this step's output was never written, so no further change was needed to keep it
+correct.
+
 ## 5. Credentials: OIDC Trusted Publishing vs. API token
 
 **Decision**: `pypa/gh-action-pypi-publish@release/v1`, using its native OIDC support
@@ -179,3 +187,28 @@ bound on PyPI's side).
 
 **Alternatives considered**: None — this is inherently an out-of-band, human action on a
 third-party service.
+
+## 9. Tooling install ordering and scope
+
+**Decision**: `actions/setup-python` (pinned to `PYTHON_VERSION`) runs unconditionally, first,
+for both trigger paths; `twine` is then installed unconditionally; `build` is installed only for
+the `workflow_dispatch` path (the only one that ever runs `python -m build`).
+
+**Rationale**: Three corrections landed here across two rounds. (1, round 1, before the first
+remote round) The initial version installed `twine`/`build` before `checkout`/`setup-python`,
+both gated to `workflow_dispatch` only — `actions/setup-python` can change which interpreter/pip
+`python`/`pip` resolve to, so installing tools beforehand risked them landing somewhere no
+longer on PATH once the interpreter switched. Reordered so `setup-python` runs first. (2, round
+4) That fix still scoped `setup-python` to `workflow_dispatch` only, leaving the `workflow_run`
+path — the one that publishes real releases — relying on whichever Python a runner image ships
+by default, unpinned, unlike every other Python version reference in this file and in `ci.yml`;
+a future image bump could silently change which interpreter resolves `twine` there with no CI
+gate re-validating it. Made `setup-python` unconditional. (3, round 4) The tool-install step
+installed `build` unconditionally even though only the `workflow_dispatch` path ever runs
+`python -m build` — split into a `twine`-only unconditional step and a `build`-only
+`workflow_dispatch`-gated step, removing the wasted install on every automatic per-merge run.
+
+**Alternatives considered**: Leaving `workflow_run` on the runner's default Python (rejected as
+the round-4 correction explains — unpinned on the one path with real consequences); keeping a
+single combined install step for both tools (rejected once `build` no longer needed to be
+installed on the `workflow_run` path — no reason to pay for it there).

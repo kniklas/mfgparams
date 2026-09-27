@@ -50,7 +50,12 @@ download failed for some other reason (a transient API hiccup, a future permissi
 regression), and MUST fail the job loudly instead (FR-007; found in local review, round 3). The
 workflow MUST query the triggering run's `build` job conclusion independently (e.g. via `gh api
 .../actions/runs/<id>/jobs`) rather than inferring it from the download's own outcome, since
-those two signals are exactly what must be told apart.
+those two signals are exactly what must be told apart. That query step MUST itself tolerate
+failure (`continue-on-error: true`) — a transient hiccup on the query call MUST NOT fail the job
+on an ordinary merge where no artifact was ever expected in the first place; only the
+download-failure-after-build-success check downstream is allowed to turn this into a real
+failure, and it stays quiet whenever the query's own output was never written (found in local
+review, round 4).
 
 `ci.yml`'s `build` job's artifact-upload step MUST set `overwrite: true` — `actions/upload-
 artifact@v4` rejects a second upload of an existing name within one workflow run with `409
@@ -96,6 +101,13 @@ Trusted Publisher binding, and any future protection rule, is scoped independent
 Every upload attempt, regardless of target, MUST run `twine check dist/*` (or equivalent
 metadata validation) against the artifact immediately before the upload step, and MUST fail the
 job (not attempt the upload) if that check fails.
+
+`actions/setup-python`, pinned to this repository's `PYTHON_VERSION`, MUST run unconditionally
+(both the `workflow_run` and `workflow_dispatch` paths) before `twine`/`build` are installed —
+not scoped to `workflow_dispatch` alone. The `workflow_run` path is the one that publishes real
+releases to PyPI; relying on whichever Python a runner image ships by default there, unpinned,
+risks a future image bump silently changing which interpreter resolves `twine` with no CI gate
+re-validating it (found in local review, round 4).
 
 ## Retry contract
 
