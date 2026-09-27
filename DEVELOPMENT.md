@@ -73,6 +73,12 @@ version is installable within minutes. A merge that doesn't change `__version__`
 no-op; a failed publish can be retried from the Actions tab ("Re-run failed jobs") without a new
 commit.
 
+PyPI's index can take a minute or two to catch up after a successful upload — `pip install
+mfgparams==<version>` (or `pip index versions mfgparams`) may briefly report the version as not
+found immediately after the publish workflow completes. This is normal index-propagation lag,
+not a failed publish (observed directly cutting 2.5.0 and 2.6.0); retry after a short wait
+rather than assuming something went wrong.
+
 Before trusting a build-backend or packaging change with a real release, dry-run the pipeline
 against TestPyPI first: from the Actions tab, run `publish.yml` via "Run workflow"
 (`workflow_dispatch`) with `target: testpypi`, then install from
