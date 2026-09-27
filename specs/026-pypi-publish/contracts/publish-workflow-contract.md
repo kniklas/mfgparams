@@ -13,7 +13,7 @@ enforcement of this contract — this document is the human-readable detail behi
 | Trigger | When it fires | `target` |
 |---|---|---|
 | `workflow_run` | `ci.yml` (by its `name:`, `CI`) completes, on `main` only | always `pypi` — never manually overridable on this path |
-| `workflow_dispatch` | Manually invoked | operator-selected `pypi` (default) or `testpypi` |
+| `workflow_dispatch` | Manually invoked | operator-selected `pypi` or `testpypi` (default) — defaults to the safe dry-run target so an operator who runs it without touching the dropdown does not publish straight to the real index (found in local review, round 2) |
 
 `publish.yml` MUST NOT define a `pull_request` (or `pull_request_target`) trigger of any kind —
 this is what makes it structurally impossible for this workflow to ever become a required
@@ -43,6 +43,13 @@ MUST still report success, not failure, per the spec's no-version-change edge ca
 The `workflow_dispatch` path builds `dist/` fresh in-job (research.md #6) and is exempt from
 this reuse requirement — it is an explicit, human-initiated dry run, not the automatic
 per-merge path FR-006 targets.
+
+The `publish` job MUST declare `permissions: actions: read` — `actions/download-artifact@v4`
+requires this for any cross-run download (fetching another workflow run's artifact by
+`run-id`, as the `workflow_run` path above does). Without it, the download step fails with a
+403 that `continue-on-error: true` makes indistinguishable from the intentional no-artifact
+no-op above, silently making the entire automatic publish path inert with no visible error
+anywhere (found in local review, round 2).
 
 ## Idempotency contract
 

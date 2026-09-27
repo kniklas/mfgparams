@@ -28,7 +28,13 @@ on:
         options:
           - pypi
           - testpypi
-        default: pypi
+        # Defaults to the safe dry-run target, not the real index: this trigger exists
+        # specifically as a dry run (research.md #6), and GitHub's manual-dispatch UI
+        # pre-selects whatever `default` is here, so defaulting to `pypi` would mean a
+        # maintainer who runs it without touching the dropdown publishes straight to the real,
+        # public index with none of ci.yml's tests/lint/security checks having run (found in
+        # local review, round 2).
+        default: testpypi
 
 permissions:
   contents: read
@@ -57,6 +63,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # actions/download-artifact@v4 requires this when fetching an artifact from a *different*
+      # workflow run via `run-id` (the workflow_run path below) — without it the download step
+      # gets a 403, which `continue-on-error: true` swallows and makes indistinguishable from
+      # the intentional "build was path-filtered out" no-op, silently making the entire
+      # automated-publish feature inert with no visible error anywhere (found in local review,
+      # round 2; verified against actions/download-artifact's own documented permission
+      # requirements for cross-run downloads).
+      actions: read
     # Each target gets its own named Environment (never shared/unnamed), scoping its Trusted
     # Publisher binding and any protection rules independently (data-model.md GitHub
     # Environment; contract Environment contract). `workflow_run` always resolves to `pypi`.

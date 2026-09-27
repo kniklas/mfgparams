@@ -47,8 +47,12 @@ trigger paths depend on. No user story's trigger-specific work can start until t
   #3; data-model.md Dist Artifact) — `.github/workflows/ci.yml`
 - [X] T003 Create `.github/workflows/publish.yml`: workflow `name: Publish`, top-level
   `permissions: contents: read`, and a single `publish` job on `ubuntu-latest` with job-level
-  `permissions: id-token: write` (research.md #5; contract Credential contract) — no trigger
-  and no upload step yet, both added by later phases — `.github/workflows/publish.yml`
+  `permissions: id-token: write` and `actions: read` (the latter added after local review round
+  2 found `actions/download-artifact@v4`'s cross-run download requires it — without it T007's
+  download step 403s and is silently swallowed into the same no-op path as T004's legitimate
+  no-artifact case, making the whole automatic-publish feature inert) (research.md #3/#5;
+  contract Credential/Artifact contracts) — no trigger and no upload step yet, both added by
+  later phases — `.github/workflows/publish.yml`
 - [X] T004 Add a `pip install --upgrade build twine` step to the `publish` job in
   `.github/workflows/publish.yml`, run unconditionally (both the `workflow_run` path's `twine
   check` and the `workflow_dispatch` path's `python -m build`/`twine check` need these tools
@@ -131,9 +135,11 @@ Story 1's `workflow_run` path — no merge to `main` is required.
 ### Implementation for User Story 2
 
 - [X] T011 [US2] Add a `workflow_dispatch` trigger to `.github/workflows/publish.yml` with a
-  `target` choice input (`pypi` default, `testpypi` alternative), plus a checkout +
-  `python -m build` step used only on this path, since there is no preceding `ci.yml` run to
-  reuse a `dist` artifact from (research.md #6) — `.github/workflows/publish.yml`
+  `target` choice input (`testpypi` default, `pypi` alternative — defaulting to the safe
+  dry-run target after local review round 2 found the reverse default let an unchanged
+  dropdown publish straight to the real index), plus a checkout + `python -m build` step used
+  only on this path, since there is no preceding `ci.yml` run to reuse a `dist` artifact from
+  (research.md #6) — `.github/workflows/publish.yml`
 - [X] T012 [US2] Add a `twine check dist/*` step gated `if: github.event_name ==
   'workflow_dispatch'` immediately after T011's build step, then parameterize the upload step's
   destination on the `target` input: `target: pypi` uses the `pypi` environment and PyPI's

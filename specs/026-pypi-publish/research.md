@@ -65,6 +65,14 @@ for this cross-workflow pattern.
 build` again) — simpler wiring, but reintroduces exactly the "artifact CI never validated"
 risk FR-006 exists to close, and duplicates build time on every merge for no benefit.
 
+**Correction (found in local review, round 2, before the first remote round):** the initial
+implementation gave the `publish` job only `contents: read`/`id-token: write` permissions.
+`actions/download-artifact@v4`'s own documentation states cross-run downloads (via `run-id`)
+require a token with `actions: read` — without it, the download step gets a 403 that
+`continue-on-error: true` silently converts into the same no-op path as a legitimately-missing
+artifact (research.md #4), making the entire automatic publish feature inert with no visible
+error on every real merge. Added `actions: read` to the job's `permissions:` block.
+
 ## 4. Handling a merge where `build` was path-filtered out (no `dist` artifact produced)
 
 **Decision**: `publish.yml`'s download step runs with `continue-on-error: true`; the actual
@@ -99,7 +107,9 @@ the exact anti-pattern the skill's §7 calls out.
 ## 6. One-time (and reusable) TestPyPI validation
 
 **Decision**: `publish.yml` also accepts `workflow_dispatch` with a `target` choice input
-(`pypi` default, `testpypi` alternative). A `testpypi`-targeted manual run builds fresh
+(`testpypi` default, `pypi` alternative — defaulting to the safe dry-run target so running it
+without touching the dropdown never publishes to the real index, found in local review round 2).
+A `testpypi`-targeted manual run builds fresh
 (checkout + `python -m build`, since there is no preceding `workflow_run` artifact to reuse for
 an ad hoc dry run) and uploads to `test.pypi.org` under a separate `testpypi` GitHub
 Environment with its own Trusted Publisher binding.

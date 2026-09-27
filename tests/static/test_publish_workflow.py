@@ -66,7 +66,10 @@ def test_workflow_dispatch_trigger_has_pypi_testpypi_target_choice() -> None:
     target_input = dispatch["inputs"]["target"]
     assert target_input["type"] == "choice"
     assert set(target_input["options"]) == {"pypi", "testpypi"}
-    assert target_input["default"] == "pypi"
+    # Defaults to the safe dry-run target: GitHub's manual-dispatch UI pre-selects `default`,
+    # so defaulting to `pypi` would let an operator publish to the real index by running the
+    # dispatch without touching the dropdown (found in local review, round 2).
+    assert target_input["default"] == "testpypi"
 
 
 def test_no_pull_request_trigger() -> None:
@@ -142,6 +145,14 @@ def test_no_publish_step_has_continue_on_error() -> None:
 # ---------------------------------------------------------------------------
 # Artifact contract
 # ---------------------------------------------------------------------------
+
+
+def test_job_declares_actions_read_permission_for_cross_run_download() -> None:
+    # actions/download-artifact@v4 requires this for a cross-run download (`run-id`, the
+    # workflow_run path). Without it the download 403s, and `continue-on-error: true` makes
+    # that indistinguishable from the legitimate no-artifact no-op - silently making the whole
+    # automatic publish path inert with no visible error (found in local review, round 2).
+    assert _PUBLISH_JOB["permissions"]["actions"] == "read"
 
 
 def test_workflow_run_path_downloads_dist_by_run_id_and_tolerates_absence() -> None:
