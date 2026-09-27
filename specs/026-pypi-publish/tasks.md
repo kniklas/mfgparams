@@ -130,9 +130,16 @@ production-publish half (Scenario 3) is deliberately deferred to T016 (see Depen
   step queries the triggering run's `build` job conclusion, and the download-failure-after-
   build-success case fails the job (contract Trigger/Idempotency/Environment/Artifact
   contracts) — `tests/static/test_publish_workflow.py`
-- [ ] T010 [US1] Manually perform quickstart.md Scenario 4 (merge a change that does not bump
+- [X] T010 [US1] Manually perform quickstart.md Scenario 4 (merge a change that does not bump
   `__version__`; confirm `publish.yml` completes as a clean, non-failing no-op) —
-  `specs/026-pypi-publish/quickstart.md` Scenario 4
+  `specs/026-pypi-publish/quickstart.md` Scenario 4. Done 2026-09-27: merged #119 (a
+  `DEVELOPMENT.md`-only change, no `__version__` touch). `ci.yml`'s `build` job was correctly
+  path-filtered out (no `dist` category match); `publish.yml`'s `workflow_run` still fired
+  (run 36313445509), the download step's real result was `##[error]Unable to download
+  artifact(s): Artifact not found for name: dist` (masked to a "success" job-summary
+  `conclusion` by `continue-on-error: true`, but its `outcome` was `failure` as designed), and
+  every downstream step (`build_outcome`-success check, `twine check`, `Publish to PyPI`)
+  correctly skipped — no publish attempt, no false failure, job reported overall success.
 
 **Checkpoint**: User Story 1's mechanics are code-complete and verifiable without any
 production side effect (Scenario 4). Its production cutover (Scenario 3) is completed by T016,
